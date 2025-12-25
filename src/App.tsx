@@ -14,6 +14,7 @@ import Attend from "./pages/Attend";
 import Seasons from "./pages/Seasons";
 import SeasonDetail from "./pages/SeasonDetail";
 import Settings from "./pages/Settings";
+import ModeratorView from "./pages/ModeratorView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
               <Route path="/seasons" element={<Seasons />} />
               <Route path="/seasons/:id" element={<SeasonDetail />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/moderate/:eventId/:token" element={<ModeratorView />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
