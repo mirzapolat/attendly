@@ -79,6 +79,7 @@ export type Database = {
           location_lng: number
           location_name: string
           location_radius_meters: number | null
+          moderation_enabled: boolean
           name: string
           qr_token_expires_at: string | null
           rotating_qr_enabled: boolean | null
@@ -99,6 +100,7 @@ export type Database = {
           location_lng: number
           location_name: string
           location_radius_meters?: number | null
+          moderation_enabled?: boolean
           name: string
           qr_token_expires_at?: string | null
           rotating_qr_enabled?: boolean | null
@@ -119,6 +121,7 @@ export type Database = {
           location_lng?: number
           location_name?: string
           location_radius_meters?: number | null
+          moderation_enabled?: boolean
           name?: string
           qr_token_expires_at?: string | null
           rotating_qr_enabled?: boolean | null
@@ -138,6 +141,41 @@ export type Database = {
             columns: ["season_id"]
             isOneToOne: false
             referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      moderation_links: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          is_active: boolean
+          label: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          token: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moderation_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]

@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,14 +8,10 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
-  ArrowLeft, QrCode, Users, MapPin, Calendar, Play, Square, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2
+  ArrowLeft, QrCode, Users, MapPin, Calendar, 
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Copy
 } from 'lucide-react';
 import { format } from 'date-fns';
-import EventSettings from '@/components/EventSettings';
-import ModerationSettings from '@/components/ModerationSettings';
-import AttendeeActions from '@/components/AttendeeActions';
-import QRCodeExport from '@/components/QRCodeExport';
 
 interface Event {
   id: string;
@@ -29,11 +24,7 @@ interface Event {
   location_radius_meters: number;
   is_active: boolean;
   current_qr_token: string | null;
-  qr_token_expires_at: string | null;
   rotating_qr_enabled: boolean;
-  device_fingerprint_enabled: boolean;
-  location_check_enabled: boolean;
-  moderation_enabled: boolean;
 }
 
 interface AttendanceRecord {
@@ -53,7 +44,7 @@ interface KnownAttendee {
   attendee_email: string;
 }
 
-// Helper to mask last name (keep first name visible)
+// Helper to mask last name
 const maskName = (fullName: string): string => {
   const parts = fullName.trim().split(' ');
   if (parts.length <= 1) return fullName;
@@ -70,119 +61,123 @@ const maskEmail = (email: string): string => {
   return `${maskedLocal}@${domain}`;
 };
 
-const EventDetail = () => {
-  const { id } = useParams<{ id: string }>();
-  const { user, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
+const ModeratorView = () => {
+  const { eventId, token } = useParams<{ eventId: string; token: string }>();
   const { toast } = useToast();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
   const [qrToken, setQrToken] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(3);
   const intervalRef = useRef<number | null>(null);
-  const tokenTimeoutRef = useRef<number | null>(null);
-  
+
   // Privacy controls
   const [showAllDetails, setShowAllDetails] = useState(false);
   const [revealedNames, setRevealedNames] = useState<Set<string>>(new Set());
   const [revealedEmails, setRevealedEmails] = useState<Set<string>>(new Set());
-  
+
   // Manual add attendee
   const [showAddForm, setShowAddForm] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualEmail, setManualEmail] = useState('');
   const [suggestions, setSuggestions] = useState<KnownAttendee[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  
-  // Settings modals
-  const [showSettings, setShowSettings] = useState(false);
-  const [showModeration, setShowModeration] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
-  }, [user, authLoading, navigate]);
+    validateAndFetch();
+  }, [eventId, token]);
 
-  useEffect(() => {
-    if (user && id) {
-      fetchEvent();
-      fetchAttendance();
-      
-      // Subscribe to real-time attendance updates
-      const channel = supabase
-        .channel('attendance-updates')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'attendance_records',
-            filter: `event_id=eq.${id}`
-          },
-          (payload) => {
-            console.log('New attendance:', payload);
-            setAttendance((prev) => [payload.new as AttendanceRecord, ...prev]);
-            toast({
-              title: 'New attendee',
-              description: `${maskName((payload.new as AttendanceRecord).attendee_name)} checked in`,
-            });
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'attendance_records',
-            filter: `event_id=eq.${id}`
-          },
-          (payload) => {
-            setAttendance((prev) => 
-              prev.map((r) => r.id === (payload.new as AttendanceRecord).id ? payload.new as AttendanceRecord : r)
-            );
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'attendance_records',
-            filter: `event_id=eq.${id}`
-          },
-          (payload) => {
-            setAttendance((prev) => prev.filter((r) => r.id !== (payload.old as { id: string }).id));
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user, id]);
-
-  const fetchEvent = async () => {
-    const { data, error } = await supabase
-      .from('events')
+  const validateAndFetch = async () => {
+    // Validate moderation link
+    const { data: linkData, error: linkError } = await supabase
+      .from('moderation_links')
       .select('*')
-      .eq('id', id)
+      .eq('event_id', eventId)
+      .eq('token', token)
+      .eq('is_active', true)
       .maybeSingle();
 
-    if (data) {
-      setEvent(data);
+    if (linkError || !linkData) {
+      setLoading(false);
+      return;
     }
+
+    // Check if moderation is enabled for the event
+    const { data: eventData, error: eventError } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (eventError || !eventData || !eventData.moderation_enabled) {
+      setLoading(false);
+      return;
+    }
+
+    setAuthorized(true);
+    setEvent(eventData);
+    fetchAttendance();
     setLoading(false);
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('moderator-attendance-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'attendance_records',
+          filter: `event_id=eq.${eventId}`
+        },
+        (payload) => {
+          setAttendance((prev) => [payload.new as AttendanceRecord, ...prev]);
+          toast({
+            title: 'New attendee',
+            description: `${maskName((payload.new as AttendanceRecord).attendee_name)} checked in`,
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'attendance_records',
+          filter: `event_id=eq.${eventId}`
+        },
+        (payload) => {
+          setAttendance((prev) => 
+            prev.map((r) => r.id === (payload.new as AttendanceRecord).id ? payload.new as AttendanceRecord : r)
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'attendance_records',
+          filter: `event_id=eq.${eventId}`
+        },
+        (payload) => {
+          setAttendance((prev) => prev.filter((r) => r.id !== (payload.old as { id: string }).id));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   };
 
   const fetchAttendance = async () => {
     const { data } = await supabase
       .from('attendance_records')
       .select('*')
-      .eq('event_id', id)
+      .eq('event_id', eventId)
       .order('recorded_at', { ascending: false });
 
     if (data) setAttendance(data as AttendanceRecord[]);
@@ -191,11 +186,8 @@ const EventDetail = () => {
   const toggleRevealName = (recordId: string) => {
     setRevealedNames((prev) => {
       const next = new Set(prev);
-      if (next.has(recordId)) {
-        next.delete(recordId);
-      } else {
-        next.add(recordId);
-      }
+      if (next.has(recordId)) next.delete(recordId);
+      else next.add(recordId);
       return next;
     });
   };
@@ -203,33 +195,50 @@ const EventDetail = () => {
   const toggleRevealEmail = (recordId: string) => {
     setRevealedEmails((prev) => {
       const next = new Set(prev);
-      if (next.has(recordId)) {
-        next.delete(recordId);
-      } else {
-        next.add(recordId);
-      }
+      if (next.has(recordId)) next.delete(recordId);
+      else next.add(recordId);
       return next;
     });
   };
 
-  const generateToken = useCallback(() => {
-    // Embed timestamp in token for validation: uuid_timestamp
-    const timestamp = Date.now();
-    return `${crypto.randomUUID()}_${timestamp}`;
-  }, []);
+  // QR code display for active events
+  useEffect(() => {
+    if (event?.is_active && event?.rotating_qr_enabled) {
+      const fetchQr = async () => {
+        const { data } = await supabase
+          .from('events')
+          .select('current_qr_token')
+          .eq('id', eventId)
+          .maybeSingle();
+        if (data?.current_qr_token) setQrToken(data.current_qr_token);
+      };
+      
+      fetchQr();
+      intervalRef.current = window.setInterval(fetchQr, 3000);
 
-  // Fetch known attendees from same season for autocomplete
+      const countdownInterval = window.setInterval(() => {
+        setTimeLeft((prev) => (prev > 1 ? prev - 1 : 3));
+      }, 1000);
+
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        clearInterval(countdownInterval);
+      };
+    } else if (event?.is_active && !event?.rotating_qr_enabled) {
+      setQrToken('static');
+    }
+  }, [event?.is_active, event?.rotating_qr_enabled, eventId]);
+
   const fetchSuggestions = async (searchName: string) => {
     if (!event || searchName.length < 2) {
       setSuggestions([]);
       return;
     }
 
-    // First get the event's season_id
     const { data: eventData } = await supabase
       .from('events')
       .select('season_id')
-      .eq('id', id)
+      .eq('id', eventId)
       .maybeSingle();
 
     if (!eventData?.season_id) {
@@ -237,7 +246,6 @@ const EventDetail = () => {
       return;
     }
 
-    // Get all events in the same season
     const { data: seasonEvents } = await supabase
       .from('events')
       .select('id')
@@ -249,8 +257,6 @@ const EventDetail = () => {
     }
 
     const eventIds = seasonEvents.map(e => e.id);
-
-    // Get unique attendees from those events matching the search
     const { data: attendees } = await supabase
       .from('attendance_records')
       .select('attendee_name, attendee_email')
@@ -258,7 +264,6 @@ const EventDetail = () => {
       .ilike('attendee_name', `%${searchName}%`);
 
     if (attendees) {
-      // Dedupe by email
       const unique = Array.from(
         new Map(attendees.map(a => [a.attendee_email, a])).values()
       );
@@ -279,10 +284,10 @@ const EventDetail = () => {
     const { error } = await supabase
       .from('attendance_records')
       .insert({
-        event_id: id,
+        event_id: eventId,
         attendee_name: manualName.trim(),
         attendee_email: manualEmail.trim().toLowerCase(),
-        device_fingerprint: `manual-${crypto.randomUUID()}`,
+        device_fingerprint: `moderator-${crypto.randomUUID()}`,
         status: 'verified',
         location_provided: false,
       });
@@ -296,7 +301,7 @@ const EventDetail = () => {
     } else {
       toast({
         title: 'Attendee added',
-        description: `${manualName} has been added manually`,
+        description: `${manualName} has been added`,
       });
       setManualName('');
       setManualEmail('');
@@ -310,70 +315,6 @@ const EventDetail = () => {
     setManualEmail(suggestion.attendee_email);
     setSuggestions([]);
     setShowSuggestions(false);
-  };
-
-  const updateQRCode = useCallback(async () => {
-    if (!event?.is_active || !event?.rotating_qr_enabled) return;
-
-    const newToken = generateToken();
-    const expiresAt = new Date(Date.now() + 8000).toISOString();
-
-    await supabase
-      .from('events')
-      .update({
-        current_qr_token: newToken,
-        qr_token_expires_at: expiresAt,
-      })
-      .eq('id', id);
-
-    setQrToken(newToken);
-    setTimeLeft(3);
-  }, [id, event?.is_active, event?.rotating_qr_enabled, generateToken]);
-
-  useEffect(() => {
-    if (event?.is_active && event?.rotating_qr_enabled) {
-      updateQRCode();
-      intervalRef.current = window.setInterval(() => {
-        updateQRCode();
-      }, 3000);
-
-      const countdownInterval = window.setInterval(() => {
-        setTimeLeft((prev) => (prev > 1 ? prev - 1 : 3));
-      }, 1000);
-
-      return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        clearInterval(countdownInterval);
-      };
-    } else if (event?.is_active && !event?.rotating_qr_enabled) {
-      // Static QR - set once
-      setQrToken('static');
-    }
-  }, [event?.is_active, event?.rotating_qr_enabled, updateQRCode]);
-
-  const handleEventUpdate = (updates: Partial<Event>) => {
-    setEvent((prev) => prev ? { ...prev, ...updates } : null);
-  };
-
-  const toggleActive = async () => {
-    const newStatus = !event?.is_active;
-    
-    const { error } = await supabase
-      .from('events')
-      .update({ 
-        is_active: newStatus,
-        current_qr_token: newStatus ? generateToken() : null,
-        qr_token_expires_at: newStatus ? new Date(Date.now() + 8000).toISOString() : null,
-      })
-      .eq('id', id);
-
-    if (!error) {
-      setEvent((prev) => prev ? { ...prev, is_active: newStatus } : null);
-      toast({
-        title: newStatus ? 'Event started' : 'Event stopped',
-        description: newStatus ? 'QR code is now active' : 'QR code is now inactive',
-      });
-    }
   };
 
   const updateStatus = async (recordId: string, newStatus: 'verified' | 'suspicious' | 'cleared') => {
@@ -399,15 +340,13 @@ const EventDetail = () => {
 
     if (!error) {
       fetchAttendance();
-      toast({
-        title: 'Record deleted',
-      });
+      toast({ title: 'Record deleted' });
     }
   };
 
-  const qrUrl = `${window.location.origin}/attend/${id}?token=${qrToken}`;
+  const qrUrl = `${window.location.origin}/attend/${eventId}?token=${qrToken}`;
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse-subtle">Loading...</div>
@@ -415,13 +354,17 @@ const EventDetail = () => {
     );
   }
 
-  if (!event) {
+  if (!authorized || !event) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <p className="text-muted-foreground mb-4">Event not found</p>
-          <Link to="/dashboard">
-            <Button>Back to Dashboard</Button>
+          <Shield className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <h1 className="text-xl font-semibold mb-2">Access Denied</h1>
+          <p className="text-muted-foreground mb-4">
+            This moderation link is invalid or has been deactivated.
+          </p>
+          <Link to="/">
+            <Button>Go Home</Button>
           </Link>
         </div>
       </div>
@@ -433,51 +376,12 @@ const EventDetail = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      {showSettings && event && (
-        <EventSettings
-          event={event}
-          onClose={() => setShowSettings(false)}
-          onUpdate={handleEventUpdate}
-        />
-      )}
-      {showModeration && event && (
-        <ModerationSettings
-          eventId={event.id}
-          eventName={event.name}
-          moderationEnabled={event.moderation_enabled}
-          onClose={() => setShowModeration(false)}
-          onUpdate={(enabled) => setEvent((prev) => prev ? { ...prev, moderation_enabled: enabled } : null)}
-        />
-      )}
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/dashboard" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-            Dashboard
-          </Link>
+        <div className="container mx-auto px-6 h-16 flex items-center">
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => setShowModeration(true)} title="Moderation settings">
-              <Users2 className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={() => setShowSettings(true)} title="Event settings">
-              <Settings className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={event.is_active ? 'destructive' : 'hero'}
-              onClick={toggleActive}
-            >
-              {event.is_active ? (
-                <>
-                  <Square className="w-4 h-4" />
-                  Stop Event
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4" />
-                  Start Event
-                </>
-              )}
-            </Button>
+            <Shield className="w-5 h-5 text-primary" />
+            <span className="font-semibold">Moderator View</span>
+            <Badge variant="secondary">Limited Access</Badge>
           </div>
         </div>
       </header>
@@ -507,12 +411,7 @@ const EventDetail = () => {
                 {event.is_active ? (
                   <div className="text-center">
                     <div className="inline-block p-4 bg-background rounded-2xl shadow-lg mb-4">
-                      <QRCodeSVG
-                        value={qrUrl}
-                        size={280}
-                        level="M"
-                        includeMargin
-                      />
+                      <QRCodeSVG value={qrUrl} size={280} level="M" includeMargin />
                     </div>
                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                       {event.rotating_qr_enabled ? (
@@ -527,24 +426,13 @@ const EventDetail = () => {
                     <p className="text-xs text-muted-foreground mt-2">
                       Attendees scan this code to mark attendance
                     </p>
-                    <div className="mt-4">
-                      <QRCodeExport
-                        url={qrUrl}
-                        eventName={event.name}
-                        eventDate={event.event_date}
-                      />
-                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-12">
                     <QrCode className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground mb-4">
-                      Start the event to display the QR code
+                    <p className="text-muted-foreground">
+                      Event is not active. Waiting for admin to start.
                     </p>
-                    <Button onClick={toggleActive} variant="hero">
-                      <Play className="w-4 h-4" />
-                      Start Event
-                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -584,12 +472,6 @@ const EventDetail = () => {
                 Attendance ({attendance.length})
               </h2>
               <div className="flex gap-2 flex-wrap">
-                <AttendeeActions
-                  eventId={id!}
-                  eventName={event.name}
-                  attendance={attendance}
-                  onImportComplete={fetchAttendance}
-                />
                 <Button
                   variant="outline"
                   size="sm"
@@ -665,6 +547,7 @@ const EventDetail = () => {
                 </CardContent>
               </Card>
             )}
+
             {attendance.length === 0 ? (
               <Card className="bg-gradient-card">
                 <CardContent className="py-12 text-center">
@@ -678,7 +561,7 @@ const EventDetail = () => {
                   <Card key={record.id} className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}>
                     <CardContent className="py-3">
                       <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <p 
                               className={`font-medium truncate ${!showAllDetails && !revealedNames.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
@@ -782,4 +665,4 @@ const EventDetail = () => {
   );
 };
 
-export default EventDetail;
+export default ModeratorView;
