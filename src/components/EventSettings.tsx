@@ -42,7 +42,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
   const [locationLng, setLocationLng] = useState(event.location_lng);
   const [radiusMeters, setRadiusMeters] = useState(event.location_radius_meters);
 
-  // Security features
+  // Security features (now local state until save)
   const [rotatingQrEnabled, setRotatingQrEnabled] = useState(event.rotating_qr_enabled);
   const [deviceFingerprintEnabled, setDeviceFingerprintEnabled] = useState(event.device_fingerprint_enabled);
   const [locationCheckEnabled, setLocationCheckEnabled] = useState(event.location_check_enabled);
@@ -76,53 +76,9 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
     );
   };
 
-  const handleSaveDetails = async () => {
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from('events')
-        .update({
-          name,
-          event_date: new Date(eventDate).toISOString(),
-          location_name: locationName,
-          location_lat: locationLat,
-          location_lng: locationLng,
-          location_radius_meters: radiusMeters,
-        })
-        .eq('id', event.id);
-
-      if (error) throw error;
-
-      onUpdate({
-        name,
-        event_date: new Date(eventDate).toISOString(),
-        location_name: locationName,
-        location_lat: locationLat,
-        location_lng: locationLng,
-        location_radius_meters: radiusMeters,
-      });
-
-      toast({
-        title: 'Event updated',
-        description: 'Event details have been saved.',
-      });
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to update event details.',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSecurityToggle = async (
-    field: 'rotating_qr_enabled' | 'device_fingerprint_enabled' | 'location_check_enabled',
-    value: boolean
-  ) => {
-    // If enabling location check, verify location is set
-    if (field === 'location_check_enabled' && value && !hasValidLocation) {
+  const handleSaveAll = async () => {
+    // Validate: if enabling location check, ensure location is set
+    if (locationCheckEnabled && !hasValidLocation) {
       toast({
         variant: 'destructive',
         title: 'Location required',
@@ -131,31 +87,41 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
       return;
     }
 
+    setSaving(true);
     try {
+      const updates = {
+        name,
+        event_date: new Date(eventDate).toISOString(),
+        location_name: locationName,
+        location_lat: locationLat,
+        location_lng: locationLng,
+        location_radius_meters: radiusMeters,
+        rotating_qr_enabled: rotatingQrEnabled,
+        device_fingerprint_enabled: deviceFingerprintEnabled,
+        location_check_enabled: locationCheckEnabled,
+      };
+
       const { error } = await supabase
         .from('events')
-        .update({ [field]: value })
+        .update(updates)
         .eq('id', event.id);
 
       if (error) throw error;
 
-      onUpdate({ [field.replace(/_enabled$/, '_enabled') as keyof typeof event]: value });
-
-      // Update local state
-      if (field === 'rotating_qr_enabled') setRotatingQrEnabled(value);
-      if (field === 'device_fingerprint_enabled') setDeviceFingerprintEnabled(value);
-      if (field === 'location_check_enabled') setLocationCheckEnabled(value);
+      onUpdate(updates);
 
       toast({
-        title: 'Security updated',
-        description: `${field.replace(/_/g, ' ').replace(' enabled', '')} ${value ? 'enabled' : 'disabled'}.`,
+        title: 'Settings saved',
+        description: 'All event settings have been updated.',
       });
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to update security setting.',
+        description: 'Failed to save settings.',
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -225,33 +191,8 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
               />
             </div>
 
-            {/* Location section with toggle at top */}
+            {/* Location section */}
             <div className="border border-border rounded-lg p-4 space-y-4">
-              {/* Location Check Toggle - Now at top */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
-                <div className="flex items-center gap-3">
-                  <MapPinned className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium text-sm">Location Check</p>
-                    <p className="text-xs text-muted-foreground">
-                      {locationCheckEnabled
-                        ? 'Verify attendees are at the venue'
-                        : 'Location verification disabled'}
-                    </p>
-                  </div>
-                </div>
-                <Switch
-                  checked={locationCheckEnabled}
-                  onCheckedChange={(v) => handleSecurityToggle('location_check_enabled', v)}
-                />
-              </div>
-
-              {!hasValidLocation && locationCheckEnabled && (
-                <p className="text-sm text-warning bg-warning/10 p-2 rounded">
-                  ⚠️ Location check is enabled but no valid location is set. Please add location data.
-                </p>
-              )}
-
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
@@ -316,14 +257,9 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                 </p>
               </div>
             </div>
-
-            <Button onClick={handleSaveDetails} disabled={saving}>
-              <Save className="w-4 h-4" />
-              {saving ? 'Saving...' : 'Save Details'}
-            </Button>
           </div>
 
-          {/* Security Settings (without location check, which is now in location section) */}
+          {/* Security Settings */}
           <div className="border-t border-border pt-6 space-y-4">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5" />
@@ -331,6 +267,32 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
             </div>
 
             <div className="space-y-4">
+              {/* Location Check Toggle */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                <div className="flex items-center gap-3">
+                  <MapPinned className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium text-sm">Location Check</p>
+                    <p className="text-xs text-muted-foreground">
+                      {locationCheckEnabled
+                        ? 'Verify attendees are at the venue'
+                        : 'Location verification disabled'}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={locationCheckEnabled}
+                  onCheckedChange={setLocationCheckEnabled}
+                />
+              </div>
+
+              {!hasValidLocation && locationCheckEnabled && (
+                <p className="text-sm text-warning bg-warning/10 p-2 rounded">
+                  ⚠️ Location check is enabled but no valid location is set. Please add location data above.
+                </p>
+              )}
+
+              {/* Rotating QR Toggle */}
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
                 <div className="flex items-center gap-3">
                   <QrCode className="w-5 h-5 text-muted-foreground" />
@@ -345,7 +307,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                 </div>
                 <Switch
                   checked={rotatingQrEnabled}
-                  onCheckedChange={(v) => handleSecurityToggle('rotating_qr_enabled', v)}
+                  onCheckedChange={setRotatingQrEnabled}
                 />
               </div>
 
@@ -373,6 +335,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                 </div>
               )}
 
+              {/* Device Fingerprint Toggle */}
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
                 <div className="flex items-center gap-3">
                   <Fingerprint className="w-5 h-5 text-muted-foreground" />
@@ -383,10 +346,18 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                 </div>
                 <Switch
                   checked={deviceFingerprintEnabled}
-                  onCheckedChange={(v) => handleSecurityToggle('device_fingerprint_enabled', v)}
+                  onCheckedChange={setDeviceFingerprintEnabled}
                 />
               </div>
             </div>
+          </div>
+
+          {/* Save Button at bottom */}
+          <div className="border-t border-border pt-6">
+            <Button onClick={handleSaveAll} disabled={saving} className="w-full">
+              <Save className="w-4 h-4" />
+              {saving ? 'Saving...' : 'Save All Settings'}
+            </Button>
           </div>
         </CardContent>
       </Card>
