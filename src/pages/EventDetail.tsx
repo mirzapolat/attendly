@@ -527,13 +527,15 @@ const EventDetail = () => {
                     <p className="text-xs text-muted-foreground mt-2">
                       Attendees scan this code to mark attendance
                     </p>
-                    <div className="mt-4">
-                      <QRCodeExport
-                        url={qrUrl}
-                        eventName={event.name}
-                        eventDate={event.event_date}
-                      />
-                    </div>
+                    {!event.rotating_qr_enabled && (
+                      <div className="mt-4">
+                        <QRCodeExport
+                          url={qrUrl}
+                          eventName={event.name}
+                          eventDate={event.event_date}
+                        />
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-12">
