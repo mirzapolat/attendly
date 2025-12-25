@@ -7,9 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { QRCodeSVG } from 'qrcode.react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Copy
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Copy, Radio
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -25,6 +27,7 @@ interface Event {
   is_active: boolean;
   current_qr_token: string | null;
   rotating_qr_enabled: boolean;
+  moderation_enabled: boolean;
 }
 
 interface AttendanceRecord {
@@ -72,6 +75,8 @@ const ModeratorView = () => {
   const [qrToken, setQrToken] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(3);
   const intervalRef = useRef<number | null>(null);
+  const channelsRef = useRef<ReturnType<typeof supabase.channel>[]>([]);
+  const liveUpdatesRef = useRef(true);
 
   // Privacy controls
   const [showAllDetails, setShowAllDetails] = useState(false);
@@ -85,8 +90,15 @@ const ModeratorView = () => {
   const [suggestions, setSuggestions] = useState<KnownAttendee[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  const [liveUpdatesEnabled, setLiveUpdatesEnabled] = useState(true);
+
   useEffect(() => {
     validateAndFetch();
+    
+    return () => {
+      // Cleanup all channels on unmount
+      channelsRef.current.forEach(ch => supabase.removeChannel(ch));
+    };
   }, [eventId, token]);
 
   const validateAndFetch = async () => {
@@ -101,6 +113,7 @@ const ModeratorView = () => {
 
     if (linkError || !linkData) {
       setLoading(false);
+      setAuthorized(false);
       return;
     }
 
@@ -113,6 +126,7 @@ const ModeratorView = () => {
 
     if (eventError || !eventData || !eventData.moderation_enabled) {
       setLoading(false);
+      setAuthorized(false);
       return;
     }
 
@@ -121,8 +135,8 @@ const ModeratorView = () => {
     fetchAttendance();
     setLoading(false);
 
-    // Subscribe to real-time updates
-    const channel = supabase
+    // Subscribe to real-time attendance updates
+    const attendanceChannel = supabase
       .channel('moderator-attendance-updates')
       .on(
         'postgres_changes',
@@ -133,6 +147,7 @@ const ModeratorView = () => {
           filter: `event_id=eq.${eventId}`
         },
         (payload) => {
+          if (!liveUpdatesRef.current) return;
           setAttendance((prev) => [payload.new as AttendanceRecord, ...prev]);
           toast({
             title: 'New attendee',
@@ -149,6 +164,7 @@ const ModeratorView = () => {
           filter: `event_id=eq.${eventId}`
         },
         (payload) => {
+          if (!liveUpdatesRef.current) return;
           setAttendance((prev) => 
             prev.map((r) => r.id === (payload.new as AttendanceRecord).id ? payload.new as AttendanceRecord : r)
           );
@@ -163,14 +179,92 @@ const ModeratorView = () => {
           filter: `event_id=eq.${eventId}`
         },
         (payload) => {
+          if (!liveUpdatesRef.current) return;
           setAttendance((prev) => prev.filter((r) => r.id !== (payload.old as { id: string }).id));
         }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Subscribe to event changes (moderation_enabled, rotating_qr_enabled, is_active, etc.)
+    const eventChannel = supabase
+      .channel('moderator-event-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'events',
+          filter: `id=eq.${eventId}`
+        },
+        (payload) => {
+          const updatedEvent = payload.new as Event;
+          // If moderation was disabled, revoke access immediately
+          if (!updatedEvent.moderation_enabled) {
+            setAuthorized(false);
+            toast({
+              title: 'Access revoked',
+              description: 'Moderation has been disabled for this event',
+              variant: 'destructive',
+            });
+          } else {
+            setEvent(updatedEvent);
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to moderation link changes (in case this specific link is deactivated)
+    const linkChannel = supabase
+      .channel('moderator-link-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'moderation_links',
+          filter: `token=eq.${token}`
+        },
+        (payload) => {
+          const updatedLink = payload.new as { is_active: boolean };
+          if (!updatedLink.is_active) {
+            setAuthorized(false);
+            toast({
+              title: 'Access revoked',
+              description: 'This moderation link has been deactivated',
+              variant: 'destructive',
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'moderation_links',
+          filter: `token=eq.${token}`
+        },
+        () => {
+          setAuthorized(false);
+          toast({
+            title: 'Access revoked',
+            description: 'This moderation link has been deleted',
+            variant: 'destructive',
+          });
+        }
+      )
+      .subscribe();
+
+    channelsRef.current = [attendanceChannel, eventChannel, linkChannel];
+  };
+
+  // Handle live updates toggle - refetch when re-enabled
+  const handleLiveUpdatesToggle = (enabled: boolean) => {
+    setLiveUpdatesEnabled(enabled);
+    liveUpdatesRef.current = enabled;
+    if (enabled) {
+      fetchAttendance();
+    }
   };
 
   const fetchAttendance = async () => {
@@ -471,7 +565,18 @@ const ModeratorView = () => {
                 <Users className="w-5 h-5" />
                 Attendance ({attendance.length})
               </h2>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap items-center">
+                <div className="flex items-center gap-2 mr-2">
+                  <Switch
+                    id="live-updates"
+                    checked={liveUpdatesEnabled}
+                    onCheckedChange={handleLiveUpdatesToggle}
+                  />
+                  <Label htmlFor="live-updates" className="flex items-center gap-1 text-sm cursor-pointer">
+                    <Radio className={`w-3 h-3 ${liveUpdatesEnabled ? 'text-success animate-pulse' : 'text-muted-foreground'}`} />
+                    Live
+                  </Label>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
