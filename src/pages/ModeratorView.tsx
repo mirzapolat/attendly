@@ -74,8 +74,8 @@ const ModeratorView = () => {
   const [authorized, setAuthorized] = useState(false);
   const [qrToken, setQrToken] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(3);
-  const intervalRef = useRef<number | null>(null);
-  const channelsRef = useRef<ReturnType<typeof supabase.channel>[]>([]);
+  const pollIntervalRef = useRef<number | null>(null);
+  const countdownIntervalRef = useRef<number | null>(null);
   const liveUpdatesRef = useRef(true);
 
   // Privacy controls
@@ -92,189 +92,98 @@ const ModeratorView = () => {
 
   const [liveUpdatesEnabled, setLiveUpdatesEnabled] = useState(true);
 
+  const fetchModeratorState = useCallback(
+    async (opts?: { includeAttendance?: boolean }) => {
+      if (!eventId || !token) {
+        setAuthorized(false);
+        setEvent(null);
+        setAttendance([]);
+        setLoading(false);
+        return;
+      }
+
+      const includeAttendance = opts?.includeAttendance ?? true;
+
+      const { data, error } = await supabase.functions.invoke('moderator-state', {
+        body: { eventId, token, includeAttendance },
+      });
+
+      if (error) {
+        console.error('moderator-state invoke error', error);
+        setAuthorized(false);
+        setEvent(null);
+        setAttendance([]);
+        setLoading(false);
+        return;
+      }
+
+      if (!data?.authorized) {
+        setAuthorized(false);
+        setEvent(null);
+        setAttendance([]);
+        setLoading(false);
+        return;
+      }
+
+      const nextEvent = data.event as Event;
+      setAuthorized(true);
+      setEvent(nextEvent);
+      setQrToken(nextEvent.rotating_qr_enabled ? (nextEvent.current_qr_token ?? '') : 'static');
+
+      if (includeAttendance && Array.isArray(data.attendance)) {
+        setAttendance(data.attendance as AttendanceRecord[]);
+      }
+
+      setLoading(false);
+    },
+    [eventId, token]
+  );
+
   useEffect(() => {
-    validateAndFetch();
-    
+    fetchModeratorState({ includeAttendance: true });
+
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    pollIntervalRef.current = window.setInterval(() => {
+      fetchModeratorState({ includeAttendance: liveUpdatesRef.current });
+    }, 1000);
+
     return () => {
-      // Cleanup all channels on unmount
-      channelsRef.current.forEach(ch => supabase.removeChannel(ch));
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [eventId, token]);
+  }, [fetchModeratorState]);
 
-  const validateAndFetch = async () => {
-    // Validate moderation link
-    const { data: linkData, error: linkError } = await supabase
-      .from('moderation_links')
-      .select('*')
-      .eq('event_id', eventId)
-      .eq('token', token)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (linkError || !linkData) {
-      setLoading(false);
-      setAuthorized(false);
-      return;
+  useEffect(() => {
+    // local countdown indicator for rotating QR
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
     }
 
-    // Check if moderation is enabled for the event
-    const { data: eventData, error: eventError } = await supabase
-      .from('events')
-      .select('*')
-      .eq('id', eventId)
-      .maybeSingle();
-
-    if (eventError || !eventData || !eventData.moderation_enabled) {
-      setLoading(false);
-      setAuthorized(false);
-      return;
+    if (event?.is_active && event?.rotating_qr_enabled) {
+      setTimeLeft(3);
+      countdownIntervalRef.current = window.setInterval(() => {
+        setTimeLeft((prev) => (prev > 1 ? prev - 1 : 3));
+      }, 1000);
     }
 
-    setAuthorized(true);
-    setEvent(eventData);
-    fetchAttendance();
-    setLoading(false);
-
-    // Subscribe to real-time attendance updates
-    const attendanceChannel = supabase
-      .channel('moderator-attendance-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'attendance_records',
-          filter: `event_id=eq.${eventId}`
-        },
-        (payload) => {
-          if (!liveUpdatesRef.current) return;
-          setAttendance((prev) => [payload.new as AttendanceRecord, ...prev]);
-          toast({
-            title: 'New attendee',
-            description: `${maskName((payload.new as AttendanceRecord).attendee_name)} checked in`,
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'attendance_records',
-          filter: `event_id=eq.${eventId}`
-        },
-        (payload) => {
-          if (!liveUpdatesRef.current) return;
-          setAttendance((prev) => 
-            prev.map((r) => r.id === (payload.new as AttendanceRecord).id ? payload.new as AttendanceRecord : r)
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'attendance_records',
-          filter: `event_id=eq.${eventId}`
-        },
-        (payload) => {
-          if (!liveUpdatesRef.current) return;
-          setAttendance((prev) => prev.filter((r) => r.id !== (payload.old as { id: string }).id));
-        }
-      )
-      .subscribe();
-
-    // Subscribe to event changes (moderation_enabled, rotating_qr_enabled, is_active, etc.)
-    const eventChannel = supabase
-      .channel('moderator-event-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'events',
-          filter: `id=eq.${eventId}`
-        },
-        (payload) => {
-          const updatedEvent = payload.new as Event;
-          // If moderation was disabled, revoke access immediately
-          if (!updatedEvent.moderation_enabled) {
-            setAuthorized(false);
-            toast({
-              title: 'Access revoked',
-              description: 'Moderation has been disabled for this event',
-              variant: 'destructive',
-            });
-          } else {
-            setEvent(updatedEvent);
-          }
-        }
-      )
-      .subscribe();
-
-    // Subscribe to moderation link changes (in case this specific link is deactivated)
-    const linkChannel = supabase
-      .channel('moderator-link-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'moderation_links',
-          filter: `token=eq.${token}`
-        },
-        (payload) => {
-          const updatedLink = payload.new as { is_active: boolean };
-          if (!updatedLink.is_active) {
-            setAuthorized(false);
-            toast({
-              title: 'Access revoked',
-              description: 'This moderation link has been deactivated',
-              variant: 'destructive',
-            });
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'moderation_links',
-          filter: `token=eq.${token}`
-        },
-        () => {
-          setAuthorized(false);
-          toast({
-            title: 'Access revoked',
-            description: 'This moderation link has been deleted',
-            variant: 'destructive',
-          });
-        }
-      )
-      .subscribe();
-
-    channelsRef.current = [attendanceChannel, eventChannel, linkChannel];
-  };
+    return () => {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+    };
+  }, [event?.is_active, event?.rotating_qr_enabled]);
 
   // Handle live updates toggle - refetch when re-enabled
   const handleLiveUpdatesToggle = (enabled: boolean) => {
     setLiveUpdatesEnabled(enabled);
     liveUpdatesRef.current = enabled;
     if (enabled) {
-      fetchAttendance();
+      fetchModeratorState({ includeAttendance: true });
     }
-  };
-
-  const fetchAttendance = async () => {
-    const { data } = await supabase
-      .from('attendance_records')
-      .select('*')
-      .eq('event_id', eventId)
-      .order('recorded_at', { ascending: false });
-
-    if (data) setAttendance(data as AttendanceRecord[]);
   };
 
   const toggleRevealName = (recordId: string) => {
@@ -297,31 +206,11 @@ const ModeratorView = () => {
 
   // QR code display for active events
   useEffect(() => {
-    if (event?.is_active && event?.rotating_qr_enabled) {
-      const fetchQr = async () => {
-        const { data } = await supabase
-          .from('events')
-          .select('current_qr_token')
-          .eq('id', eventId)
-          .maybeSingle();
-        if (data?.current_qr_token) setQrToken(data.current_qr_token);
-      };
-      
-      fetchQr();
-      intervalRef.current = window.setInterval(fetchQr, 3000);
-
-      const countdownInterval = window.setInterval(() => {
-        setTimeLeft((prev) => (prev > 1 ? prev - 1 : 3));
-      }, 1000);
-
-      return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        clearInterval(countdownInterval);
-      };
-    } else if (event?.is_active && !event?.rotating_qr_enabled) {
+    // qrToken is derived from the latest polled event state
+    if (event?.is_active && !event?.rotating_qr_enabled) {
       setQrToken('static');
     }
-  }, [event?.is_active, event?.rotating_qr_enabled, eventId]);
+  }, [event?.is_active, event?.rotating_qr_enabled]);
 
   const fetchSuggestions = async (searchName: string) => {
     if (!event || searchName.length < 2) {
@@ -418,7 +307,7 @@ const ModeratorView = () => {
       .eq('id', recordId);
 
     if (!error) {
-      fetchAttendance();
+      await fetchModeratorState({ includeAttendance: true });
       toast({
         title: 'Status updated',
         description: `Attendee marked as ${newStatus}`,
@@ -433,7 +322,7 @@ const ModeratorView = () => {
       .eq('id', recordId);
 
     if (!error) {
-      fetchAttendance();
+      await fetchModeratorState({ includeAttendance: true });
       toast({ title: 'Record deleted' });
     }
   };
