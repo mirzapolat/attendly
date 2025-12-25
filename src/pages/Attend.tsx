@@ -56,8 +56,8 @@ const Attend = () => {
   const initialized = useRef(false);
   const timerRef = useRef<number | null>(null);
 
-  // Get storage key for this event + fingerprint
-  const getStorageKey = (fp: string) => `attend_start_${id}_${fp}`;
+  // Get storage key for this event + fingerprint + token (each QR scan gets fresh timer)
+  const getStorageKey = (fp: string) => `attend_start_${id}_${fp}_${token || 'static'}`;
 
   // Check and manage form time limit
   const checkTimeLimit = (fp: string): boolean => {
@@ -75,7 +75,7 @@ const Attend = () => {
       setTimeRemaining(FORM_TIME_LIMIT_MS - elapsed);
       return true;
     } else {
-      // First visit - store start time
+      // First visit with this token - store start time
       localStorage.setItem(storageKey, Date.now().toString());
       setTimeRemaining(FORM_TIME_LIMIT_MS);
       return true;
