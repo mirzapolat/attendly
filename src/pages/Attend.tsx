@@ -301,24 +301,38 @@ const Attend = () => {
 
     setSubmitState('loading');
 
+    // Re-fetch event to get latest location settings (in case admin updated them)
+    let currentEvent = event;
+    if (event?.location_check_enabled) {
+      const { data: freshEvent } = await supabase
+        .from('events')
+        .select('id, location_lat, location_lng, location_radius_meters, location_check_enabled')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (freshEvent) {
+        currentEvent = { ...event, ...freshEvent };
+      }
+    }
+
     // Determine status based on location check setting
     let status: 'verified' | 'suspicious' = 'verified';
     let suspiciousReason: string | null = null;
 
-    if (event?.location_check_enabled) {
+    if (currentEvent?.location_check_enabled) {
       if (locationDenied || !location) {
         status = 'suspicious';
         suspiciousReason = 'Location access denied';
-      } else if (event) {
+      } else if (currentEvent) {
         const distance = calculateDistance(
           location.lat,
           location.lng,
-          event.location_lat,
-          event.location_lng
+          currentEvent.location_lat,
+          currentEvent.location_lng
         );
-        if (distance > event.location_radius_meters) {
+        if (distance > currentEvent.location_radius_meters) {
           status = 'suspicious';
-          suspiciousReason = `Location ${Math.round(distance)}m away from event (allowed: ${event.location_radius_meters}m)`;
+          suspiciousReason = `Location ${Math.round(distance)}m away from event (allowed: ${currentEvent.location_radius_meters}m)`;
         }
       }
     }
