@@ -247,8 +247,8 @@ const ModerationSettings = ({
                 )}
               </div>
 
-              <div className="mt-6 p-4 bg-warning/10 border border-warning/30 rounded-lg">
-                <p className="text-sm text-warning-foreground">
+              <div className="mt-6 p-4 bg-muted rounded-lg border">
+                <p className="text-sm text-foreground">
                   <strong>Moderator permissions:</strong> View event, add/remove
                   attendees, toggle suspicious status. Cannot modify settings,
                   start/stop event, or export data.
