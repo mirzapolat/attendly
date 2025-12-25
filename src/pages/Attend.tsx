@@ -111,8 +111,15 @@ const Attend = () => {
       }
     }
 
-    // Check if device already submitted (only if device fingerprinting is enabled)
-    if (data.device_fingerprint_enabled && fingerprint) {
+    setSubmitState('form');
+  };
+
+  // Check fingerprint after it's loaded (separate from fetchEvent to avoid race condition)
+  useEffect(() => {
+    const checkFingerprint = async () => {
+      if (!fingerprint || !event || !event.device_fingerprint_enabled) return;
+      if (submitState !== 'form') return;
+      
       const { data: existing } = await supabase
         .from('attendance_records')
         .select('id')
@@ -122,33 +129,11 @@ const Attend = () => {
 
       if (existing) {
         setSubmitState('already-submitted');
-        return;
       }
-    }
-
-    setSubmitState('form');
-  };
-
-  useEffect(() => {
-    if (fingerprint && event && submitState === 'form') {
-      checkExistingSubmission();
-    }
-  }, [fingerprint, event]);
-
-  const checkExistingSubmission = async () => {
-    if (!event?.device_fingerprint_enabled) return;
+    };
     
-    const { data: existing } = await supabase
-      .from('attendance_records')
-      .select('id')
-      .eq('event_id', id)
-      .eq('device_fingerprint', fingerprint)
-      .maybeSingle();
-
-    if (existing) {
-      setSubmitState('already-submitted');
-    }
-  };
+    checkFingerprint();
+  }, [fingerprint, event, id, submitState]);
 
   const requestLocation = () => {
     setLocationRequested(true);
@@ -382,30 +367,32 @@ const Attend = () => {
               {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
             </div>
 
-            {/* Location status */}
-            <div className="p-3 rounded-lg bg-secondary/50 text-sm">
-              {!locationRequested ? (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="w-4 h-4" />
-                  Location will be requested on submit
-                </div>
-              ) : locationDenied ? (
-                <div className="flex items-center gap-2 text-warning">
-                  <AlertTriangle className="w-4 h-4" />
-                  Location denied - you may be flagged for review
-                </div>
-              ) : location ? (
-                <div className="flex items-center gap-2 text-success">
-                  <CheckCircle className="w-4 h-4" />
-                  Location verified
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Getting location...
-                </div>
-              )}
-            </div>
+            {/* Location status - only show if location check is enabled */}
+            {event?.location_check_enabled && (
+              <div className="p-3 rounded-lg bg-secondary/50 text-sm">
+                {!locationRequested ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="w-4 h-4" />
+                    Location will be requested on submit
+                  </div>
+                ) : locationDenied ? (
+                  <div className="flex items-center gap-2 text-warning">
+                    <AlertTriangle className="w-4 h-4" />
+                    Location denied - you may be flagged for review
+                  </div>
+                ) : location ? (
+                  <div className="flex items-center gap-2 text-success">
+                    <CheckCircle className="w-4 h-4" />
+                    Location verified
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Getting location...
+                  </div>
+                )}
+              </div>
+            )}
 
             <Button 
               type="submit" 
