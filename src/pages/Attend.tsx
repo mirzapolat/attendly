@@ -22,6 +22,9 @@ interface Event {
   current_qr_token: string | null;
   qr_token_expires_at: string | null;
   is_active: boolean;
+  rotating_qr_enabled: boolean;
+  device_fingerprint_enabled: boolean;
+  location_check_enabled: boolean;
 }
 
 const attendeeSchema = z.object({
@@ -69,10 +72,9 @@ const Attend = () => {
   };
 
   const fetchEvent = async () => {
-    // Only select necessary fields - exclude admin_id and other sensitive data
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, event_date, location_name, location_lat, location_lng, location_radius_meters, current_qr_token, qr_token_expires_at, is_active')
+      .select('id, name, event_date, location_name, location_lat, location_lng, location_radius_meters, current_qr_token, qr_token_expires_at, is_active, rotating_qr_enabled, device_fingerprint_enabled, location_check_enabled')
       .eq('id', id)
       .eq('is_active', true)
       .maybeSingle();
@@ -84,24 +86,25 @@ const Attend = () => {
 
     setEvent(data);
 
-    // Check if token is valid
-    if (!token || data.current_qr_token !== token) {
-      // Check if token recently expired (within 5 seconds grace period)
-      if (data.qr_token_expires_at) {
-        const expiresAt = new Date(data.qr_token_expires_at).getTime();
-        const now = Date.now();
-        if (now > expiresAt) {
+    // Check if token is valid (only if rotating QR is enabled)
+    if (data.rotating_qr_enabled) {
+      if (!token || (data.current_qr_token !== token && token !== 'static')) {
+        if (data.qr_token_expires_at) {
+          const expiresAt = new Date(data.qr_token_expires_at).getTime();
+          const now = Date.now();
+          if (now > expiresAt) {
+            setSubmitState('expired');
+            return;
+          }
+        } else {
           setSubmitState('expired');
           return;
         }
-      } else {
-        setSubmitState('expired');
-        return;
       }
     }
 
-    // Check if device already submitted
-    if (fingerprint) {
+    // Check if device already submitted (only if device fingerprinting is enabled)
+    if (data.device_fingerprint_enabled && fingerprint) {
       const { data: existing } = await supabase
         .from('attendance_records')
         .select('id')
@@ -125,6 +128,8 @@ const Attend = () => {
   }, [fingerprint, event]);
 
   const checkExistingSubmission = async () => {
+    if (!event?.device_fingerprint_enabled) return;
+    
     const { data: existing } = await supabase
       .from('attendance_records')
       .select('id')
@@ -187,7 +192,8 @@ const Attend = () => {
       }
     }
 
-    if (!locationRequested) {
+    // Only request location if location check is enabled
+    if (event?.location_check_enabled && !locationRequested) {
       requestLocation();
       toast({
         title: 'Location required',
@@ -198,23 +204,25 @@ const Attend = () => {
 
     setSubmitState('loading');
 
-    // Determine status
+    // Determine status based on location check setting
     let status: 'verified' | 'suspicious' = 'verified';
     let suspiciousReason: string | null = null;
 
-    if (locationDenied || !location) {
-      status = 'suspicious';
-      suspiciousReason = 'Location access denied';
-    } else if (event) {
-      const distance = calculateDistance(
-        location.lat,
-        location.lng,
-        event.location_lat,
-        event.location_lng
-      );
-      if (distance > event.location_radius_meters) {
+    if (event?.location_check_enabled) {
+      if (locationDenied || !location) {
         status = 'suspicious';
-        suspiciousReason = `Location ${Math.round(distance)}m away from event (allowed: ${event.location_radius_meters}m)`;
+        suspiciousReason = 'Location access denied';
+      } else if (event) {
+        const distance = calculateDistance(
+          location.lat,
+          location.lng,
+          event.location_lat,
+          event.location_lng
+        );
+        if (distance > event.location_radius_meters) {
+          status = 'suspicious';
+          suspiciousReason = `Location ${Math.round(distance)}m away from event (allowed: ${event.location_radius_meters}m)`;
+        }
       }
     }
 

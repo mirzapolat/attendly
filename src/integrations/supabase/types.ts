@@ -70,15 +70,18 @@ export type Database = {
           created_at: string | null
           current_qr_token: string | null
           description: string | null
+          device_fingerprint_enabled: boolean | null
           event_date: string
           id: string
           is_active: boolean | null
+          location_check_enabled: boolean | null
           location_lat: number
           location_lng: number
           location_name: string
           location_radius_meters: number | null
           name: string
           qr_token_expires_at: string | null
+          rotating_qr_enabled: boolean | null
           season_id: string | null
           updated_at: string | null
         }
@@ -87,15 +90,18 @@ export type Database = {
           created_at?: string | null
           current_qr_token?: string | null
           description?: string | null
+          device_fingerprint_enabled?: boolean | null
           event_date: string
           id?: string
           is_active?: boolean | null
+          location_check_enabled?: boolean | null
           location_lat: number
           location_lng: number
           location_name: string
           location_radius_meters?: number | null
           name: string
           qr_token_expires_at?: string | null
+          rotating_qr_enabled?: boolean | null
           season_id?: string | null
           updated_at?: string | null
         }
@@ -104,15 +110,18 @@ export type Database = {
           created_at?: string | null
           current_qr_token?: string | null
           description?: string | null
+          device_fingerprint_enabled?: boolean | null
           event_date?: string
           id?: string
           is_active?: boolean | null
+          location_check_enabled?: boolean | null
           location_lat?: number
           location_lng?: number
           location_name?: string
           location_radius_meters?: number | null
           name?: string
           qr_token_expires_at?: string | null
+          rotating_qr_enabled?: boolean | null
           season_id?: string | null
           updated_at?: string | null
         }
@@ -139,6 +148,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          theme_color: string | null
           updated_at: string | null
         }
         Insert: {
@@ -146,6 +156,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          theme_color?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -153,6 +164,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          theme_color?: string | null
           updated_at?: string | null
         }
         Relationships: []

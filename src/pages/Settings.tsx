@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Settings as SettingsIcon, User, Trash2, Save } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, User, Trash2, Save, Palette, Check } from 'lucide-react';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
+import { useThemeColor, themeColors } from '@/hooks/useThemeColor';
 
 const profileSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -21,6 +21,7 @@ const Settings = () => {
   const { user, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { themeColor, setThemeColor } = useThemeColor();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -114,7 +115,6 @@ const Settings = () => {
     setDeleting(true);
 
     try {
-      // Delete profile (cascades to events, seasons, etc.)
       const { error: profileError } = await supabase
         .from('profiles')
         .delete()
@@ -122,7 +122,6 @@ const Settings = () => {
 
       if (profileError) throw profileError;
 
-      // Sign out and redirect
       await signOut();
       navigate('/');
       
@@ -165,6 +164,48 @@ const Settings = () => {
           Settings
         </h1>
 
+        {/* Theme Color */}
+        <Card className="bg-gradient-card mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="w-5 h-5" />
+              Theme Color
+            </CardTitle>
+            <CardDescription>
+              Choose your preferred accent color
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {themeColors.map((color) => (
+                <button
+                  key={color.id}
+                  onClick={() => setThemeColor(color.id)}
+                  className="group relative"
+                  title={color.name}
+                >
+                  <div
+                    className={`w-10 h-10 rounded-full transition-all ${
+                      themeColor === color.id 
+                        ? 'ring-2 ring-offset-2 ring-offset-background ring-foreground scale-110' 
+                        : 'hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: `hsl(${color.hue}, 84%, 39%)` }}
+                  >
+                    {themeColor === color.id && (
+                      <Check className="w-5 h-5 text-white absolute inset-0 m-auto" />
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground mt-1 block text-center">
+                    {color.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Profile */}
         <Card className="bg-gradient-card mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -212,6 +253,7 @@ const Settings = () => {
           </CardContent>
         </Card>
 
+        {/* Danger Zone */}
         <Card className="bg-gradient-card border-destructive/50">
           <CardHeader>
             <CardTitle className="text-destructive flex items-center gap-2">

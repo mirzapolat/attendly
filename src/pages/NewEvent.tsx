@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, MapPin, Calendar, Save } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Save, Shield, QrCode, Fingerprint, MapPinned } from 'lucide-react';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
 
@@ -45,6 +46,11 @@ const NewEvent = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [gettingLocation, setGettingLocation] = useState(false);
+
+  // Security features
+  const [rotatingQrEnabled, setRotatingQrEnabled] = useState(true);
+  const [deviceFingerprintEnabled, setDeviceFingerprintEnabled] = useState(true);
+  const [locationCheckEnabled, setLocationCheckEnabled] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -128,6 +134,9 @@ const NewEvent = () => {
         location_lng: locationLng as number,
         location_radius_meters: radiusMeters,
         season_id: seasonId !== 'none' ? seasonId : null,
+        rotating_qr_enabled: rotatingQrEnabled,
+        device_fingerprint_enabled: deviceFingerprintEnabled,
+        location_check_enabled: locationCheckEnabled,
       });
 
       if (error) throw error;
@@ -303,6 +312,61 @@ const NewEvent = () => {
                   <p className="text-xs text-muted-foreground">
                     Attendees must be within this distance from the event location.
                   </p>
+                </div>
+              </div>
+
+              {/* Security Features */}
+              <div className="border border-border rounded-lg p-4 space-y-4">
+                <Label className="flex items-center gap-2 text-base font-medium">
+                  <Shield className="w-4 h-4" />
+                  Security Features
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Choose which security features to enable for this event.
+                </p>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <QrCode className="w-5 h-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-sm">Rotating QR Codes</p>
+                        <p className="text-xs text-muted-foreground">QR code changes every 3 seconds</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={rotatingQrEnabled}
+                      onCheckedChange={setRotatingQrEnabled}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Fingerprint className="w-5 h-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-sm">Device Fingerprinting</p>
+                        <p className="text-xs text-muted-foreground">Prevent multiple submissions per device</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={deviceFingerprintEnabled}
+                      onCheckedChange={setDeviceFingerprintEnabled}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <MapPinned className="w-5 h-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-sm">Location Check</p>
+                        <p className="text-xs text-muted-foreground">Verify attendees are at the venue</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={locationCheckEnabled}
+                      onCheckedChange={setLocationCheckEnabled}
+                    />
+                  </div>
                 </div>
               </div>
 
