@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Settings as SettingsIcon, User, Trash2, Save } from 'lucide-react';
 import { z } from 'zod';
+import { sanitizeError } from '@/utils/errorHandler';
 
 const profileSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -90,11 +91,11 @@ const Settings = () => {
         title: 'Profile updated',
         description: 'Your changes have been saved.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message,
+        description: sanitizeError(error),
       });
     } finally {
       setSaving(false);
@@ -129,11 +130,11 @@ const Settings = () => {
         title: 'Account deleted',
         description: 'Your account has been permanently deleted.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message,
+        description: sanitizeError(error),
       });
       setDeleting(false);
     }

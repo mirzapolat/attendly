@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, MapPin, Loader2, QrCode, AlertTriangle } from 'lucide-react';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { z } from 'zod';
+import { sanitizeError } from '@/utils/errorHandler';
 
 interface Event {
   id: string;
@@ -238,12 +239,12 @@ const Attend = () => {
       } else {
         setSubmitState('success');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setSubmitState('error');
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to submit attendance',
+        description: sanitizeError(error),
       });
     }
   };

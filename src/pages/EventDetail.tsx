@@ -87,10 +87,10 @@ const EventDetail = () => {
     if (data) setAttendance(data as AttendanceRecord[]);
   };
 
-  const generateToken = useCallback(() => {
-    const token = `${id}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-    return token;
-  }, [id]);
+const generateToken = useCallback(() => {
+    // Use cryptographically secure random token
+    return crypto.randomUUID();
+  }, []);
 
   const updateQRCode = useCallback(async () => {
     if (!event?.is_active) return;

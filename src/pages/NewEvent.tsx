@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, MapPin, Calendar, Save } from 'lucide-react';
 import { z } from 'zod';
+import { sanitizeError } from '@/utils/errorHandler';
 
 interface Season {
   id: string;
@@ -136,11 +137,11 @@ const NewEvent = () => {
         description: 'Your event has been created successfully.',
       });
       navigate('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to create event',
+        description: sanitizeError(error),
       });
     } finally {
       setLoading(false);

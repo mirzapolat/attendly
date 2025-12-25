@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Plus, FolderOpen, BarChart3, Calendar, Trash2 } from 'lucide-react';
+import { sanitizeError } from '@/utils/errorHandler';
 
 interface Season {
   id: string;
@@ -90,11 +91,11 @@ const Seasons = () => {
       setDescription('');
       setDialogOpen(false);
       fetchData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message,
+        description: sanitizeError(error),
       });
     } finally {
       setCreating(false);
