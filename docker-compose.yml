@@ -1,0 +1,18 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
+    ports:
+      - "8080:80"
+    environment:
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

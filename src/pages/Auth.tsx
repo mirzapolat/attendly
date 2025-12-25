@@ -68,7 +68,7 @@ const Auth = () => {
 
     try {
       if (mode === 'signup') {
-        const { error } = await signUp(email, password, fullName);
+        const { data, error } = await signUp(email, password, fullName);
         if (error) {
           if (error.message.includes('already registered')) {
             toast({
@@ -84,10 +84,19 @@ const Auth = () => {
             });
           }
         } else {
-          toast({
-            title: 'Account created',
-            description: 'Welcome to Attendly!',
-          });
+          // Check if session was established (email confirmation disabled) or not (enabled)
+          if (data?.session) {
+            toast({
+              title: 'Account created',
+              description: 'Welcome to Attendly!',
+            });
+            // Navigation happens via useEffect detecting user change
+          } else {
+             toast({
+              title: 'Account created',
+              description: 'Please check your email to confirm your account before logging in.',
+            });
+          }
         }
       } else {
         const { error } = await signIn(email, password);
