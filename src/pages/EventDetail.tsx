@@ -275,7 +275,7 @@ const EventDetail = () => {
         event_id: id,
         attendee_name: manualName.trim(),
         attendee_email: manualEmail.trim().toLowerCase(),
-        device_fingerprint: 'manual-entry',
+        device_fingerprint: `manual-${crypto.randomUUID()}`,
         status: 'verified',
         location_provided: false,
       });
