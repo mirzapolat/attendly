@@ -131,10 +131,6 @@ const EventDetail = () => {
           (payload) => {
             console.log('New attendance:', payload);
             setAttendance((prev) => [payload.new as AttendanceRecord, ...prev]);
-            toast({
-              title: 'New attendee',
-              description: `${maskName((payload.new as AttendanceRecord).attendee_name)} checked in`,
-            });
           }
         )
         .on(
