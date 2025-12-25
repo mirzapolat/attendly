@@ -11,7 +11,7 @@ const Index = () => {
           <div className="max-w-3xl mx-auto text-center animate-fade-in">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
               Track attendance with
-              <span className="text-gradient block mt-2">rotating QR codes</span>
+              <span className="text-gradient block mt-2 pb-2">rotating QR codes</span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
               Secure, location-verified attendance tracking. 
