@@ -5,11 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, Play, Square, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -35,6 +36,11 @@ interface AttendanceRecord {
   suspicious_reason: string | null;
   location_provided: boolean;
   recorded_at: string;
+}
+
+interface KnownAttendee {
+  attendee_name: string;
+  attendee_email: string;
 }
 
 // Helper to mask last name (keep first name visible)
@@ -72,6 +78,13 @@ const EventDetail = () => {
   const [showAllDetails, setShowAllDetails] = useState(false);
   const [revealedNames, setRevealedNames] = useState<Set<string>>(new Set());
   const [revealedEmails, setRevealedEmails] = useState<Set<string>>(new Set());
+  
+  // Manual add attendee
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [manualName, setManualName] = useState('');
+  const [manualEmail, setManualEmail] = useState('');
+  const [suggestions, setSuggestions] = useState<KnownAttendee[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -189,6 +202,100 @@ const EventDetail = () => {
     // Use cryptographically secure random token
     return crypto.randomUUID();
   }, []);
+
+  // Fetch known attendees from same season for autocomplete
+  const fetchSuggestions = async (searchName: string) => {
+    if (!event || searchName.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    // First get the event's season_id
+    const { data: eventData } = await supabase
+      .from('events')
+      .select('season_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!eventData?.season_id) {
+      setSuggestions([]);
+      return;
+    }
+
+    // Get all events in the same season
+    const { data: seasonEvents } = await supabase
+      .from('events')
+      .select('id')
+      .eq('season_id', eventData.season_id);
+
+    if (!seasonEvents?.length) {
+      setSuggestions([]);
+      return;
+    }
+
+    const eventIds = seasonEvents.map(e => e.id);
+
+    // Get unique attendees from those events matching the search
+    const { data: attendees } = await supabase
+      .from('attendance_records')
+      .select('attendee_name, attendee_email')
+      .in('event_id', eventIds)
+      .ilike('attendee_name', `%${searchName}%`);
+
+    if (attendees) {
+      // Dedupe by email
+      const unique = Array.from(
+        new Map(attendees.map(a => [a.attendee_email, a])).values()
+      );
+      setSuggestions(unique);
+    }
+  };
+
+  const addManualAttendee = async () => {
+    if (!manualName.trim() || !manualEmail.trim()) {
+      toast({
+        title: 'Missing information',
+        description: 'Please enter both name and email',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from('attendance_records')
+      .insert({
+        event_id: id,
+        attendee_name: manualName.trim(),
+        attendee_email: manualEmail.trim().toLowerCase(),
+        device_fingerprint: 'manual-entry',
+        status: 'verified',
+        location_provided: false,
+      });
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to add attendee',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Attendee added',
+        description: `${manualName} has been added manually`,
+      });
+      setManualName('');
+      setManualEmail('');
+      setShowAddForm(false);
+      setSuggestions([]);
+    }
+  };
+
+  const selectSuggestion = (suggestion: KnownAttendee) => {
+    setManualName(suggestion.attendee_name);
+    setManualEmail(suggestion.attendee_email);
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
 
   const updateQRCode = useCallback(async () => {
     if (!event?.is_active) return;
@@ -418,16 +525,82 @@ const EventDetail = () => {
                 <Users className="w-5 h-5" />
                 Attendance ({attendance.length})
               </h2>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAllDetails(!showAllDetails)}
-                className="gap-2"
-              >
-                {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                {showAllDetails ? 'Hide Details' : 'Show Details'}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  className="gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Add
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAllDetails(!showAllDetails)}
+                  className="gap-2"
+                >
+                  {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showAllDetails ? 'Hide' : 'Show'}
+                </Button>
+              </div>
             </div>
+
+            {/* Manual Add Form */}
+            {showAddForm && (
+              <Card className="bg-gradient-card mb-4">
+                <CardContent className="py-4">
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Input
+                        placeholder="Name"
+                        value={manualName}
+                        onChange={(e) => {
+                          setManualName(e.target.value);
+                          setShowSuggestions(true);
+                          fetchSuggestions(e.target.value);
+                        }}
+                        onFocus={() => setShowSuggestions(true)}
+                      />
+                      {showSuggestions && suggestions.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                          {suggestions.map((s, idx) => (
+                            <button
+                              key={idx}
+                              className="w-full px-3 py-2 text-left hover:bg-muted transition-colors border-b border-border last:border-0"
+                              onClick={() => selectSuggestion(s)}
+                            >
+                              <p className="font-medium text-sm">{s.attendee_name}</p>
+                              <p className="text-xs text-muted-foreground">{s.attendee_email}</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <Input
+                      placeholder="Email"
+                      type="email"
+                      value={manualEmail}
+                      onChange={(e) => setManualEmail(e.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={addManualAttendee} className="flex-1">
+                        Add Attendee
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setShowAddForm(false);
+                        setManualName('');
+                        setManualEmail('');
+                        setSuggestions([]);
+                      }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             {attendance.length === 0 ? (
               <Card className="bg-gradient-card">
                 <CardContent className="py-12 text-center">
