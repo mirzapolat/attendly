@@ -80,6 +80,8 @@ export type Database = {
           location_name: string
           location_radius_meters: number | null
           moderation_enabled: boolean
+          moderator_show_email: boolean
+          moderator_show_full_name: boolean
           name: string
           qr_token_expires_at: string | null
           rotating_qr_enabled: boolean | null
@@ -101,6 +103,8 @@ export type Database = {
           location_name: string
           location_radius_meters?: number | null
           moderation_enabled?: boolean
+          moderator_show_email?: boolean
+          moderator_show_full_name?: boolean
           name: string
           qr_token_expires_at?: string | null
           rotating_qr_enabled?: boolean | null
@@ -122,6 +126,8 @@ export type Database = {
           location_name?: string
           location_radius_meters?: number | null
           moderation_enabled?: boolean
+          moderator_show_email?: boolean
+          moderator_show_full_name?: boolean
           name?: string
           qr_token_expires_at?: string | null
           rotating_qr_enabled?: boolean | null

@@ -28,6 +28,8 @@ interface Event {
   current_qr_token: string | null;
   rotating_qr_enabled: boolean;
   moderation_enabled: boolean;
+  moderator_show_full_name: boolean;
+  moderator_show_email: boolean;
 }
 
 interface AttendanceRecord {
@@ -264,21 +266,20 @@ const ModeratorView = () => {
       return;
     }
 
-    const { error } = await supabase
-      .from('attendance_records')
-      .insert({
-        event_id: eventId,
-        attendee_name: manualName.trim(),
-        attendee_email: manualEmail.trim().toLowerCase(),
-        device_fingerprint: `moderator-${crypto.randomUUID()}`,
-        status: 'verified',
-        location_provided: false,
-      });
+    const { data, error } = await supabase.functions.invoke('moderator-action', {
+      body: {
+        eventId,
+        token,
+        action: 'add_attendee',
+        attendeeName: manualName.trim(),
+        attendeeEmail: manualEmail.trim().toLowerCase(),
+      },
+    });
 
-    if (error) {
+    if (error || !data?.success) {
       toast({
         title: 'Error',
-        description: 'Failed to add attendee',
+        description: data?.error || 'Failed to add attendee',
         variant: 'destructive',
       });
     } else {
@@ -290,6 +291,7 @@ const ModeratorView = () => {
       setManualEmail('');
       setShowAddForm(false);
       setSuggestions([]);
+      await fetchModeratorState({ includeAttendance: true });
     }
   };
 
@@ -301,12 +303,23 @@ const ModeratorView = () => {
   };
 
   const updateStatus = async (recordId: string, newStatus: 'verified' | 'suspicious' | 'cleared') => {
-    const { error } = await supabase
-      .from('attendance_records')
-      .update({ status: newStatus, suspicious_reason: newStatus === 'cleared' ? null : undefined })
-      .eq('id', recordId);
+    const { data, error } = await supabase.functions.invoke('moderator-action', {
+      body: {
+        eventId,
+        token,
+        action: 'update_status',
+        recordId,
+        newStatus,
+      },
+    });
 
-    if (!error) {
+    if (error || !data?.success) {
+      toast({
+        title: 'Error',
+        description: data?.error || 'Failed to update status',
+        variant: 'destructive',
+      });
+    } else {
       await fetchModeratorState({ includeAttendance: true });
       toast({
         title: 'Status updated',
@@ -316,15 +329,65 @@ const ModeratorView = () => {
   };
 
   const deleteRecord = async (recordId: string) => {
-    const { error } = await supabase
-      .from('attendance_records')
-      .delete()
-      .eq('id', recordId);
+    const { data, error } = await supabase.functions.invoke('moderator-action', {
+      body: {
+        eventId,
+        token,
+        action: 'delete_record',
+        recordId,
+      },
+    });
 
-    if (!error) {
+    if (error || !data?.success) {
+      toast({
+        title: 'Error',
+        description: data?.error || 'Failed to delete record',
+        variant: 'destructive',
+      });
+    } else {
       await fetchModeratorState({ includeAttendance: true });
       toast({ title: 'Record deleted' });
     }
+  };
+
+  // Helper functions respecting privacy settings
+  const getDisplayName = (record: AttendanceRecord): string => {
+    if (!event) return record.attendee_name;
+    
+    if (event.moderator_show_full_name) {
+      // Admin allows full name, but still use reveal toggle
+      if (showAllDetails || revealedNames.has(record.id)) {
+        return record.attendee_name;
+      }
+      return maskName(record.attendee_name);
+    } else {
+      // Admin restricted - only show first name
+      const firstName = record.attendee_name.split(' ')[0];
+      return firstName;
+    }
+  };
+
+  const getDisplayEmail = (record: AttendanceRecord): string | null => {
+    if (!event) return null;
+    
+    if (!event.moderator_show_email) {
+      // Admin restricted - don't show email at all
+      return null;
+    }
+    
+    // Admin allows email, but still use reveal toggle
+    if (showAllDetails || revealedEmails.has(record.id)) {
+      return record.attendee_email;
+    }
+    return maskEmail(record.attendee_email);
+  };
+
+  const canRevealName = (): boolean => {
+    return event?.moderator_show_full_name ?? false;
+  };
+
+  const canRevealEmail = (): boolean => {
+    return event?.moderator_show_email ?? false;
   };
 
   const qrUrl = `${window.location.origin}/attend/${eventId}?token=${qrToken}`;
@@ -475,15 +538,17 @@ const ModeratorView = () => {
                   <UserPlus className="w-4 h-4" />
                   Add
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAllDetails(!showAllDetails)}
-                  className="gap-2"
-                >
-                  {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  {showAllDetails ? 'Hide' : 'Show'}
-                </Button>
+                {(canRevealName() || canRevealEmail()) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAllDetails(!showAllDetails)}
+                    className="gap-2"
+                  >
+                    {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showAllDetails ? 'Hide' : 'Show'}
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -558,13 +623,11 @@ const ModeratorView = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <p 
-                              className={`font-medium truncate ${!showAllDetails && !revealedNames.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
-                              onClick={() => !showAllDetails && toggleRevealName(record.id)}
-                              title={!showAllDetails && !revealedNames.has(record.id) ? 'Click to reveal' : undefined}
+                              className={`font-medium truncate ${canRevealName() && !showAllDetails && !revealedNames.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
+                              onClick={() => canRevealName() && !showAllDetails && toggleRevealName(record.id)}
+                              title={canRevealName() && !showAllDetails && !revealedNames.has(record.id) ? 'Click to reveal' : undefined}
                             >
-                              {showAllDetails || revealedNames.has(record.id) 
-                                ? record.attendee_name 
-                                : maskName(record.attendee_name)}
+                              {getDisplayName(record)}
                             </p>
                             <Badge variant={
                               record.status === 'verified' ? 'default' :
@@ -573,15 +636,15 @@ const ModeratorView = () => {
                               {record.status}
                             </Badge>
                           </div>
-                          <p 
-                            className={`text-sm text-muted-foreground truncate ${!showAllDetails && !revealedEmails.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
-                            onClick={() => !showAllDetails && toggleRevealEmail(record.id)}
-                            title={!showAllDetails && !revealedEmails.has(record.id) ? 'Click to reveal' : undefined}
-                          >
-                            {showAllDetails || revealedEmails.has(record.id) 
-                              ? record.attendee_email 
-                              : maskEmail(record.attendee_email)}
-                          </p>
+                          {getDisplayEmail(record) !== null && (
+                            <p 
+                              className={`text-sm text-muted-foreground truncate ${canRevealEmail() && !showAllDetails && !revealedEmails.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
+                              onClick={() => canRevealEmail() && !showAllDetails && toggleRevealEmail(record.id)}
+                              title={canRevealEmail() && !showAllDetails && !revealedEmails.has(record.id) ? 'Click to reveal' : undefined}
+                            >
+                              {getDisplayEmail(record)}
+                            </p>
+                          )}
                           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                             <span>{format(new Date(record.recorded_at), 'p')}</span>
                             <span className="flex items-center gap-1">

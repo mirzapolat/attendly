@@ -1,1 +1,7 @@
 project_id = "ukuliiuijcuabhtabwrx"
+
+[functions.moderator-state]
+verify_jwt = false
+
+[functions.moderator-action]
+verify_jwt = false
