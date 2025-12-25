@@ -5,8 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Calendar, Users, BarChart3, Settings, LogOut, QrCode, FolderOpen } from 'lucide-react';
-import { format } from 'date-fns';
+import { Plus, Calendar, BarChart3, Settings, LogOut, QrCode, FolderOpen } from 'lucide-react';
+import EventCard from '@/components/EventCard';
 
 interface Event {
   id: string;
@@ -170,28 +170,13 @@ const Dashboard = () => {
           ) : (
             <div className="grid gap-3">
               {events.slice(0, 5).map((event) => (
-                <Link key={event.id} to={`/events/${event.id}`}>
-                  <Card className="bg-gradient-card hover:border-primary/50 transition-colors cursor-pointer">
-                    <CardContent className="py-4 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-3 h-3 rounded-full ${event.is_active ? 'bg-success animate-pulse' : 'bg-muted-foreground'}`} />
-                        <div>
-                          <p className="font-medium">{event.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {format(new Date(event.event_date), 'PPP')}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {event.is_active && (
-                          <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  seasons={seasons}
+                  onEventDeleted={fetchData}
+                  onEventUpdated={fetchData}
+                />
               ))}
               {events.length > 5 && (
                 <Link to="/events" className="text-center text-sm text-primary hover:underline py-2">

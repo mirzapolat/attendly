@@ -10,10 +10,12 @@ import { useToast } from '@/hooks/use-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, Play, Square, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Download
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EventSettings from '@/components/EventSettings';
+import AttendeeActions from '@/components/AttendeeActions';
+import QRCodeExport from '@/components/QRCodeExport';
 
 interface Event {
   id: string;
@@ -508,6 +510,13 @@ const EventDetail = () => {
                     <p className="text-xs text-muted-foreground mt-2">
                       Attendees scan this code to mark attendance
                     </p>
+                    <div className="mt-4">
+                      <QRCodeExport
+                        url={qrUrl}
+                        eventName={event.name}
+                        eventDate={event.event_date}
+                      />
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-12">
@@ -552,12 +561,18 @@ const EventDetail = () => {
 
           {/* Attendance List */}
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <Users className="w-5 h-5" />
                 Attendance ({attendance.length})
               </h2>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <AttendeeActions
+                  eventId={id!}
+                  eventName={event.name}
+                  attendance={attendance}
+                  onImportComplete={fetchAttendance}
+                />
                 <Button
                   variant="outline"
                   size="sm"
