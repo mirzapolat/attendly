@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Calendar, BarChart3, Settings, LogOut, QrCode, FolderOpen, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Calendar, BarChart3, Settings, LogOut, QrCode, FolderOpen, Search, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import EventCard from '@/components/EventCard';
 
 interface Event {
@@ -33,9 +35,10 @@ const Dashboard = () => {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Search and pagination state
+  // Search, filter, and pagination state
   const [eventSearch, setEventSearch] = useState('');
   const [seasonSearch, setSeasonSearch] = useState('');
+  const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [eventPage, setEventPage] = useState(1);
   const [seasonPage, setSeasonPage] = useState(1);
 
@@ -73,14 +76,25 @@ const Dashboard = () => {
 
   // Filter and paginate events
   const filteredEvents = useMemo(() => {
-    if (!eventSearch.trim()) return events;
-    const search = eventSearch.toLowerCase();
-    return events.filter(
-      (e) =>
-        e.name.toLowerCase().includes(search) ||
-        new Date(e.event_date).toLocaleDateString().includes(search)
-    );
-  }, [events, eventSearch]);
+    let result = events;
+    
+    // Filter by active status
+    if (showActiveOnly) {
+      result = result.filter((e) => e.is_active);
+    }
+    
+    // Filter by search
+    if (eventSearch.trim()) {
+      const search = eventSearch.toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.name.toLowerCase().includes(search) ||
+          new Date(e.event_date).toLocaleDateString().includes(search)
+      );
+    }
+    
+    return result;
+  }, [events, eventSearch, showActiveOnly]);
 
   const totalEventPages = Math.ceil(filteredEvents.length / EVENTS_PER_PAGE);
   const paginatedEvents = useMemo(() => {
@@ -101,10 +115,10 @@ const Dashboard = () => {
     return filteredSeasons.slice(start, start + SEASONS_PER_PAGE);
   }, [filteredSeasons, seasonPage]);
 
-  // Reset page when search changes
+  // Reset page when search or filter changes
   useEffect(() => {
     setEventPage(1);
-  }, [eventSearch]);
+  }, [eventSearch, showActiveOnly]);
 
   useEffect(() => {
     setSeasonPage(1);
@@ -208,14 +222,26 @@ const Dashboard = () => {
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <h2 className="text-xl font-semibold">Recent Events</h2>
             {events.length > 0 && (
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search events..."
-                  value={eventSearch}
-                  onChange={(e) => setEventSearch(e.target.value)}
-                  className="pl-9"
-                />
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="active-filter"
+                    checked={showActiveOnly}
+                    onCheckedChange={setShowActiveOnly}
+                  />
+                  <Label htmlFor="active-filter" className="text-sm text-muted-foreground cursor-pointer">
+                    Active only
+                  </Label>
+                </div>
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search events..."
+                    value={eventSearch}
+                    onChange={(e) => setEventSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
               </div>
             )}
           </div>
