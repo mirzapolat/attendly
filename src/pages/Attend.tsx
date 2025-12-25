@@ -183,8 +183,8 @@ const Attend = () => {
       const now = Date.now();
       const tokenAge = now - tokenTimestamp;
       
-      // Token is valid for 8 seconds (3s display + 5s grace period)
-      if (isNaN(tokenTimestamp) || tokenAge > 8000) {
+      // Token is valid for 15 seconds (3s display + 12s grace period for moderator polling + scan time)
+      if (isNaN(tokenTimestamp) || tokenAge > 15000) {
         setSubmitState('expired');
         return;
       }

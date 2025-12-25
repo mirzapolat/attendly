@@ -318,7 +318,8 @@ const EventDetail = () => {
     if (!event?.is_active || !event?.rotating_qr_enabled) return;
 
     const newToken = generateToken();
-    const expiresAt = new Date(Date.now() + 8000).toISOString();
+    // 15 second validity: 3s display + 12s grace period for moderator polling delay + scan time
+    const expiresAt = new Date(Date.now() + 15000).toISOString();
 
     await supabase
       .from('events')
