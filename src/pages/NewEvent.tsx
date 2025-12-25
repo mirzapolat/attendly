@@ -19,16 +19,6 @@ interface Season {
   name: string;
 }
 
-const eventSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(100),
-  description: z.string().max(500).optional(),
-  eventDate: z.string().min(1, 'Date is required'),
-  locationName: z.string().min(2, 'Location name is required'),
-  locationLat: z.number().min(-90).max(90),
-  locationLng: z.number().min(-180).max(180),
-  radiusMeters: z.number().min(50).max(5000),
-});
-
 const NewEvent = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -36,7 +26,12 @@ const NewEvent = () => {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [eventDate, setEventDate] = useState('');
+  const [eventDate, setEventDate] = useState(() => {
+    // Default to current date/time
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  });
   const [locationName, setLocationName] = useState('');
   const [locationLat, setLocationLat] = useState<number | ''>('');
   const [locationLng, setLocationLng] = useState<number | ''>('');
@@ -94,15 +89,38 @@ const NewEvent = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // Build validation schema dynamically based on location check setting
+    const baseSchema = z.object({
+      name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+      description: z.string().max(500).optional(),
+      eventDate: z.string().min(1, 'Date is required'),
+    });
+
+    const locationSchema = locationCheckEnabled
+      ? z.object({
+          locationName: z.string().min(2, 'Location name is required when location check is enabled'),
+          locationLat: z.number().min(-90).max(90),
+          locationLng: z.number().min(-180).max(180),
+          radiusMeters: z.number().min(50).max(5000),
+        })
+      : z.object({
+          locationName: z.string().optional(),
+          locationLat: z.number().optional(),
+          locationLng: z.number().optional(),
+          radiusMeters: z.number().optional(),
+        });
+
+    const eventSchema = baseSchema.merge(locationSchema);
+
     try {
       const data = {
         name,
         description: description || undefined,
         eventDate,
-        locationName,
-        locationLat: typeof locationLat === 'number' ? locationLat : 0,
-        locationLng: typeof locationLng === 'number' ? locationLng : 0,
+        locationName: locationName || undefined,
+        locationLat: typeof locationLat === 'number' ? locationLat : undefined,
+        locationLng: typeof locationLng === 'number' ? locationLng : undefined,
         radiusMeters,
       };
 
@@ -129,9 +147,9 @@ const NewEvent = () => {
         name,
         description: description || null,
         event_date: new Date(eventDate).toISOString(),
-        location_name: locationName,
-        location_lat: locationLat as number,
-        location_lng: locationLng as number,
+        location_name: locationName || 'No location',
+        location_lat: typeof locationLat === 'number' ? locationLat : 0,
+        location_lng: typeof locationLng === 'number' ? locationLng : 0,
         location_radius_meters: radiusMeters,
         season_id: seasonId !== 'none' ? seasonId : null,
         rotating_qr_enabled: rotatingQrEnabled,
@@ -184,7 +202,7 @@ const NewEvent = () => {
               Create New Event
             </CardTitle>
             <CardDescription>
-              Set up an event with location verification for attendance tracking.
+              Set up an event with optional location verification for attendance tracking.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -241,11 +259,31 @@ const NewEvent = () => {
                 </Select>
               </div>
 
+              {/* Location Section with toggle at top */}
               <div className="border border-border rounded-lg p-4 space-y-4">
+                {/* Location Check Toggle - Now at top */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                  <div className="flex items-center gap-3">
+                    <MapPinned className="w-5 h-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium text-sm">Location Check</p>
+                      <p className="text-xs text-muted-foreground">
+                        {locationCheckEnabled
+                          ? 'Location is required and will be verified'
+                          : 'Location is optional'}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={locationCheckEnabled}
+                    onCheckedChange={setLocationCheckEnabled}
+                  />
+                </div>
+
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
-                    Event Location
+                    Event Location {!locationCheckEnabled && <span className="text-muted-foreground text-xs">(Optional)</span>}
                   </Label>
                   <Button
                     type="button"
@@ -310,12 +348,14 @@ const NewEvent = () => {
                     className="w-full"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Attendees must be within this distance from the event location.
+                    {locationCheckEnabled
+                      ? 'Attendees must be within this distance from the event location.'
+                      : 'This will be used if location check is enabled later.'}
                   </p>
                 </div>
               </div>
 
-              {/* Security Features */}
+              {/* Security Features (without location check, which is now above) */}
               <div className="border border-border rounded-lg p-4 space-y-4">
                 <Label className="flex items-center gap-2 text-base font-medium">
                   <Shield className="w-4 h-4" />
@@ -351,20 +391,6 @@ const NewEvent = () => {
                     <Switch
                       checked={deviceFingerprintEnabled}
                       onCheckedChange={setDeviceFingerprintEnabled}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <MapPinned className="w-5 h-5 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium text-sm">Location Check</p>
-                        <p className="text-xs text-muted-foreground">Verify attendees are at the venue</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={locationCheckEnabled}
-                      onCheckedChange={setLocationCheckEnabled}
                     />
                   </div>
                 </div>

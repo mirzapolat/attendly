@@ -49,6 +49,10 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
 
   const [gettingLocation, setGettingLocation] = useState(false);
 
+  // Check if location is properly set
+  const hasValidLocation = locationName && locationName !== 'No location' && 
+    locationLat !== 0 && locationLng !== 0;
+
   const getCurrentLocation = () => {
     setGettingLocation(true);
     navigator.geolocation.getCurrentPosition(
@@ -117,6 +121,16 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
     field: 'rotating_qr_enabled' | 'device_fingerprint_enabled' | 'location_check_enabled',
     value: boolean
   ) => {
+    // If enabling location check, verify location is set
+    if (field === 'location_check_enabled' && value && !hasValidLocation) {
+      toast({
+        variant: 'destructive',
+        title: 'Location required',
+        description: 'Please set a valid location before enabling location check.',
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('events')
@@ -211,11 +225,37 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
               />
             </div>
 
+            {/* Location section with toggle at top */}
             <div className="border border-border rounded-lg p-4 space-y-4">
+              {/* Location Check Toggle - Now at top */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                <div className="flex items-center gap-3">
+                  <MapPinned className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium text-sm">Location Check</p>
+                    <p className="text-xs text-muted-foreground">
+                      {locationCheckEnabled
+                        ? 'Verify attendees are at the venue'
+                        : 'Location verification disabled'}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={locationCheckEnabled}
+                  onCheckedChange={(v) => handleSecurityToggle('location_check_enabled', v)}
+                />
+              </div>
+
+              {!hasValidLocation && locationCheckEnabled && (
+                <p className="text-sm text-warning bg-warning/10 p-2 rounded">
+                  ⚠️ Location check is enabled but no valid location is set. Please add location data.
+                </p>
+              )}
+
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
-                  Location
+                  Location {!locationCheckEnabled && <span className="text-muted-foreground text-xs">(Optional)</span>}
                 </Label>
                 <Button
                   type="button"
@@ -283,7 +323,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
             </Button>
           </div>
 
-          {/* Security Settings */}
+          {/* Security Settings (without location check, which is now in location section) */}
           <div className="border-t border-border pt-6 space-y-4">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5" />
@@ -344,20 +384,6 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                 <Switch
                   checked={deviceFingerprintEnabled}
                   onCheckedChange={(v) => handleSecurityToggle('device_fingerprint_enabled', v)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
-                <div className="flex items-center gap-3">
-                  <MapPinned className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium text-sm">Location Check</p>
-                    <p className="text-xs text-muted-foreground">Verify attendees are at the venue</p>
-                  </div>
-                </div>
-                <Switch
-                  checked={locationCheckEnabled}
-                  onCheckedChange={(v) => handleSecurityToggle('location_check_enabled', v)}
                 />
               </div>
             </div>
