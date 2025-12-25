@@ -664,16 +664,12 @@ const ModeratorView = () => {
                                   size="sm"
                                   className="h-5 px-1.5 text-xs gap-1"
                                   onClick={() => {
-                                    navigator.clipboard.writeText(`${record.location_lat}, ${record.location_lng}`);
-                                    toast({
-                                      title: 'Copied',
-                                      description: 'Coordinates copied to clipboard',
-                                    });
+                                    window.open(`https://www.google.com/maps?q=${record.location_lat},${record.location_lng}`, '_blank');
                                   }}
-                                  title="Copy attendee coordinates"
+                                  title="Show on Google Maps"
                                 >
-                                  <Copy className="w-3 h-3" />
-                                  Copy coords
+                                  <MapPin className="w-3 h-3" />
+                                  Show on map
                                 </Button>
                               )}
                             </div>
