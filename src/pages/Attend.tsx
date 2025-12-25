@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, MapPin, Loader2, QrCode, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, MapPin, Loader2, QrCode, AlertTriangle, Clock } from 'lucide-react';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
@@ -32,7 +32,9 @@ const attendeeSchema = z.object({
   email: z.string().email('Please enter a valid email').max(255),
 });
 
-type SubmitState = 'form' | 'loading' | 'success' | 'error' | 'expired' | 'already-submitted' | 'inactive';
+type SubmitState = 'form' | 'loading' | 'success' | 'error' | 'expired' | 'already-submitted' | 'inactive' | 'time-expired';
+
+const FORM_TIME_LIMIT_MS = 2 * 60 * 1000; // 2 minutes
 
 const Attend = () => {
   const { id } = useParams<{ id: string }>();
@@ -49,8 +51,72 @@ const Attend = () => {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationRequested, setLocationRequested] = useState(false);
   const [locationDenied, setLocationDenied] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<number>(FORM_TIME_LIMIT_MS);
 
   const initialized = useRef(false);
+  const timerRef = useRef<number | null>(null);
+
+  // Get storage key for this event + fingerprint
+  const getStorageKey = (fp: string) => `attend_start_${id}_${fp}`;
+
+  // Check and manage form time limit
+  const checkTimeLimit = (fp: string): boolean => {
+    const storageKey = getStorageKey(fp);
+    const storedData = localStorage.getItem(storageKey);
+    
+    if (storedData) {
+      const startTime = parseInt(storedData, 10);
+      const elapsed = Date.now() - startTime;
+      
+      if (elapsed >= FORM_TIME_LIMIT_MS) {
+        return false; // Time expired
+      }
+      
+      setTimeRemaining(FORM_TIME_LIMIT_MS - elapsed);
+      return true;
+    } else {
+      // First visit - store start time
+      localStorage.setItem(storageKey, Date.now().toString());
+      setTimeRemaining(FORM_TIME_LIMIT_MS);
+      return true;
+    }
+  };
+
+  // Start countdown timer
+  const startTimer = (fp: string) => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    timerRef.current = window.setInterval(() => {
+      const storageKey = getStorageKey(fp);
+      const storedData = localStorage.getItem(storageKey);
+      
+      if (storedData) {
+        const startTime = parseInt(storedData, 10);
+        const elapsed = Date.now() - startTime;
+        const remaining = FORM_TIME_LIMIT_MS - elapsed;
+        
+        if (remaining <= 0) {
+          setTimeRemaining(0);
+          setSubmitState('time-expired');
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+          }
+        } else {
+          setTimeRemaining(remaining);
+        }
+      }
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (initialized.current) return;
@@ -70,6 +136,19 @@ const Attend = () => {
       setFingerprint(`fallback-${Date.now()}-${Math.random().toString(36)}`);
     }
   };
+
+  // Check time limit once fingerprint is ready
+  useEffect(() => {
+    if (!fingerprint || !event || submitState === 'loading') return;
+    if (submitState !== 'form') return;
+
+    const hasTime = checkTimeLimit(fingerprint);
+    if (!hasTime) {
+      setSubmitState('time-expired');
+    } else {
+      startTimer(fingerprint);
+    }
+  }, [fingerprint, event, submitState]);
 
   const fetchEvent = async () => {
     const { data, error } = await supabase
@@ -166,8 +245,24 @@ const Attend = () => {
     return R * c;
   };
 
+  const formatTimeRemaining = (ms: number): string => {
+    const totalSeconds = Math.ceil(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Re-check time limit before submitting
+    if (fingerprint) {
+      const hasTime = checkTimeLimit(fingerprint);
+      if (!hasTime) {
+        setSubmitState('time-expired');
+        return;
+      }
+    }
 
     try {
       attendeeSchema.parse({ name, email });
@@ -252,6 +347,10 @@ const Attend = () => {
           throw error;
         }
       } else {
+        // Clear the timer storage on successful submission
+        if (fingerprint) {
+          localStorage.removeItem(getStorageKey(fingerprint));
+        }
         setSubmitState('success');
       }
     } catch (error: unknown) {
@@ -308,6 +407,22 @@ const Attend = () => {
     );
   }
 
+  if (submitState === 'time-expired') {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
+        <Card className="max-w-md w-full bg-gradient-card text-center">
+          <CardContent className="py-12">
+            <Clock className="w-16 h-16 text-destructive mx-auto mb-4" />
+            <h1 className="text-xl font-semibold mb-2">Time Expired</h1>
+            <p className="text-muted-foreground">
+              You had 2 minutes to complete the form. Please scan the QR code again to get a fresh start.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (submitState === 'already-submitted') {
     return (
       <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
@@ -354,6 +469,17 @@ const Attend = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Time remaining indicator */}
+          <div className={`mb-4 p-3 rounded-lg flex items-center justify-center gap-2 ${
+            timeRemaining <= 30000 ? 'bg-destructive/10 text-destructive' : 'bg-secondary/50 text-muted-foreground'
+          }`}>
+            <Clock className="w-4 h-4" />
+            <span className="font-mono font-medium">
+              {formatTimeRemaining(timeRemaining)}
+            </span>
+            <span className="text-sm">remaining</span>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Your Name</Label>
