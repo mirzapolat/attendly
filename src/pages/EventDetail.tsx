@@ -34,6 +34,8 @@ interface Event {
   device_fingerprint_enabled: boolean;
   location_check_enabled: boolean;
   moderation_enabled: boolean;
+  moderator_show_full_name: boolean;
+  moderator_show_email: boolean;
 }
 
 interface AttendanceRecord {
@@ -445,8 +447,10 @@ const EventDetail = () => {
           eventId={event.id}
           eventName={event.name}
           moderationEnabled={event.moderation_enabled}
+          moderatorShowFullName={event.moderator_show_full_name}
+          moderatorShowEmail={event.moderator_show_email}
           onClose={() => setShowModeration(false)}
-          onUpdate={(enabled) => setEvent((prev) => prev ? { ...prev, moderation_enabled: enabled } : null)}
+          onUpdate={(settings) => setEvent((prev) => prev ? { ...prev, ...settings } : null)}
         />
       )}
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">

@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { X, Plus, Copy, Trash2, Link as LinkIcon, Shield } from 'lucide-react';
+import { X, Plus, Copy, Trash2, Link as LinkIcon, Shield, Eye, EyeOff } from 'lucide-react';
 
 interface ModerationLink {
   id: string;
@@ -20,19 +20,29 @@ interface ModerationSettingsProps {
   eventId: string;
   eventName: string;
   moderationEnabled: boolean;
+  moderatorShowFullName?: boolean;
+  moderatorShowEmail?: boolean;
   onClose: () => void;
-  onUpdate: (enabled: boolean) => void;
+  onUpdate: (settings: {
+    moderation_enabled?: boolean;
+    moderator_show_full_name?: boolean;
+    moderator_show_email?: boolean;
+  }) => void;
 }
 
 const ModerationSettings = ({
   eventId,
   eventName,
   moderationEnabled,
+  moderatorShowFullName = true,
+  moderatorShowEmail = true,
   onClose,
   onUpdate,
 }: ModerationSettingsProps) => {
   const { toast } = useToast();
   const [enabled, setEnabled] = useState(moderationEnabled);
+  const [showFullName, setShowFullName] = useState(moderatorShowFullName);
+  const [showEmail, setShowEmail] = useState(moderatorShowEmail);
   const [links, setLinks] = useState<ModerationLink[]>([]);
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [loading, setLoading] = useState(true);
@@ -68,12 +78,62 @@ const ModerationSettings = ({
     }
 
     setEnabled(value);
-    onUpdate(value);
+    onUpdate({ moderation_enabled: value });
     toast({
       title: value ? 'Moderation enabled' : 'Moderation disabled',
       description: value
         ? 'Moderators can now access this event'
         : 'All moderation links are now inactive',
+    });
+  };
+
+  const toggleShowFullName = async (value: boolean) => {
+    const { error } = await supabase
+      .from('events')
+      .update({ moderator_show_full_name: value })
+      .eq('id', eventId);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update privacy setting',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setShowFullName(value);
+    onUpdate({ moderator_show_full_name: value });
+    toast({
+      title: value ? 'Full names visible' : 'Last names hidden',
+      description: value
+        ? 'Moderators can now see full attendee names'
+        : 'Moderators will only see first names',
+    });
+  };
+
+  const toggleShowEmail = async (value: boolean) => {
+    const { error } = await supabase
+      .from('events')
+      .update({ moderator_show_email: value })
+      .eq('id', eventId);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update privacy setting',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setShowEmail(value);
+    onUpdate({ moderator_show_email: value });
+    toast({
+      title: value ? 'Emails visible' : 'Emails hidden',
+      description: value
+        ? 'Moderators can now see attendee emails'
+        : 'Moderators will not see attendee emails',
     });
   };
 
@@ -158,7 +218,7 @@ const ModerationSettings = ({
           </p>
 
           {/* Enable/Disable Moderation */}
-          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg mb-6">
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg mb-4">
             <div>
               <Label htmlFor="moderation-toggle" className="font-medium">
                 Enable Moderation
@@ -176,6 +236,46 @@ const ModerationSettings = ({
 
           {enabled && (
             <>
+              {/* Privacy Settings */}
+              <div className="mb-6 space-y-3">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  Privacy Settings
+                </Label>
+                
+                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div>
+                    <Label htmlFor="show-fullname" className="text-sm">
+                      Show full names
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      If disabled, moderators only see first names
+                    </p>
+                  </div>
+                  <Switch
+                    id="show-fullname"
+                    checked={showFullName}
+                    onCheckedChange={toggleShowFullName}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div>
+                    <Label htmlFor="show-email" className="text-sm">
+                      Show emails
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      If disabled, moderators cannot see emails
+                    </p>
+                  </div>
+                  <Switch
+                    id="show-email"
+                    checked={showEmail}
+                    onCheckedChange={toggleShowEmail}
+                  />
+                </div>
+              </div>
+
               {/* Create New Link */}
               <div className="mb-6">
                 <Label className="mb-2 block">Create Moderation Link</Label>
