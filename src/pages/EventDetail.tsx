@@ -206,8 +206,9 @@ const EventDetail = () => {
   };
 
   const generateToken = useCallback(() => {
-    // Use cryptographically secure random token
-    return crypto.randomUUID();
+    // Embed timestamp in token for validation: uuid_timestamp
+    const timestamp = Date.now();
+    return `${crypto.randomUUID()}_${timestamp}`;
   }, []);
 
   // Fetch known attendees from same season for autocomplete

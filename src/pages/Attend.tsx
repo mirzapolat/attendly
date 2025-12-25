@@ -88,18 +88,26 @@ const Attend = () => {
 
     // Check if token is valid (only if rotating QR is enabled)
     if (data.rotating_qr_enabled) {
-      if (!token || (data.current_qr_token !== token && token !== 'static')) {
-        if (data.qr_token_expires_at) {
-          const expiresAt = new Date(data.qr_token_expires_at).getTime();
-          const now = Date.now();
-          if (now > expiresAt) {
-            setSubmitState('expired');
-            return;
-          }
-        } else {
-          setSubmitState('expired');
-          return;
-        }
+      if (!token || token === 'static') {
+        setSubmitState('expired');
+        return;
+      }
+      
+      // Parse timestamp from token (format: uuid_timestamp)
+      const tokenParts = token.split('_');
+      if (tokenParts.length < 2) {
+        setSubmitState('expired');
+        return;
+      }
+      
+      const tokenTimestamp = parseInt(tokenParts[tokenParts.length - 1], 10);
+      const now = Date.now();
+      const tokenAge = now - tokenTimestamp;
+      
+      // Token is valid for 8 seconds (3s display + 5s grace period)
+      if (isNaN(tokenTimestamp) || tokenAge > 8000) {
+        setSubmitState('expired');
+        return;
       }
     }
 
