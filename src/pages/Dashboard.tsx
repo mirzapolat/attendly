@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Calendar, BarChart3, Settings, LogOut, QrCode, FolderOpen } from 'lucide-react';
+import { Plus, Calendar, BarChart3, Settings, LogOut, QrCode, FolderOpen, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import EventCard from '@/components/EventCard';
 
 interface Event {
@@ -21,6 +22,9 @@ interface Season {
   name: string;
 }
 
+const EVENTS_PER_PAGE = 5;
+const SEASONS_PER_PAGE = 6;
+
 const Dashboard = () => {
   const { user, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -28,6 +32,12 @@ const Dashboard = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Search and pagination state
+  const [eventSearch, setEventSearch] = useState('');
+  const [seasonSearch, setSeasonSearch] = useState('');
+  const [eventPage, setEventPage] = useState(1);
+  const [seasonPage, setSeasonPage] = useState(1);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -60,6 +70,45 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
+
+  // Filter and paginate events
+  const filteredEvents = useMemo(() => {
+    if (!eventSearch.trim()) return events;
+    const search = eventSearch.toLowerCase();
+    return events.filter(
+      (e) =>
+        e.name.toLowerCase().includes(search) ||
+        new Date(e.event_date).toLocaleDateString().includes(search)
+    );
+  }, [events, eventSearch]);
+
+  const totalEventPages = Math.ceil(filteredEvents.length / EVENTS_PER_PAGE);
+  const paginatedEvents = useMemo(() => {
+    const start = (eventPage - 1) * EVENTS_PER_PAGE;
+    return filteredEvents.slice(start, start + EVENTS_PER_PAGE);
+  }, [filteredEvents, eventPage]);
+
+  // Filter and paginate seasons
+  const filteredSeasons = useMemo(() => {
+    if (!seasonSearch.trim()) return seasons;
+    const search = seasonSearch.toLowerCase();
+    return seasons.filter((s) => s.name.toLowerCase().includes(search));
+  }, [seasons, seasonSearch]);
+
+  const totalSeasonPages = Math.ceil(filteredSeasons.length / SEASONS_PER_PAGE);
+  const paginatedSeasons = useMemo(() => {
+    const start = (seasonPage - 1) * SEASONS_PER_PAGE;
+    return filteredSeasons.slice(start, start + SEASONS_PER_PAGE);
+  }, [filteredSeasons, seasonPage]);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setEventPage(1);
+  }, [eventSearch]);
+
+  useEffect(() => {
+    setSeasonPage(1);
+  }, [seasonSearch]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -156,7 +205,21 @@ const Dashboard = () => {
 
         {/* Events List */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">Recent Events</h2>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <h2 className="text-xl font-semibold">Recent Events</h2>
+            {events.length > 0 && (
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search events..."
+                  value={eventSearch}
+                  onChange={(e) => setEventSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            )}
+          </div>
+
           {events.length === 0 ? (
             <Card className="bg-gradient-card">
               <CardContent className="py-12 text-center">
@@ -167,49 +230,126 @@ const Dashboard = () => {
                 </Link>
               </CardContent>
             </Card>
+          ) : filteredEvents.length === 0 ? (
+            <Card className="bg-gradient-card">
+              <CardContent className="py-8 text-center">
+                <p className="text-muted-foreground">No events match your search</p>
+              </CardContent>
+            </Card>
           ) : (
-            <div className="grid gap-3">
-              {events.slice(0, 5).map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  seasons={seasons}
-                  onEventDeleted={fetchData}
-                  onEventUpdated={fetchData}
-                />
-              ))}
-              {events.length > 5 && (
-                <Link to="/events" className="text-center text-sm text-primary hover:underline py-2">
-                  View all {events.length} events
-                </Link>
+            <>
+              <div className="grid gap-3">
+                {paginatedEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    seasons={seasons}
+                    onEventDeleted={fetchData}
+                    onEventUpdated={fetchData}
+                  />
+                ))}
+              </div>
+
+              {/* Event Pagination */}
+              {totalEventPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEventPage((p) => Math.max(1, p - 1))}
+                    disabled={eventPage === 1}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {eventPage} of {totalEventPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEventPage((p) => Math.min(totalEventPages, p + 1))}
+                    disabled={eventPage === totalEventPages}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
               )}
-            </div>
+            </>
           )}
         </div>
 
         {/* Seasons */}
         {seasons.length > 0 && (
           <div>
-            <h2 className="text-xl font-semibold mb-4">Seasons</h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {seasons.map((season) => (
-                <Link key={season.id} to={`/seasons/${season.id}`}>
-                  <Card className="bg-gradient-card hover:border-primary/50 transition-colors cursor-pointer">
-                    <CardContent className="py-4 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <BarChart3 className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{season.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {events.filter(e => e.season_id === season.id).length} events
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <h2 className="text-xl font-semibold">Seasons</h2>
+              {seasons.length > 0 && (
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search seasons..."
+                    value={seasonSearch}
+                    onChange={(e) => setSeasonSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              )}
             </div>
+
+            {filteredSeasons.length === 0 ? (
+              <Card className="bg-gradient-card">
+                <CardContent className="py-8 text-center">
+                  <p className="text-muted-foreground">No seasons match your search</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {paginatedSeasons.map((season) => (
+                    <Link key={season.id} to={`/seasons/${season.id}`}>
+                      <Card className="bg-gradient-card hover:border-primary/50 transition-colors cursor-pointer">
+                        <CardContent className="py-4 flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <BarChart3 className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{season.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {events.filter(e => e.season_id === season.id).length} events
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+
+                {/* Season Pagination */}
+                {totalSeasonPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSeasonPage((p) => Math.max(1, p - 1))}
+                      disabled={seasonPage === 1}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {seasonPage} of {totalSeasonPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSeasonPage((p) => Math.min(totalSeasonPages, p + 1))}
+                      disabled={seasonPage === totalSeasonPages}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </main>
