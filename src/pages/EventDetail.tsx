@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, Play, Square, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -37,6 +37,23 @@ interface AttendanceRecord {
   recorded_at: string;
 }
 
+// Helper to mask last name (keep first name visible)
+const maskName = (fullName: string): string => {
+  const parts = fullName.trim().split(' ');
+  if (parts.length <= 1) return fullName;
+  const firstName = parts[0];
+  const maskedLast = parts.slice(1).map(p => p[0] + '•'.repeat(Math.max(0, p.length - 1))).join(' ');
+  return `${firstName} ${maskedLast}`;
+};
+
+// Helper to mask email
+const maskEmail = (email: string): string => {
+  const [local, domain] = email.split('@');
+  if (!domain) return email;
+  const maskedLocal = local[0] + '•'.repeat(Math.max(0, local.length - 1));
+  return `${maskedLocal}@${domain}`;
+};
+
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
@@ -50,6 +67,11 @@ const EventDetail = () => {
   const [timeLeft, setTimeLeft] = useState(3);
   const intervalRef = useRef<number | null>(null);
   const tokenTimeoutRef = useRef<number | null>(null);
+  
+  // Privacy controls
+  const [showAllDetails, setShowAllDetails] = useState(false);
+  const [revealedNames, setRevealedNames] = useState<Set<string>>(new Set());
+  const [revealedEmails, setRevealedEmails] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -61,6 +83,58 @@ const EventDetail = () => {
     if (user && id) {
       fetchEvent();
       fetchAttendance();
+      
+      // Subscribe to real-time attendance updates
+      const channel = supabase
+        .channel('attendance-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'attendance_records',
+            filter: `event_id=eq.${id}`
+          },
+          (payload) => {
+            console.log('New attendance:', payload);
+            setAttendance((prev) => [payload.new as AttendanceRecord, ...prev]);
+            toast({
+              title: 'New attendee',
+              description: `${maskName((payload.new as AttendanceRecord).attendee_name)} checked in`,
+            });
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'attendance_records',
+            filter: `event_id=eq.${id}`
+          },
+          (payload) => {
+            setAttendance((prev) => 
+              prev.map((r) => r.id === (payload.new as AttendanceRecord).id ? payload.new as AttendanceRecord : r)
+            );
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'attendance_records',
+            filter: `event_id=eq.${id}`
+          },
+          (payload) => {
+            setAttendance((prev) => prev.filter((r) => r.id !== (payload.old as { id: string }).id));
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user, id]);
 
@@ -87,7 +161,31 @@ const EventDetail = () => {
     if (data) setAttendance(data as AttendanceRecord[]);
   };
 
-const generateToken = useCallback(() => {
+  const toggleRevealName = (recordId: string) => {
+    setRevealedNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(recordId)) {
+        next.delete(recordId);
+      } else {
+        next.add(recordId);
+      }
+      return next;
+    });
+  };
+
+  const toggleRevealEmail = (recordId: string) => {
+    setRevealedEmails((prev) => {
+      const next = new Set(prev);
+      if (next.has(recordId)) {
+        next.delete(recordId);
+      } else {
+        next.add(recordId);
+      }
+      return next;
+    });
+  };
+
+  const generateToken = useCallback(() => {
     // Use cryptographically secure random token
     return crypto.randomUUID();
   }, []);
@@ -315,10 +413,21 @@ const generateToken = useCallback(() => {
 
           {/* Attendance List */}
           <div>
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Attendance ({attendance.length})
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Attendance ({attendance.length})
+              </h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAllDetails(!showAllDetails)}
+                className="gap-2"
+              >
+                {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showAllDetails ? 'Hide Details' : 'Show Details'}
+              </Button>
+            </div>
             {attendance.length === 0 ? (
               <Card className="bg-gradient-card">
                 <CardContent className="py-12 text-center">
@@ -332,9 +441,17 @@ const generateToken = useCallback(() => {
                   <Card key={record.id} className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}>
                     <CardContent className="py-3">
                       <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <p className="font-medium truncate">{record.attendee_name}</p>
+                            <p 
+                              className={`font-medium truncate ${!showAllDetails && !revealedNames.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
+                              onClick={() => !showAllDetails && toggleRevealName(record.id)}
+                              title={!showAllDetails && !revealedNames.has(record.id) ? 'Click to reveal' : undefined}
+                            >
+                              {showAllDetails || revealedNames.has(record.id) 
+                                ? record.attendee_name 
+                                : maskName(record.attendee_name)}
+                            </p>
                             <Badge variant={
                               record.status === 'verified' ? 'default' :
                               record.status === 'suspicious' ? 'destructive' : 'secondary'
@@ -342,7 +459,15 @@ const generateToken = useCallback(() => {
                               {record.status}
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground truncate">{record.attendee_email}</p>
+                          <p 
+                            className={`text-sm text-muted-foreground truncate ${!showAllDetails && !revealedEmails.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
+                            onClick={() => !showAllDetails && toggleRevealEmail(record.id)}
+                            title={!showAllDetails && !revealedEmails.has(record.id) ? 'Click to reveal' : undefined}
+                          >
+                            {showAllDetails || revealedEmails.has(record.id) 
+                              ? record.attendee_email 
+                              : maskEmail(record.attendee_email)}
+                          </p>
                           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                             <span>{format(new Date(record.recorded_at), 'p')}</span>
                             <span className="flex items-center gap-1">
