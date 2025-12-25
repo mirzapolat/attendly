@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Upload, UserPlus } from 'lucide-react';
+import { Download, Upload, FileText, UserPlus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 
 interface AttendanceRecord {
@@ -313,24 +319,24 @@ const AttendeeActions = ({
           onChange={handleFileSelect}
           className="hidden"
         />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => fileInputRef.current?.click()}
-          className="gap-2"
-        >
-          <Upload className="w-4 h-4" />
-          Import CSV
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setManualImportOpen(true)}
-          className="gap-2"
-        >
-          <UserPlus className="w-4 h-4" />
-          Manual Import
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Upload className="w-4 h-4" />
+              Import
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => fileInputRef.current?.click()} className="gap-2">
+              <FileText className="w-4 h-4" />
+              CSV File
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setManualImportOpen(true)} className="gap-2">
+              <UserPlus className="w-4 h-4" />
+              Manual Entry
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <Dialog open={manualImportOpen} onOpenChange={setManualImportOpen}>
