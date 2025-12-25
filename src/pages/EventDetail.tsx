@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, Play, Square, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2, Search
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EventSettings from '@/components/EventSettings';
@@ -101,6 +101,10 @@ const EventDetail = () => {
   // Settings modals
   const [showSettings, setShowSettings] = useState(false);
   const [showModeration, setShowModeration] = useState(false);
+
+  // Search and filter
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious'>('all');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -557,23 +561,32 @@ const EventDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Stats */}
+            {/* Stats - clickable filters */}
             <div className="grid grid-cols-3 gap-4 mt-4">
-              <Card className="bg-gradient-card">
+              <Card 
+                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-primary/50 ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
+                onClick={() => setStatusFilter('all')}
+              >
                 <CardContent className="py-4 text-center">
                   <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
                   <p className="text-2xl font-bold">{attendance.length}</p>
                   <p className="text-xs text-muted-foreground">Total</p>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-card">
+              <Card 
+                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-success/50 ${statusFilter === 'verified' ? 'ring-2 ring-success' : ''}`}
+                onClick={() => setStatusFilter('verified')}
+              >
                 <CardContent className="py-4 text-center">
                   <CheckCircle className="w-5 h-5 mx-auto mb-1 text-success" />
                   <p className="text-2xl font-bold">{verifiedCount}</p>
                   <p className="text-xs text-muted-foreground">Verified</p>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-card">
+              <Card 
+                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-warning/50 ${statusFilter === 'suspicious' ? 'ring-2 ring-warning' : ''}`}
+                onClick={() => setStatusFilter('suspicious')}
+              >
                 <CardContent className="py-4 text-center">
                   <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-warning" />
                   <p className="text-2xl font-bold">{suspiciousCount}</p>
@@ -616,6 +629,17 @@ const EventDetail = () => {
                   {showAllDetails ? 'Hide' : 'Show'}
                 </Button>
               </div>
+            </div>
+
+            {/* Search bar */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
             </div>
 
             {/* Manual Add Form */}
@@ -672,16 +696,41 @@ const EventDetail = () => {
                 </CardContent>
               </Card>
             )}
-            {attendance.length === 0 ? (
-              <Card className="bg-gradient-card">
-                <CardContent className="py-12 text-center">
-                  <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No attendance records yet</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                {attendance.map((record) => (
+            {(() => {
+              const filteredAttendance = attendance.filter((record) => {
+                const matchesSearch = searchQuery === '' || 
+                  record.attendee_name.toLowerCase().includes(searchQuery.toLowerCase());
+                const matchesStatus = statusFilter === 'all' ||
+                  (statusFilter === 'verified' && (record.status === 'verified' || record.status === 'cleared')) ||
+                  (statusFilter === 'suspicious' && record.status === 'suspicious');
+                return matchesSearch && matchesStatus;
+              });
+
+              if (attendance.length === 0) {
+                return (
+                  <Card className="bg-gradient-card">
+                    <CardContent className="py-12 text-center">
+                      <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No attendance records yet</p>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              if (filteredAttendance.length === 0) {
+                return (
+                  <Card className="bg-gradient-card">
+                    <CardContent className="py-12 text-center">
+                      <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No matching attendees found</p>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              return (
+                <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                  {filteredAttendance.map((record) => (
                   <Card key={record.id} className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}>
                     <CardContent className="py-3">
                       <div className="flex items-start justify-between gap-4">
@@ -776,8 +825,9 @@ const EventDetail = () => {
                     </CardContent>
                   </Card>
                 ))}
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </main>
