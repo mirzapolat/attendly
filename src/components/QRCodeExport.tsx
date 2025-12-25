@@ -1,9 +1,9 @@
-import { useRef, useCallback } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Download } from 'lucide-react';
 import { format } from 'date-fns';
+import QRCode from 'qrcode';
 
 interface QRCodeExportProps {
   url: string;
@@ -13,98 +13,107 @@ interface QRCodeExportProps {
 
 const QRCodeExport = ({ url, eventName, eventDate }: QRCodeExportProps) => {
   const { toast } = useToast();
-  const qrContainerRef = useRef<HTMLDivElement>(null);
 
-  const downloadQRCode = useCallback(() => {
-    // Create a canvas to draw the QR code with label
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  const downloadQRCode = useCallback(async () => {
+    try {
+      // Generate QR code as data URL
+      const qrDataUrl = await QRCode.toDataURL(url, {
+        width: 300,
+        margin: 2,
+        errorCorrectionLevel: 'M',
+      });
 
-    const qrSize = 300;
-    const padding = 40;
-    const labelHeight = 80;
-    const totalWidth = qrSize + padding * 2;
-    const totalHeight = qrSize + padding * 2 + labelHeight;
+      // Create canvas to combine label and QR code
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        toast({
+          title: 'Error',
+          description: 'Could not create canvas',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-    canvas.width = totalWidth;
-    canvas.height = totalHeight;
+      const qrSize = 300;
+      const padding = 40;
+      const labelHeight = 70;
+      const totalWidth = qrSize + padding * 2;
+      const totalHeight = qrSize + padding + labelHeight;
 
-    // White background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, totalWidth, totalHeight);
+      canvas.width = totalWidth;
+      canvas.height = totalHeight;
 
-    // Draw event title
-    ctx.fillStyle = '#000000';
-    ctx.font = 'bold 18px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    
-    // Truncate title if too long
-    let displayTitle = eventName;
-    while (ctx.measureText(displayTitle).width > totalWidth - 40 && displayTitle.length > 0) {
-      displayTitle = displayTitle.slice(0, -1);
-    }
-    if (displayTitle !== eventName) {
-      displayTitle = displayTitle.slice(0, -3) + '...';
-    }
-    
-    ctx.fillText(displayTitle, totalWidth / 2, padding);
+      // White background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, totalWidth, totalHeight);
 
-    // Draw event date
-    ctx.font = '14px Arial, sans-serif';
-    ctx.fillStyle = '#666666';
-    const formattedDate = format(new Date(eventDate), 'PPP');
-    ctx.fillText(formattedDate, totalWidth / 2, padding + 24);
+      // Draw event title
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 18px Arial, sans-serif';
+      ctx.textAlign = 'center';
 
-    // Get QR code SVG and convert to image
-    const svg = qrContainerRef.current?.querySelector('svg');
-    if (!svg) {
+      // Truncate title if too long
+      let displayTitle = eventName;
+      while (ctx.measureText(displayTitle).width > totalWidth - 40 && displayTitle.length > 0) {
+        displayTitle = displayTitle.slice(0, -1);
+      }
+      if (displayTitle !== eventName) {
+        displayTitle = displayTitle.slice(0, -3) + '...';
+      }
+
+      ctx.fillText(displayTitle, totalWidth / 2, 30);
+
+      // Draw event date
+      ctx.font = '14px Arial, sans-serif';
+      ctx.fillStyle = '#666666';
+      const formattedDate = format(new Date(eventDate), 'PPP');
+      ctx.fillText(formattedDate, totalWidth / 2, 52);
+
+      // Load and draw QR code
+      const qrImage = new Image();
+      qrImage.onload = () => {
+        ctx.drawImage(qrImage, padding, labelHeight, qrSize, qrSize);
+
+        // Convert to JPG and download
+        const jpgUrl = canvas.toDataURL('image/jpeg', 0.95);
+        const link = document.createElement('a');
+        link.download = `${eventName.replace(/[^a-z0-9]/gi, '_')}_QR.jpg`;
+        link.href = jpgUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        toast({
+          title: 'Downloaded',
+          description: 'QR code saved with event label',
+        });
+      };
+
+      qrImage.onerror = () => {
+        toast({
+          title: 'Error',
+          description: 'Failed to generate QR code image',
+          variant: 'destructive',
+        });
+      };
+
+      qrImage.src = qrDataUrl;
+    } catch (error) {
+      console.error('QR export error:', error);
       toast({
         title: 'Error',
-        description: 'Could not find QR code',
+        description: 'Failed to generate QR code',
         variant: 'destructive',
       });
-      return;
     }
-
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const svgUrl = URL.createObjectURL(svgBlob);
-
-    const img = new Image();
-    img.onload = () => {
-      // Draw QR code below the label
-      ctx.drawImage(img, padding, labelHeight, qrSize, qrSize);
-
-      // Convert to JPG and download
-      const jpgUrl = canvas.toDataURL('image/jpeg', 0.95);
-      const link = document.createElement('a');
-      link.download = `${eventName.replace(/[^a-z0-9]/gi, '_')}_QR.jpg`;
-      link.href = jpgUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      URL.revokeObjectURL(svgUrl);
-
-      toast({
-        title: 'Downloaded',
-        description: 'QR code saved with event label',
-      });
-    };
-    img.src = svgUrl;
-  }, [eventName, eventDate, toast]);
+  }, [url, eventName, eventDate, toast]);
 
   return (
-    <div>
-      <div ref={qrContainerRef} className="hidden">
-        <QRCodeSVG value={url} size={300} level="M" />
-      </div>
-      <Button variant="outline" size="sm" onClick={downloadQRCode} className="gap-2">
-        <Download className="w-4 h-4" />
-        Download QR
-      </Button>
-    </div>
+    <Button variant="outline" size="sm" onClick={downloadQRCode} className="gap-2">
+      <Download className="w-4 h-4" />
+      Download QR
+    </Button>
   );
 };
 
