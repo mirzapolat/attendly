@@ -46,7 +46,7 @@ const Index = () => {
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up">
             <Link to="/auth?mode=signup">
               <Button variant="hero" size="lg" className="gap-2 text-lg px-8">
-                Start Free
+                Get Started
                 <Zap className="w-5 h-5" />
               </Button>
             </Link>
@@ -260,7 +260,7 @@ const Index = () => {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link to="/auth?mode=signup">
                   <Button variant="hero" size="lg" className="gap-2">
-                    Create Free Account
+                    Create Account
                     <ArrowRight className="w-5 h-5" />
                   </Button>
                 </Link>
