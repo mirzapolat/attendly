@@ -5,25 +5,8 @@ import { QrCode, Shield, BarChart3, Users } from 'lucide-react';
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <QrCode className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-semibold text-lg">Attendly</span>
-          </div>
-          <Link to="/auth">
-            <Button variant="default" size="sm">
-              Sign In
-            </Button>
-          </Link>
-        </div>
-      </header>
-
       {/* Hero */}
-      <main className="pt-32 pb-20">
+      <main className="pt-20 pb-20">
         <div className="container mx-auto px-6">
           <div className="max-w-3xl mx-auto text-center animate-fade-in">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
