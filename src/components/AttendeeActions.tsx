@@ -1,8 +1,16 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Upload } from 'lucide-react';
+import { Download, Upload, UserPlus } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 interface AttendanceRecord {
   id: string;
@@ -32,6 +40,9 @@ const AttendeeActions = ({
 }: AttendeeActionsProps) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [manualImportOpen, setManualImportOpen] = useState(false);
+  const [emailsText, setEmailsText] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
 
   const exportToCsv = async () => {
     // Fetch full attendance records including fingerprint
@@ -213,6 +224,54 @@ const AttendeeActions = ({
     reader.readAsText(file);
   };
 
+  const handleManualImport = async () => {
+    const lines = emailsText
+      .split('\n')
+      .map((line) => line.trim().toLowerCase())
+      .filter((line) => line && line.includes('@'));
+
+    if (lines.length === 0) {
+      toast({
+        title: 'No valid emails',
+        description: 'Please enter at least one valid email address',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsImporting(true);
+
+    const records = lines.map((email) => ({
+      event_id: eventId,
+      attendee_name: email.split('@')[0],
+      attendee_email: email,
+      device_fingerprint: `manual-${crypto.randomUUID()}`,
+      status: 'verified' as const,
+      location_provided: false,
+    }));
+
+    const { error } = await supabase.from('attendance_records').insert(records);
+
+    setIsImporting(false);
+
+    if (error) {
+      console.error('Manual import error:', error);
+      toast({
+        title: 'Import failed',
+        description: 'Some records may have failed to import',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Import complete',
+        description: `Imported ${records.length} attendees`,
+      });
+      setManualImportOpen(false);
+      setEmailsText('');
+      onImportComplete();
+    }
+  };
+
   // Helper to parse CSV line handling quoted values
   const parseCSVLine = (line: string): string[] => {
     const result: string[] = [];
@@ -241,28 +300,71 @@ const AttendeeActions = ({
   };
 
   return (
-    <div className="flex gap-2">
-      <Button variant="outline" size="sm" onClick={exportToCsv} className="gap-2">
-        <Download className="w-4 h-4" />
-        Export CSV
-      </Button>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".csv"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => fileInputRef.current?.click()}
-        className="gap-2"
-      >
-        <Upload className="w-4 h-4" />
-        Import CSV
-      </Button>
-    </div>
+    <>
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={exportToCsv} className="gap-2">
+          <Download className="w-4 h-4" />
+          Export CSV
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fileInputRef.current?.click()}
+          className="gap-2"
+        >
+          <Upload className="w-4 h-4" />
+          Import CSV
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setManualImportOpen(true)}
+          className="gap-2"
+        >
+          <UserPlus className="w-4 h-4" />
+          Manual Import
+        </Button>
+      </div>
+
+      <Dialog open={manualImportOpen} onOpenChange={setManualImportOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manual Import</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Enter email addresses, one per line. The name will be extracted from the email.
+            </p>
+            <Textarea
+              placeholder="john.doe@example.com&#10;jane.smith@example.com&#10;..."
+              value={emailsText}
+              onChange={(e) => setEmailsText(e.target.value)}
+              rows={8}
+              className="font-mono text-sm"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setManualImportOpen(false)}
+              disabled={isImporting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleManualImport} disabled={isImporting || !emailsText.trim()}>
+              {isImporting ? 'Importing...' : 'Import'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
