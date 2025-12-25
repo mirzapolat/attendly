@@ -185,6 +185,15 @@ const Attend = () => {
       }
     }
 
+    // If device fingerprinting is enabled, ensure fingerprint is ready
+    if (event?.device_fingerprint_enabled && !fingerprint) {
+      toast({
+        title: 'Loading device verification',
+        description: 'Please try again in a second.',
+      });
+      return;
+    }
+
     // Only request location if location check is enabled
     if (event?.location_check_enabled && !locationRequested) {
       requestLocation();
@@ -220,20 +229,24 @@ const Attend = () => {
     }
 
     try {
+      const deviceFingerprintToStore = event?.device_fingerprint_enabled
+        ? fingerprint
+        : `no-fp-${crypto.randomUUID()}`;
+
       const { error } = await supabase.from('attendance_records').insert({
         event_id: id,
         attendee_name: name.trim(),
         attendee_email: email.trim().toLowerCase(),
-        device_fingerprint: fingerprint,
-        location_lat: location?.lat || null,
-        location_lng: location?.lng || null,
-        location_provided: !!location,
+        device_fingerprint: deviceFingerprintToStore,
+        location_lat: event?.location_check_enabled ? (location?.lat || null) : null,
+        location_lng: event?.location_check_enabled ? (location?.lng || null) : null,
+        location_provided: event?.location_check_enabled ? !!location : false,
         status,
         suspicious_reason: suspiciousReason,
       });
 
       if (error) {
-        if (error.code === '23505') {
+        if (error.code === '23505' && event?.device_fingerprint_enabled) {
           setSubmitState('already-submitted');
         } else {
           throw error;
