@@ -232,15 +232,22 @@ const SeasonDetail = () => {
       new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
     );
 
+    // Helper to escape CSV values
+    const escapeCSV = (value: string) => `"${value.replace(/"/g, '""')}"`;
+
     // Build CSV header
-    const headers = ['Name', 'Email', ...sortedEvents.map(e => `${e.name} (${format(new Date(e.event_date), 'MMM d, yyyy')})`)];
+    const headers = [
+      escapeCSV('Name'), 
+      escapeCSV('Email'), 
+      ...sortedEvents.map(e => escapeCSV(`${e.name} (${format(new Date(e.event_date), 'MMM d, yyyy')})`))
+    ];
     
     // Build CSV rows
     const rows = memberStats.map(member => {
       const cells = [
-        `"${member.name.replace(/"/g, '""')}"`,
-        `"${member.email.replace(/"/g, '""')}"`,
-        ...sortedEvents.map(event => member.attendedEventIds.has(event.id) ? 'Attended' : ''),
+        escapeCSV(member.name),
+        escapeCSV(member.email),
+        ...sortedEvents.map(event => escapeCSV(member.attendedEventIds.has(event.id) ? 'Attended' : '')),
       ];
       return cells.join(',');
     });
