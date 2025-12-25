@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, Play, Square, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EventSettings from '@/components/EventSettings';
@@ -41,6 +41,8 @@ interface AttendanceRecord {
   status: 'verified' | 'suspicious' | 'cleared';
   suspicious_reason: string | null;
   location_provided: boolean;
+  location_lat: number | null;
+  location_lng: number | null;
   recorded_at: string;
 }
 
@@ -696,10 +698,30 @@ const EventDetail = () => {
                             </span>
                           </div>
                           {record.suspicious_reason && (
-                            <p className="text-xs text-warning mt-1 flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" />
-                              {record.suspicious_reason}
-                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-xs text-warning flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                {record.suspicious_reason}
+                              </p>
+                              {record.location_lat != null && record.location_lng != null && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5 text-xs gap-1"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`${record.location_lat}, ${record.location_lng}`);
+                                    toast({
+                                      title: 'Copied',
+                                      description: 'Coordinates copied to clipboard',
+                                    });
+                                  }}
+                                  title="Copy attendee coordinates"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                  Copy coords
+                                </Button>
+                              )}
+                            </div>
                           )}
                         </div>
                         <div className="flex items-center gap-1">
