@@ -10,9 +10,10 @@ import { useToast } from '@/hooks/use-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, Play, Square, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Download
 } from 'lucide-react';
 import { format } from 'date-fns';
+import EventSettings from '@/components/EventSettings';
 
 interface Event {
   id: string;
@@ -26,6 +27,9 @@ interface Event {
   is_active: boolean;
   current_qr_token: string | null;
   qr_token_expires_at: string | null;
+  rotating_qr_enabled: boolean;
+  device_fingerprint_enabled: boolean;
+  location_check_enabled: boolean;
 }
 
 interface AttendanceRecord {
@@ -85,6 +89,9 @@ const EventDetail = () => {
   const [manualEmail, setManualEmail] = useState('');
   const [suggestions, setSuggestions] = useState<KnownAttendee[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  
+  // Settings modal
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -298,10 +305,10 @@ const EventDetail = () => {
   };
 
   const updateQRCode = useCallback(async () => {
-    if (!event?.is_active) return;
+    if (!event?.is_active || !event?.rotating_qr_enabled) return;
 
     const newToken = generateToken();
-    const expiresAt = new Date(Date.now() + 8000).toISOString(); // 5 seconds after next change (3s interval + 5s grace)
+    const expiresAt = new Date(Date.now() + 8000).toISOString();
 
     await supabase
       .from('events')
@@ -313,16 +320,15 @@ const EventDetail = () => {
 
     setQrToken(newToken);
     setTimeLeft(3);
-  }, [id, event?.is_active, generateToken]);
+  }, [id, event?.is_active, event?.rotating_qr_enabled, generateToken]);
 
   useEffect(() => {
-    if (event?.is_active) {
+    if (event?.is_active && event?.rotating_qr_enabled) {
       updateQRCode();
       intervalRef.current = window.setInterval(() => {
         updateQRCode();
       }, 3000);
 
-      // Countdown timer
       const countdownInterval = window.setInterval(() => {
         setTimeLeft((prev) => (prev > 1 ? prev - 1 : 3));
       }, 1000);
@@ -331,8 +337,15 @@ const EventDetail = () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         clearInterval(countdownInterval);
       };
+    } else if (event?.is_active && !event?.rotating_qr_enabled) {
+      // Static QR - set once
+      setQrToken('static');
     }
-  }, [event?.is_active, updateQRCode]);
+  }, [event?.is_active, event?.rotating_qr_enabled, updateQRCode]);
+
+  const handleEventUpdate = (updates: Partial<Event>) => {
+    setEvent((prev) => prev ? { ...prev, ...updates } : null);
+  };
 
   const toggleActive = async () => {
     const newStatus = !event?.is_active;
@@ -412,28 +425,40 @@ const EventDetail = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      {showSettings && event && (
+        <EventSettings
+          event={event}
+          onClose={() => setShowSettings(false)}
+          onUpdate={handleEventUpdate}
+        />
+      )}
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/dashboard" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Dashboard
           </Link>
-          <Button
-            variant={event.is_active ? 'destructive' : 'hero'}
-            onClick={toggleActive}
-          >
-            {event.is_active ? (
-              <>
-                <Square className="w-4 h-4" />
-                Stop Event
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4" />
-                Start Event
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setShowSettings(true)}>
+              <Settings className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={event.is_active ? 'destructive' : 'hero'}
+              onClick={toggleActive}
+            >
+              {event.is_active ? (
+                <>
+                  <Square className="w-4 h-4" />
+                  Stop Event
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4" />
+                  Start Event
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -470,8 +495,14 @@ const EventDetail = () => {
                       />
                     </div>
                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      Refreshing in {timeLeft}s
+                      {event.rotating_qr_enabled ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Refreshing in {timeLeft}s
+                        </>
+                      ) : (
+                        <span>Static QR Code</span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
                       Attendees scan this code to mark attendance
