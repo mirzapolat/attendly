@@ -413,9 +413,10 @@ const ModeratorView = () => {
           <p className="text-muted-foreground mb-4">
             This moderation link is invalid or has been deactivated.
           </p>
-          <Link to="/">
-            <Button>Go Home</Button>
-          </Link>
+          <Button onClick={() => window.location.reload()}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh Page
+          </Button>
         </div>
       </div>
     );
