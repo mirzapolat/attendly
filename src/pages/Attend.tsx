@@ -69,9 +69,10 @@ const Attend = () => {
   };
 
   const fetchEvent = async () => {
+    // Only select necessary fields - exclude admin_id and other sensitive data
     const { data, error } = await supabase
       .from('events')
-      .select('*')
+      .select('id, name, event_date, location_name, location_lat, location_lng, location_radius_meters, current_qr_token, qr_token_expires_at, is_active')
       .eq('id', id)
       .eq('is_active', true)
       .maybeSingle();
