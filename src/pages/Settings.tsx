@@ -104,23 +104,16 @@ const Settings = () => {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      return;
-    }
-
-    if (!confirm('This will permanently delete all your events, seasons, and attendance data. Continue?')) {
+    if (!confirm('Are you sure you want to delete your account? This will permanently delete all your events, seasons, and attendance data. This action cannot be undone.')) {
       return;
     }
 
     setDeleting(true);
 
     try {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', user!.id);
+      const { error } = await supabase.rpc('delete_own_account');
 
-      if (profileError) throw profileError;
+      if (error) throw error;
 
       await signOut();
       navigate('/');
@@ -129,11 +122,11 @@ const Settings = () => {
         title: 'Account deleted',
         description: 'Your account has been permanently deleted.',
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: sanitizeError(error),
+        description: error.message || 'An error occurred',
       });
       setDeleting(false);
     }

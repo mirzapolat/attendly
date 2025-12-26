@@ -76,6 +76,13 @@ const Auth = () => {
               title: 'Account exists',
               description: 'This email is already registered. Please sign in.',
             });
+          } 
+          else if (error.message.includes('Signups not allowed')) {
+            toast({
+              variant: 'destructive',
+              title: 'Signups not allowed',
+              description: 'New signups are currently deactivated by the system administrator. Please contact support for assistance.',
+            });
           } else {
             toast({
               variant: 'destructive',
