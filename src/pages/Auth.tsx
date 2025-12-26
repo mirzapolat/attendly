@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { QrCode, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
+import { usePageTitle } from '@/hooks/usePageTitle';
 
 const signInSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -120,6 +121,12 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  if (mode === 'signin') {
+    usePageTitle('Sign In to Attendly');
+  } else {
+    usePageTitle('Sign Up to Attendly');
+  }
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex flex-col">
