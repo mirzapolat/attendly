@@ -51,24 +51,37 @@ const Seasons = () => {
   }, [user]);
 
   const fetchData = async () => {
-    const [seasonsRes, eventsRes] = await Promise.all([
-      supabase.from('seasons').select('*').order('created_at', { ascending: false }),
-      supabase.from('events').select('season_id'),
-    ]);
+    try {
+      const [seasonsRes, eventsRes] = await Promise.all([
+        supabase.from('seasons').select('*').order('created_at', { ascending: false }),
+        supabase.from('events').select('season_id'),
+      ]);
 
-    if (seasonsRes.data) setSeasons(seasonsRes.data);
+      const fetchError = seasonsRes.error || eventsRes.error;
+      if (fetchError) {
+        throw fetchError;
+      }
 
-    if (eventsRes.data) {
-      const counts: Record<string, number> = {};
-      eventsRes.data.forEach((event) => {
-        if (event.season_id) {
-          counts[event.season_id] = (counts[event.season_id] || 0) + 1;
-        }
+      if (seasonsRes.data) setSeasons(seasonsRes.data);
+
+      if (eventsRes.data) {
+        const counts: Record<string, number> = {};
+        eventsRes.data.forEach((event) => {
+          if (event.season_id) {
+            counts[event.season_id] = (counts[event.season_id] || 0) + 1;
+          }
+        });
+        setEventCounts(counts);
+      }
+    } catch (error: unknown) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: sanitizeError(error),
       });
-      setEventCounts(counts);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handleCreate = async (e: React.FormEvent) => {

@@ -53,7 +53,6 @@ const Attend = () => {
   const [locationDenied, setLocationDenied] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number>(FORM_TIME_LIMIT_MS);
 
-  const initialized = useRef(false);
   const timerRef = useRef<number | null>(null);
 
   // Get storage key for this event + fingerprint + token (each QR scan gets fresh timer)
@@ -119,12 +118,27 @@ const Attend = () => {
   }, []);
 
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
+    if (!id) return;
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    setEvent(null);
+    setSubmitState('loading');
+    setName('');
+    setEmail('');
+    setErrors({});
+    setFingerprint('');
+    setLocation(null);
+    setLocationRequested(false);
+    setLocationDenied(false);
+    setTimeRemaining(FORM_TIME_LIMIT_MS);
 
     initializeFingerprint();
     fetchEvent();
-  }, [id]);
+  }, [id, token]);
 
   const initializeFingerprint = async () => {
     try {

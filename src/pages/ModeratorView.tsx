@@ -49,6 +49,8 @@ interface KnownAttendee {
   attendee_email: string;
 }
 
+const POLL_INTERVAL_MS = 1100;
+
 // Helper to mask last name
 const maskName = (fullName: string): string => {
   const parts = fullName.trim().split(' ');
@@ -154,7 +156,7 @@ const ModeratorView = () => {
 
     pollIntervalRef.current = window.setInterval(() => {
       fetchModeratorState({ includeAttendance: liveUpdatesRef.current });
-    }, 1000);
+    }, POLL_INTERVAL_MS);
 
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);

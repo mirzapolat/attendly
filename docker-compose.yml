@@ -4,15 +4,10 @@ services:
     build:
       context: .
       args:
-        VITE_SUPABASE_PROJECT_ID: "stfxeeljtodwubcptycv"
         VITE_SUPABASE_URL: "https://stfxeeljtodwubcptycv.supabase.co"
         VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_sWaDpngZ-X7YYE7EhsityA_TbLw2AQl"
     ports:
       - "8080:80"
-    environment:
-      - VITE_SUPABASE_PROJECT_ID=stfxeeljtodwubcptycv
-      - VITE_SUPABASE_URL=https://stfxeeljtodwubcptycv.supabase.co
-      - VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_sWaDpngZ-X7YYE7EhsityA_TbLw2AQl
     networks:
       - app-network
 

@@ -10,6 +10,7 @@ import { Plus, Calendar, BarChart3, Settings, LogOut, QrCode, FolderOpen, Search
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import EventCard from '@/components/EventCard';
+import { sanitizeError } from '@/utils/errorHandler';
 
 interface Event {
   id: string;
@@ -76,6 +77,11 @@ const Dashboard = () => {
         supabase.from('profiles').select('full_name').eq('id', user!.id).maybeSingle(),
       ]);
 
+      const fetchError = eventsRes.error || seasonsRes.error || profileRes.error;
+      if (fetchError) {
+        throw fetchError;
+      }
+
       if (eventsRes.data) setEvents(eventsRes.data);
       if (seasonsRes.data) setSeasons(seasonsRes.data);
       setFullName(profileRes.data?.full_name ?? '');
@@ -83,7 +89,7 @@ const Dashboard = () => {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to load data',
+        description: sanitizeError(error),
       });
     } finally {
       setLoading(false);

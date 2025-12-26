@@ -52,11 +52,20 @@ const AttendeeActions = ({
 
   const exportToCsv = async () => {
     // Fetch full attendance records including fingerprint
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('attendance_records')
       .select('*')
       .eq('event_id', eventId)
       .order('recorded_at', { ascending: true });
+
+    if (error) {
+      toast({
+        title: 'Export failed',
+        description: 'Unable to load attendance records.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     if (!data || data.length === 0) {
       toast({

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { sanitizeError } from '@/utils/errorHandler';
 
 interface Season {
   id: string;
@@ -77,30 +78,47 @@ const SeasonDetail = () => {
   }, [user, id]);
 
   const fetchData = async () => {
-    const [seasonRes, eventsRes, allEventsRes] = await Promise.all([
-      supabase.from('seasons').select('*').eq('id', id).maybeSingle(),
-      supabase.from('events').select('*').eq('season_id', id).order('event_date', { ascending: true }),
-      supabase.from('events').select('*').eq('admin_id', user!.id).order('event_date', { ascending: true }),
-    ]);
+    try {
+      const [seasonRes, eventsRes, allEventsRes] = await Promise.all([
+        supabase.from('seasons').select('*').eq('id', id).maybeSingle(),
+        supabase.from('events').select('*').eq('season_id', id).order('event_date', { ascending: true }),
+        supabase.from('events').select('*').eq('admin_id', user!.id).order('event_date', { ascending: true }),
+      ]);
 
-    if (seasonRes.data) setSeason(seasonRes.data);
-    if (allEventsRes.data) setAllUserEvents(allEventsRes.data);
-    if (eventsRes.data) {
-      setEvents(eventsRes.data);
-      
-      // Fetch attendance for all events
-      const eventIds = eventsRes.data.map(e => e.id);
-      if (eventIds.length > 0) {
-        const { data: attendanceData } = await supabase
-          .from('attendance_records')
-          .select('*')
-          .in('event_id', eventIds);
-        
-        if (attendanceData) setAttendance(attendanceData as AttendanceRecord[]);
+      const fetchError = seasonRes.error || eventsRes.error || allEventsRes.error;
+      if (fetchError) {
+        throw fetchError;
       }
-    }
 
-    setLoading(false);
+      if (seasonRes.data) setSeason(seasonRes.data);
+      if (allEventsRes.data) setAllUserEvents(allEventsRes.data);
+      if (eventsRes.data) {
+        setEvents(eventsRes.data);
+        
+        // Fetch attendance for all events
+        const eventIds = eventsRes.data.map(e => e.id);
+        if (eventIds.length > 0) {
+          const { data: attendanceData, error: attendanceError } = await supabase
+            .from('attendance_records')
+            .select('*')
+            .in('event_id', eventIds);
+
+          if (attendanceError) {
+            throw attendanceError;
+          }
+          
+          if (attendanceData) setAttendance(attendanceData as AttendanceRecord[]);
+        }
+      }
+    } catch (error: unknown) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: sanitizeError(error),
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRemoveEventFromSeason = async (eventId: string) => {

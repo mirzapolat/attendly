@@ -17,6 +17,7 @@ import EventSettings from '@/components/EventSettings';
 import ModerationSettings from '@/components/ModerationSettings';
 import AttendeeActions from '@/components/AttendeeActions';
 import QRCodeExport from '@/components/QRCodeExport';
+import { sanitizeError } from '@/utils/errorHandler';
 
 interface Event {
   id: string;
@@ -174,6 +175,16 @@ const EventDetail = () => {
       .eq('id', id)
       .maybeSingle();
 
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: sanitizeError(error),
+      });
+      setLoading(false);
+      return;
+    }
+
     if (data) {
       setEvent(data);
     }
@@ -181,11 +192,20 @@ const EventDetail = () => {
   };
 
   const fetchAttendance = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('attendance_records')
       .select('*')
       .eq('event_id', id)
       .order('recorded_at', { ascending: false });
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: sanitizeError(error),
+      });
+      return;
+    }
 
     if (data) setAttendance(data as AttendanceRecord[]);
   };
