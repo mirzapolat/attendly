@@ -84,7 +84,23 @@ ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.moderation_links ENABLE ROW LEVEL SECURITY;
 
--- 6. Policies
+-- 6. Helper Functions
+CREATE OR REPLACE FUNCTION public.is_event_admin(_event_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.events
+    WHERE id = _event_id
+    AND admin_id = auth.uid()
+  );
+END;
+$$;
+
+-- 7. Policies
 
 -- Profiles
 CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
@@ -119,11 +135,11 @@ CREATE POLICY "Anyone can insert attendance" ON public.attendance_records FOR IN
 
 -- Moderation Links
 CREATE POLICY "Admins can manage moderation links for their events" ON public.moderation_links FOR ALL USING (
-  EXISTS (SELECT 1 FROM public.events WHERE events.id = moderation_links.event_id AND events.admin_id = auth.uid())
+  public.is_event_admin(event_id)
 );
 CREATE POLICY "Anyone can view active moderation links" ON public.moderation_links FOR SELECT USING (is_active = true);
 
--- 7. Functions and Triggers
+-- 8. Functions and Triggers
 
 -- Update Timestamp Function
 CREATE OR REPLACE FUNCTION public.update_updated_at_column() RETURNS TRIGGER AS $$
