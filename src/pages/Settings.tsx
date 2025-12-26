@@ -188,12 +188,12 @@ const Settings = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-4 pl-2">
               {themeColors.map((color) => (
                 <button
                   key={color.id}
                   onClick={() => setThemeColor(color.id)}
-                  className="group relative"
+                  className="group relative flex flex-col items-center gap-2"
                   title={color.name}
                 >
                   <div
@@ -202,13 +202,13 @@ const Settings = () => {
                         ? 'ring-2 ring-offset-2 ring-offset-background ring-foreground scale-110' 
                         : 'hover:scale-105'
                     }`}
-                    style={{ backgroundColor: `hsl(${color.hue}, 84%, 39%)` }}
+                    style={{ backgroundColor: color.hex ?? `hsl(${color.hue ?? 160}, 84%, 39%)` }}
                   >
                     {themeColor === color.id && (
                       <Check className="w-5 h-5 text-white absolute inset-0 m-auto" />
                     )}
                   </div>
-                  <span className="text-xs text-muted-foreground mt-1 block text-center">
+                  <span className="text-xs text-muted-foreground block text-center">
                     {color.name}
                   </span>
                 </button>
