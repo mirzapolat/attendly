@@ -116,7 +116,7 @@ const EventCard = ({ event, seasons, onEventDeleted, onEventUpdated }: EventCard
         <CardContent className="py-4 flex items-center justify-between">
           <Link to={`/events/${event.id}`} className="flex items-center gap-4 flex-1">
             <div
-              className={`w-3 h-3 rounded-full ${event.is_active ? 'bg-success animate-pulse' : 'bg-muted-foreground'}`}
+              className={`w-3 h-3 rounded-full shrink-0 ${event.is_active ? 'bg-success animate-pulse' : 'bg-muted-foreground'}`}
             />
             <div>
               <p className="font-medium">{event.name}</p>

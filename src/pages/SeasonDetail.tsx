@@ -297,8 +297,8 @@ const SeasonDetail = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground mb-4">Season not found</p>
-          <Link to="/seasons">
-            <Button>Back to Seasons</Button>
+          <Link to="/dashboard">
+            <Button>Back to Dashboard</Button>
           </Link>
         </div>
       </div>
@@ -309,9 +309,9 @@ const SeasonDetail = () => {
     <div className="min-h-screen bg-gradient-subtle">
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/seasons" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/dashboard" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" />
-            Seasons
+            Dashboard
           </Link>
           <Button onClick={handleExportAttendanceMatrix} variant="outline" size="sm" className="gap-2">
             <Download className="w-4 h-4" />

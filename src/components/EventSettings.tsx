@@ -80,6 +80,15 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
   };
 
   const handleSaveAll = async () => {
+    if (name.length > 40) {
+      toast({
+        variant: 'destructive',
+        title: 'Name too long',
+        description: 'Event name must be 40 characters or fewer.',
+      });
+      return;
+    }
+
     // Validate: if enabling location check, ensure location is set
     if (locationCheckEnabled && !hasValidLocation) {
       toast({
@@ -188,6 +197,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                 id="eventName"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                maxLength={40}
               />
             </div>
 

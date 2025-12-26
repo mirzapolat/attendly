@@ -92,7 +92,7 @@ const NewEvent = () => {
 
     // Build validation schema dynamically based on location check setting
     const baseSchema = z.object({
-      name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+      name: z.string().min(2, 'Name must be at least 2 characters').max(40, 'Name must be 40 characters or fewer'),
       description: z.string().max(500).optional(),
       eventDate: z.string().min(1, 'Date is required'),
     });
@@ -214,6 +214,7 @@ const NewEvent = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Weekly Team Meeting"
+                  maxLength={40}
                   className={errors.name ? 'border-destructive' : ''}
                 />
                 {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}

@@ -11,7 +11,6 @@ import Dashboard from "./pages/Dashboard";
 import NewEvent from "./pages/NewEvent";
 import EventDetail from "./pages/EventDetail";
 import Attend from "./pages/Attend";
-import Seasons from "./pages/Seasons";
 import SeasonDetail from "./pages/SeasonDetail";
 import Settings from "./pages/Settings";
 import ModeratorView from "./pages/ModeratorView";
@@ -34,7 +33,6 @@ const App = () => (
               <Route path="/events/new" element={<NewEvent />} />
               <Route path="/events/:id" element={<EventDetail />} />
               <Route path="/attend/:id" element={<Attend />} />
-              <Route path="/seasons" element={<Seasons />} />
               <Route path="/seasons/:id" element={<SeasonDetail />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/moderate/:eventId/:token" element={<ModeratorView />} />
