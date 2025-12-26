@@ -30,6 +30,12 @@ export const ThemeColorProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   useEffect(() => {
+    if (!user && themeColor !== 'default') {
+      setThemeColorState('default');
+    }
+  }, [user, themeColor]);
+
+  useEffect(() => {
     applyThemeColor(themeColor);
   }, [themeColor]);
 

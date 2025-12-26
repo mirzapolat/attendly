@@ -32,7 +32,7 @@ const NewEvent = () => {
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     return now.toISOString().slice(0, 16);
   });
-  const [locationName, setLocationName] = useState('');
+  const [locationName, setLocationName] = useState('Location');
   const [locationLat, setLocationLat] = useState<number | ''>('');
   const [locationLng, setLocationLng] = useState<number | ''>('');
   const [radiusMeters, setRadiusMeters] = useState(500);
@@ -45,7 +45,7 @@ const NewEvent = () => {
   // Security features
   const [rotatingQrEnabled, setRotatingQrEnabled] = useState(true);
   const [deviceFingerprintEnabled, setDeviceFingerprintEnabled] = useState(true);
-  const [locationCheckEnabled, setLocationCheckEnabled] = useState(true);
+  const [locationCheckEnabled, setLocationCheckEnabled] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
