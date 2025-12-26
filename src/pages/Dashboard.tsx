@@ -34,6 +34,13 @@ const Dashboard = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fullName, setFullName] = useState('');
+  const [showSignupWelcome, setShowSignupWelcome] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return localStorage.getItem('attendly:welcome') === 'signup';
+  });
 
   // Search, filter, and pagination state
   const [eventSearch, setEventSearch] = useState('');
@@ -54,15 +61,24 @@ const Dashboard = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (!showSignupWelcome) {
+      return;
+    }
+    localStorage.removeItem('attendly:welcome');
+  }, [showSignupWelcome]);
+
   const fetchData = async () => {
     try {
-      const [eventsRes, seasonsRes] = await Promise.all([
+      const [eventsRes, seasonsRes, profileRes] = await Promise.all([
         supabase.from('events').select('*').order('event_date', { ascending: false }),
         supabase.from('seasons').select('*').order('created_at', { ascending: false }),
+        supabase.from('profiles').select('full_name').eq('id', user!.id).maybeSingle(),
       ]);
 
       if (eventsRes.data) setEvents(eventsRes.data);
       if (seasonsRes.data) setSeasons(seasonsRes.data);
+      setFullName(profileRes.data?.full_name ?? '');
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -124,6 +140,20 @@ const Dashboard = () => {
     setSeasonPage(1);
   }, [seasonSearch]);
 
+  const firstName = useMemo(() => {
+    const rawName = fullName || user?.user_metadata?.full_name || user?.email || '';
+    const trimmed = rawName.trim();
+    if (!trimmed) {
+      return 'there';
+    }
+    const spaceIndex = trimmed.indexOf(' ');
+    return spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex);
+  }, [fullName, user?.email, user?.user_metadata?.full_name]);
+
+  const greeting = showSignupWelcome
+    ? `Let's get started, ${firstName}!`
+    : `Welcome back, ${firstName}!`;
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
@@ -146,7 +176,7 @@ const Dashboard = () => {
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
               <QrCode className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-lg">Attendly</span>
+            <span className="font-semibold text-lg">{greeting}</span>
           </div>
           <div className="flex items-center gap-2">
             <Link to="/settings">

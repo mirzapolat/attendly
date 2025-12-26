@@ -15,6 +15,11 @@ import { useThemeColor, themeColors } from '@/hooks/useThemeColor';
 const profileSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string().email('Please enter a valid email'),
+  password: z.string().min(8, 'Password must be at least 8 characters').optional().or(z.literal('')),
+  confirmPassword: z.string().optional().or(z.literal('')),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
 });
 
 const Settings = () => {
@@ -25,6 +30,8 @@ const Settings = () => {
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -60,7 +67,7 @@ const Settings = () => {
     e.preventDefault();
 
     try {
-      profileSchema.parse({ fullName, email });
+      profileSchema.parse({ fullName, email, password, confirmPassword });
       setErrors({});
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -78,15 +85,27 @@ const Settings = () => {
     setSaving(true);
 
     try {
-      const { error } = await supabase
+      const trimmedName = fullName.trim();
+      const trimmedEmail = email.trim().toLowerCase();
+
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
-          full_name: fullName.trim(),
-          email: email.trim().toLowerCase(),
+          full_name: trimmedName,
+          email: trimmedEmail,
         })
         .eq('id', user!.id);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      if (password.trim()) {
+        const { error: passwordError } = await supabase.auth.updateUser({
+          password: password.trim(),
+        });
+        if (passwordError) throw passwordError;
+        setPassword('');
+        setConfirmPassword('');
+      }
 
       toast({
         title: 'Profile updated',
@@ -235,6 +254,36 @@ const Settings = () => {
                 />
                 {errors.email && (
                   <p className="text-sm text-destructive">{errors.email}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">New Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Leave blank to keep current"
+                  className={errors.password ? 'border-destructive' : ''}
+                />
+                {errors.password && (
+                  <p className="text-sm text-destructive">{errors.password}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter new password"
+                  className={errors.confirmPassword ? 'border-destructive' : ''}
+                />
+                {errors.confirmPassword && (
+                  <p className="text-sm text-destructive">{errors.confirmPassword}</p>
                 )}
               </div>
 

@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +14,7 @@ interface EventSettingsProps {
   event: {
     id: string;
     name: string;
+    description: string | null;
     event_date: string;
     location_name: string;
     location_lat: number;
@@ -34,6 +36,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
 
   // Event details
   const [name, setName] = useState(event.name);
+  const [description, setDescription] = useState(event.description ?? '');
   const [eventDate, setEventDate] = useState(
     new Date(event.event_date).toISOString().slice(0, 16)
   );
@@ -91,6 +94,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
     try {
       const updates = {
         name,
+        description: description || null,
         event_date: new Date(eventDate).toISOString(),
         location_name: locationName,
         location_lat: locationLat,
@@ -153,31 +157,48 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto py-8">
       <Card className="w-full max-w-2xl mx-4 bg-gradient-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Event Settings
-            </CardTitle>
-            <CardDescription>
-              Modify event details and security settings
-            </CardDescription>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+        <CardHeader className="relative">
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            Event Settings
+          </CardTitle>
+          <CardDescription>
+            Modify event details and security settings.
+          </CardDescription>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="absolute right-4 top-4"
+          >
             <X className="w-5 h-5" />
           </Button>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Event Details */}
-          <div className="space-y-4">
-            <h3 className="font-medium">Event Details</h3>
-            
+        <CardContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSaveAll();
+            }}
+            className="space-y-6"
+          >
             <div className="space-y-2">
               <Label htmlFor="eventName">Event Name</Label>
               <Input
                 id="eventName"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="eventDescription">Description (Optional)</Label>
+              <Textarea
+                id="eventDescription"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Brief description of the event..."
+                rows={3}
               />
             </div>
 
@@ -191,12 +212,36 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
               />
             </div>
 
-            {/* Location section */}
+            {/* Location Section */}
             <div className="border border-border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                <div className="flex items-center gap-3">
+                  <MapPinned className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium text-sm">Location Check</p>
+                    <p className="text-xs text-muted-foreground">
+                      {locationCheckEnabled
+                        ? 'Location is required and will be verified'
+                        : 'Location is optional'}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={locationCheckEnabled}
+                  onCheckedChange={setLocationCheckEnabled}
+                />
+              </div>
+
+              {!hasValidLocation && locationCheckEnabled && (
+                <p className="text-sm text-warning bg-warning/10 p-2 rounded">
+                  ⚠️ Location check is enabled but no valid location is set. Please add location data below.
+                </p>
+              )}
+
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
-                  Location {!locationCheckEnabled && <span className="text-muted-foreground text-xs">(Optional)</span>}
+                  Event Location {!locationCheckEnabled && <span className="text-muted-foreground text-xs">(Optional)</span>}
                 </Label>
                 <Button
                   type="button"
@@ -205,7 +250,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                   onClick={getCurrentLocation}
                   disabled={gettingLocation}
                 >
-                  {gettingLocation ? 'Getting...' : 'Use Current'}
+                  {gettingLocation ? 'Getting...' : 'Use Current Location'}
                 </Button>
               </div>
 
@@ -242,7 +287,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
               </div>
 
               <div className="space-y-2">
-                <Label>Allowed Radius: {radiusMeters}m</Label>
+                <Label>Allowed Radius (meters): {radiusMeters}m</Label>
                 <Input
                   type="range"
                   min="50"
@@ -257,108 +302,80 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                 </p>
               </div>
             </div>
-          </div>
 
-          {/* Security Settings */}
-          <div className="border-t border-border pt-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5" />
-              <h3 className="font-medium">Security Features</h3>
-            </div>
+            {/* Security Features */}
+            <div className="border border-border rounded-lg p-4 space-y-4">
+              <Label className="flex items-center gap-2 text-base font-medium">
+                <Shield className="w-4 h-4" />
+                Security Features
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Choose which security features to enable for this event.
+              </p>
 
-            <div className="space-y-4">
-              {/* Location Check Toggle */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
-                <div className="flex items-center gap-3">
-                  <MapPinned className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium text-sm">Location Check</p>
-                    <p className="text-xs text-muted-foreground">
-                      {locationCheckEnabled
-                        ? 'Verify attendees are at the venue'
-                        : 'Location verification disabled'}
-                    </p>
-                  </div>
-                </div>
-                <Switch
-                  checked={locationCheckEnabled}
-                  onCheckedChange={setLocationCheckEnabled}
-                />
-              </div>
-
-              {!hasValidLocation && locationCheckEnabled && (
-                <p className="text-sm text-warning bg-warning/10 p-2 rounded">
-                  ⚠️ Location check is enabled but no valid location is set. Please add location data above.
-                </p>
-              )}
-
-              {/* Rotating QR Toggle */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
-                <div className="flex items-center gap-3">
-                  <QrCode className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium text-sm">Rotating QR Codes</p>
-                    <p className="text-xs text-muted-foreground">
-                      {rotatingQrEnabled 
-                        ? 'QR code changes every 3 seconds' 
-                        : 'Static QR code (can be downloaded)'}
-                    </p>
-                  </div>
-                </div>
-                <Switch
-                  checked={rotatingQrEnabled}
-                  onCheckedChange={setRotatingQrEnabled}
-                />
-              </div>
-
-              {/* Static QR download when rotating is disabled */}
-              {!rotatingQrEnabled && (
-                <div className="p-4 border border-border rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-sm font-medium">Static QR Code</p>
-                    <Button variant="outline" size="sm" onClick={downloadQRCode}>
-                      <Download className="w-4 h-4" />
-                      Download JPG
-                    </Button>
-                  </div>
-                  <div className="flex justify-center">
-                    <div className="p-4 bg-background rounded-lg">
-                      <QRCodeSVG
-                        id="static-qr-code"
-                        value={staticQrUrl}
-                        size={200}
-                        level="M"
-                        includeMargin
-                      />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <QrCode className="w-5 h-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium text-sm">Rotating QR Codes</p>
+                      <p className="text-xs text-muted-foreground">
+                        {rotatingQrEnabled
+                          ? 'QR code changes every 3 seconds'
+                          : 'Static QR code (can be downloaded)'}
+                      </p>
                     </div>
                   </div>
+                  <Switch
+                    checked={rotatingQrEnabled}
+                    onCheckedChange={setRotatingQrEnabled}
+                  />
                 </div>
-              )}
 
-              {/* Device Fingerprint Toggle */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
-                <div className="flex items-center gap-3">
-                  <Fingerprint className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium text-sm">Device Fingerprinting</p>
-                    <p className="text-xs text-muted-foreground">Prevent multiple submissions per device</p>
+                {!rotatingQrEnabled && (
+                  <div className="p-4 border border-border rounded-lg">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-sm font-medium">Static QR Code</p>
+                      <Button variant="outline" size="sm" onClick={downloadQRCode}>
+                        <Download className="w-4 h-4" />
+                        Download JPG
+                      </Button>
+                    </div>
+                    <div className="flex justify-center">
+                      <div className="p-4 bg-background rounded-lg">
+                        <QRCodeSVG
+                          id="static-qr-code"
+                          value={staticQrUrl}
+                          size={200}
+                          level="M"
+                          includeMargin
+                        />
+                      </div>
+                    </div>
                   </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Fingerprint className="w-5 h-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium text-sm">Device Fingerprinting</p>
+                      <p className="text-xs text-muted-foreground">Prevent multiple submissions per device</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={deviceFingerprintEnabled}
+                    onCheckedChange={setDeviceFingerprintEnabled}
+                  />
                 </div>
-                <Switch
-                  checked={deviceFingerprintEnabled}
-                  onCheckedChange={setDeviceFingerprintEnabled}
-                />
               </div>
             </div>
-          </div>
 
-          {/* Save Button at bottom */}
-          <div className="border-t border-border pt-6">
-            <Button onClick={handleSaveAll} disabled={saving} className="w-full">
+            <Button type="submit" disabled={saving} className="w-full" size="lg">
               <Save className="w-4 h-4" />
-              {saving ? 'Saving...' : 'Save All Settings'}
+              {saving ? 'Saving...' : 'Save Event'}
             </Button>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>

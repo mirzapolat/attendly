@@ -91,6 +91,7 @@ const Auth = () => {
             });
           }
         } else {
+          localStorage.setItem('attendly:welcome', 'signup');
           // Check if session was established (email confirmation disabled) or not (enabled)
           if (data?.session) {
             toast({

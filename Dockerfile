@@ -1,5 +1,5 @@
 # Build Stage
-FROM node:20-alpine as build
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
@@ -14,6 +14,7 @@ COPY . .
 
 # Build arguments
 ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_PROJECT_ID
 ARG VITE_SUPABASE_PUBLISHABLE_KEY
 
 # Build the application
