@@ -254,8 +254,7 @@ const Index = () => {
                                 Ready to simplify attendance?
                             </h2>
                             <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-                                Join organizers who trust Attendly to verify their events.
-                                Start tracking attendance in under 2 minutes.
+                                Get started with tracking attendance at your own events in under 2 minutes.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4 justify-center">
                                 <Link to="/auth?mode=signup">

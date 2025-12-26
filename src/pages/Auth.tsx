@@ -95,8 +95,8 @@ const Auth = () => {
           // Check if session was established (email confirmation disabled) or not (enabled)
           if (data?.session) {
             toast({
-              title: 'Account created',
-              description: 'Welcome to Attendly!',
+              title: 'Welcome aboard!',
+              description: 'Account created successfully. You are now signed in.',
             });
             // Navigation happens via useEffect detecting user change
           } else {
