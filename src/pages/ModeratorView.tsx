@@ -80,6 +80,7 @@ const ModeratorView = () => {
   const [timeLeft, setTimeLeft] = useState(3);
   const pollIntervalRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
+  const rotateIntervalRef = useRef<number | null>(null);
   const liveUpdatesRef = useRef(true);
 
   // Privacy controls
@@ -99,6 +100,8 @@ const ModeratorView = () => {
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious'>('all');
+
+  const generateToken = useCallback(() => `${crypto.randomUUID()}_${Date.now()}`, []);
 
   const fetchModeratorState = useCallback(
     async (opts?: { includeAttendance?: boolean }) => {
@@ -136,7 +139,6 @@ const ModeratorView = () => {
       const nextEvent = data.event as Event;
       setAuthorized(true);
       setEvent(nextEvent);
-      setQrToken(nextEvent.rotating_qr_enabled ? (nextEvent.current_qr_token ?? '') : 'static');
 
       if (includeAttendance && Array.isArray(data.attendance)) {
         setAttendance(data.attendance as AttendanceRecord[]);
@@ -185,6 +187,40 @@ const ModeratorView = () => {
     };
   }, [event?.is_active, event?.rotating_qr_enabled]);
 
+  // Local QR rotation so moderator view keeps rotating without admin page open
+  useEffect(() => {
+    if (rotateIntervalRef.current) {
+      clearInterval(rotateIntervalRef.current);
+      rotateIntervalRef.current = null;
+    }
+
+    if (event?.is_active && event?.rotating_qr_enabled) {
+      setQrToken(event.current_qr_token ?? generateToken());
+      rotateIntervalRef.current = window.setInterval(() => {
+        setQrToken(generateToken());
+      }, 3000);
+      return () => {
+        if (rotateIntervalRef.current) {
+          clearInterval(rotateIntervalRef.current);
+          rotateIntervalRef.current = null;
+        }
+      };
+    }
+
+    if (event?.is_active && !event?.rotating_qr_enabled) {
+      setQrToken('static');
+    } else {
+      setQrToken('');
+    }
+
+    return () => {
+      if (rotateIntervalRef.current) {
+        clearInterval(rotateIntervalRef.current);
+        rotateIntervalRef.current = null;
+      }
+    };
+  }, [event?.is_active, event?.rotating_qr_enabled, event?.current_qr_token, generateToken]);
+
   // Handle live updates toggle - refetch when re-enabled
   const handleLiveUpdatesToggle = (enabled: boolean) => {
     setLiveUpdatesEnabled(enabled);
@@ -211,14 +247,6 @@ const ModeratorView = () => {
       return next;
     });
   };
-
-  // QR code display for active events
-  useEffect(() => {
-    // qrToken is derived from the latest polled event state
-    if (event?.is_active && !event?.rotating_qr_enabled) {
-      setQrToken('static');
-    }
-  }, [event?.is_active, event?.rotating_qr_enabled]);
 
   const fetchSuggestions = async (searchName: string) => {
     if (!event || searchName.length < 2) {

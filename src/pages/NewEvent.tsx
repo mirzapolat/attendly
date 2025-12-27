@@ -142,7 +142,7 @@ const NewEvent = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.from('events').insert({
+      const { data, error } = await supabase.from('events').insert({
         admin_id: user!.id,
         name,
         description: description || null,
@@ -155,15 +155,16 @@ const NewEvent = () => {
         rotating_qr_enabled: rotatingQrEnabled,
         device_fingerprint_enabled: deviceFingerprintEnabled,
         location_check_enabled: locationCheckEnabled,
-      });
+      }).select('id').single();
 
       if (error) throw error;
+      if (!data?.id) throw new Error('Missing event id');
 
       toast({
         title: 'Event created',
         description: 'Your event has been created successfully.',
       });
-      navigate('/dashboard');
+      navigate(`/events/${data.id}`, { state: { justCreated: true } });
     } catch (error: unknown) {
       toast({
         variant: 'destructive',

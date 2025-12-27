@@ -12,6 +12,19 @@ type ModeratorStateRequest = {
   includeAttendance?: boolean;
 };
 
+const ROTATION_INTERVAL_MS = 3000;
+const TOKEN_VALIDITY_MS = 15000;
+
+const generateToken = () => `${crypto.randomUUID()}_${Date.now()}`;
+
+const shouldRotateToken = (token: string | null, now: number): boolean => {
+  if (!token) return true;
+  const parts = token.split("_");
+  const timestamp = Number.parseInt(parts[parts.length - 1] ?? "", 10);
+  if (Number.isNaN(timestamp)) return true;
+  return now - timestamp >= ROTATION_INTERVAL_MS;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -71,6 +84,26 @@ serve(async (req) => {
       );
     }
 
+    let nextEvent = event;
+    const now = Date.now();
+    if (event.is_active && event.rotating_qr_enabled && shouldRotateToken(event.current_qr_token, now)) {
+      const { data: rotatedEvent, error: rotateError } = await admin
+        .from("events")
+        .update({
+          current_qr_token: generateToken(),
+          qr_token_expires_at: new Date(now + TOKEN_VALIDITY_MS).toISOString(),
+        })
+        .eq("id", eventId)
+        .select("*")
+        .maybeSingle();
+
+      if (rotateError) {
+        console.error("moderator-state rotation error", rotateError);
+      } else if (rotatedEvent) {
+        nextEvent = rotatedEvent;
+      }
+    }
+
     let attendance: unknown[] | undefined = undefined;
 
     if (includeAttendance) {
@@ -90,7 +123,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ authorized: true, event, attendance }),
+      JSON.stringify({ authorized: true, event: nextEvent, attendance }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

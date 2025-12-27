@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback, useRef, useMemo, type CSSProperties } from 'react';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -77,6 +77,7 @@ const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   const [event, setEvent] = useState<Event | null>(null);
@@ -106,12 +107,36 @@ const EventDetail = () => {
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious'>('all');
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  const confettiPieces = useMemo(() => {
+    const colors = ['#16a34a', '#22c55e', '#14b8a6', '#f59e0b', '#84cc16'];
+    return Array.from({ length: 18 }, (_, index) => ({
+      id: index,
+      left: Math.random() * 100,
+      size: 4 + Math.random() * 6,
+      color: colors[index % colors.length],
+      duration: 1800 + Math.random() * 1400,
+      delay: Math.random() * 500,
+      drift: (Math.random() - 0.5) * 140,
+    }));
+  }, []);
+
+  const justCreated = Boolean((location.state as { justCreated?: boolean } | null)?.justCreated);
 
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (!justCreated || !id) return;
+    setShowConfetti(true);
+    const timer = window.setTimeout(() => setShowConfetti(false), 2800);
+    navigate(`/events/${id}`, { replace: true });
+    return () => window.clearTimeout(timer);
+  }, [justCreated, id, navigate]);
 
   useEffect(() => {
     if (user && id) {
@@ -456,6 +481,22 @@ const EventDetail = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      {showConfetti && (
+        <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden="true">
+          {confettiPieces.map((piece) => {
+            const confettiStyle = {
+              left: `${piece.left}%`,
+              width: `${piece.size}px`,
+              height: `${piece.size}px`,
+              backgroundColor: piece.color,
+              animationDuration: `${piece.duration}ms`,
+              animationDelay: `${piece.delay}ms`,
+              ['--confetti-drift' as string]: `${piece.drift}px`,
+            } as CSSProperties;
+            return <span key={piece.id} className="confetti-piece" style={confettiStyle} />;
+          })}
+        </div>
+      )}
       {showSettings && event && (
         <EventSettings
           event={event}
