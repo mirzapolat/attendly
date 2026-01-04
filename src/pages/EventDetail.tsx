@@ -86,7 +86,6 @@ const EventDetail = () => {
   const [qrToken, setQrToken] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(3);
   const intervalRef = useRef<number | null>(null);
-  const tokenTimeoutRef = useRef<number | null>(null);
   
   // Privacy controls
   const [showAllDetails, setShowAllDetails] = useState(false);
