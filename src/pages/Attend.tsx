@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { applyThemeColor, useThemeColor } from '@/hooks/useThemeColor';
 import { CheckCircle, XCircle, MapPin, Loader2, QrCode, AlertTriangle, Clock } from 'lucide-react';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { z } from 'zod';
@@ -13,6 +14,7 @@ import { sanitizeError } from '@/utils/errorHandler';
 
 interface Event {
   id: string;
+  admin_id: string;
   name: string;
   event_date: string;
   location_name: string;
@@ -41,6 +43,7 @@ const Attend = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const { toast } = useToast();
+  const { themeColor } = useThemeColor();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [name, setName] = useState('');
@@ -52,8 +55,10 @@ const Attend = () => {
   const [locationRequested, setLocationRequested] = useState(false);
   const [locationDenied, setLocationDenied] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number>(FORM_TIME_LIMIT_MS);
+  const [eventThemeColor, setEventThemeColor] = useState<string | null>(null);
 
   const timerRef = useRef<number | null>(null);
+  const pendingLocationSubmitRef = useRef(false);
 
   // Get storage key for this event + fingerprint + token (each QR scan gets fresh timer)
   const getStorageKey = (fp: string) => `attend_start_${id}_${fp}_${token || 'static'}`;
@@ -118,6 +123,15 @@ const Attend = () => {
   }, []);
 
   useEffect(() => {
+    if (eventThemeColor) {
+      applyThemeColor(eventThemeColor);
+      return () => applyThemeColor(themeColor);
+    }
+
+    applyThemeColor(themeColor);
+  }, [eventThemeColor, themeColor]);
+
+  useEffect(() => {
     if (!id) return;
 
     if (timerRef.current) {
@@ -135,6 +149,7 @@ const Attend = () => {
     setLocationRequested(false);
     setLocationDenied(false);
     setTimeRemaining(FORM_TIME_LIMIT_MS);
+    setEventThemeColor(null);
 
     initializeFingerprint();
     fetchEvent();
@@ -167,7 +182,7 @@ const Attend = () => {
   const fetchEvent = async () => {
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, event_date, location_name, location_lat, location_lng, location_radius_meters, current_qr_token, qr_token_expires_at, is_active, rotating_qr_enabled, device_fingerprint_enabled, location_check_enabled')
+      .select('id, admin_id, name, event_date, location_name, location_lat, location_lng, location_radius_meters, current_qr_token, qr_token_expires_at, is_active, rotating_qr_enabled, device_fingerprint_enabled, location_check_enabled')
       .eq('id', id)
       .eq('is_active', true)
       .maybeSingle();
@@ -178,6 +193,14 @@ const Attend = () => {
     }
 
     setEvent(data);
+    if (data.admin_id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('theme_color')
+        .eq('id', data.admin_id)
+        .maybeSingle();
+      setEventThemeColor(profile?.theme_color ?? 'default');
+    }
 
     // Check if token is valid (only if rotating QR is enabled)
     if (data.rotating_qr_enabled) {
@@ -230,15 +253,22 @@ const Attend = () => {
 
   const requestLocation = () => {
     setLocationRequested(true);
+    setLocationDenied(false);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setLocation({
+        const coords = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-        });
+        };
+        setLocation(coords);
+        if (pendingLocationSubmitRef.current) {
+          pendingLocationSubmitRef.current = false;
+          submitAttendance(coords);
+        }
       },
       (error) => {
         setLocationDenied(true);
+        pendingLocationSubmitRef.current = false;
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -264,6 +294,99 @@ const Attend = () => {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const submitAttendance = async (locationOverride?: { lat: number; lng: number } | null) => {
+    if (submitState === 'loading') {
+      return;
+    }
+
+    // Re-check time limit before submitting (location prompts can take time).
+    if (fingerprint) {
+      const hasTime = checkTimeLimit(fingerprint);
+      if (!hasTime) {
+        setSubmitState('time-expired');
+        return;
+      }
+    }
+
+    setSubmitState('loading');
+
+    // Re-fetch event to get latest location settings (in case admin updated them)
+    let currentEvent = event;
+    if (event?.location_check_enabled) {
+      const { data: freshEvent } = await supabase
+        .from('events')
+        .select('id, location_lat, location_lng, location_radius_meters, location_check_enabled')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (freshEvent) {
+        currentEvent = { ...event, ...freshEvent };
+      }
+    }
+
+    // Determine status based on location check setting
+    let status: 'verified' | 'suspicious' = 'verified';
+    let suspiciousReason: string | null = null;
+    const effectiveLocation = locationOverride ?? location;
+
+    if (currentEvent?.location_check_enabled) {
+      if (locationDenied || !effectiveLocation) {
+        status = 'suspicious';
+        suspiciousReason = 'Location access denied';
+      } else if (currentEvent) {
+        const distance = calculateDistance(
+          effectiveLocation.lat,
+          effectiveLocation.lng,
+          currentEvent.location_lat,
+          currentEvent.location_lng
+        );
+        if (distance > currentEvent.location_radius_meters) {
+          status = 'suspicious';
+          suspiciousReason = `Location ${Math.round(distance)}m away from event (allowed: ${currentEvent.location_radius_meters}m)`;
+        }
+      }
+    }
+
+    try {
+      const deviceFingerprintToStore = event?.device_fingerprint_enabled
+        ? fingerprint
+        : `no-fp-${crypto.randomUUID()}`;
+
+      const { error } = await supabase.from('attendance_records').insert({
+        event_id: id,
+        attendee_name: name.trim(),
+        attendee_email: email.trim().toLowerCase(),
+        device_fingerprint: deviceFingerprintToStore,
+        location_lat: currentEvent?.location_check_enabled ? (effectiveLocation?.lat || null) : null,
+        location_lng: currentEvent?.location_check_enabled ? (effectiveLocation?.lng || null) : null,
+        location_provided: currentEvent?.location_check_enabled ? !!effectiveLocation : false,
+        status,
+        suspicious_reason: suspiciousReason,
+      });
+
+      if (error) {
+        if (error.code === '23505' && event?.device_fingerprint_enabled) {
+          setSubmitState('already-submitted');
+        } else {
+          throw error;
+        }
+      } else {
+        // Clear the timer storage on successful submission
+        if (fingerprint) {
+          localStorage.removeItem(getStorageKey(fingerprint));
+        }
+        setSubmitState('success');
+      }
+    } catch (error: unknown) {
+      setSubmitState('error');
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: sanitizeError(error),
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -304,91 +427,20 @@ const Attend = () => {
     }
 
     // Only request location if location check is enabled
-    if (event?.location_check_enabled && !locationRequested) {
-      requestLocation();
-      toast({
-        title: 'Location required',
-        description: 'Please allow or deny location access to continue.',
-      });
+    if (event?.location_check_enabled && !location && !locationDenied) {
+      pendingLocationSubmitRef.current = true;
+      if (!locationRequested) {
+        requestLocation();
+        toast({
+          title: 'Location required',
+          description: 'Please allow or deny location access to continue.',
+        });
+      }
       return;
     }
 
-    setSubmitState('loading');
-
-    // Re-fetch event to get latest location settings (in case admin updated them)
-    let currentEvent = event;
-    if (event?.location_check_enabled) {
-      const { data: freshEvent } = await supabase
-        .from('events')
-        .select('id, location_lat, location_lng, location_radius_meters, location_check_enabled')
-        .eq('id', id)
-        .maybeSingle();
-      
-      if (freshEvent) {
-        currentEvent = { ...event, ...freshEvent };
-      }
-    }
-
-    // Determine status based on location check setting
-    let status: 'verified' | 'suspicious' = 'verified';
-    let suspiciousReason: string | null = null;
-
-    if (currentEvent?.location_check_enabled) {
-      if (locationDenied || !location) {
-        status = 'suspicious';
-        suspiciousReason = 'Location access denied';
-      } else if (currentEvent) {
-        const distance = calculateDistance(
-          location.lat,
-          location.lng,
-          currentEvent.location_lat,
-          currentEvent.location_lng
-        );
-        if (distance > currentEvent.location_radius_meters) {
-          status = 'suspicious';
-          suspiciousReason = `Location ${Math.round(distance)}m away from event (allowed: ${currentEvent.location_radius_meters}m)`;
-        }
-      }
-    }
-
-    try {
-      const deviceFingerprintToStore = event?.device_fingerprint_enabled
-        ? fingerprint
-        : `no-fp-${crypto.randomUUID()}`;
-
-      const { error } = await supabase.from('attendance_records').insert({
-        event_id: id,
-        attendee_name: name.trim(),
-        attendee_email: email.trim().toLowerCase(),
-        device_fingerprint: deviceFingerprintToStore,
-        location_lat: event?.location_check_enabled ? (location?.lat || null) : null,
-        location_lng: event?.location_check_enabled ? (location?.lng || null) : null,
-        location_provided: event?.location_check_enabled ? !!location : false,
-        status,
-        suspicious_reason: suspiciousReason,
-      });
-
-      if (error) {
-        if (error.code === '23505' && event?.device_fingerprint_enabled) {
-          setSubmitState('already-submitted');
-        } else {
-          throw error;
-        }
-      } else {
-        // Clear the timer storage on successful submission
-        if (fingerprint) {
-          localStorage.removeItem(getStorageKey(fingerprint));
-        }
-        setSubmitState('success');
-      }
-    } catch (error: unknown) {
-      setSubmitState('error');
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: sanitizeError(error),
-      });
-    }
+    pendingLocationSubmitRef.current = false;
+    await submitAttendance();
   };
 
   // Render states
@@ -491,10 +543,12 @@ const Attend = () => {
             <QrCode className="w-7 h-7 text-primary-foreground" />
           </div>
           <CardTitle>{event?.name}</CardTitle>
-          <CardDescription className="flex items-center justify-center gap-1">
-            <MapPin className="w-4 h-4" />
-            {event?.location_name}
-          </CardDescription>
+          {event?.location_check_enabled && (
+            <CardDescription className="flex items-center justify-center gap-1">
+              <MapPin className="w-4 h-4" />
+              {event?.location_name}
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent>
           {/* Time remaining indicator */}

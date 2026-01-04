@@ -80,8 +80,8 @@ const SeasonDetail = () => {
   const fetchData = async () => {
     try {
       const [seasonRes, eventsRes, allEventsRes] = await Promise.all([
-        supabase.from('seasons').select('*').eq('id', id).maybeSingle(),
-        supabase.from('events').select('*').eq('season_id', id).order('event_date', { ascending: true }),
+        supabase.from('seasons').select('*').eq('id', id).eq('admin_id', user!.id).maybeSingle(),
+        supabase.from('events').select('*').eq('season_id', id).eq('admin_id', user!.id).order('event_date', { ascending: true }),
         supabase.from('events').select('*').eq('admin_id', user!.id).order('event_date', { ascending: true }),
       ]);
 

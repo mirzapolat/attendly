@@ -24,7 +24,7 @@ export const themeColors: ThemeColor[] = [
   { id: 'cyan', name: 'Cyan', hex: '#10a9b7' },
   { id: 'cornflower', name: 'Cornflower', hex: '#5B84EC' },
   { id: 'amethyst', name: 'Amethyst', hex: '#8C54A0' },
-  { id: 'brick', name: 'brick', hex: '#B41825' },
+  { id: 'brick', name: 'Brick', hex: '#B41825' },
   { id: 'cinnabar', name: 'Cinnabar', hex: '#E74236' },
   { id: 'magenta', name: 'Magenta', hex: '#E34A6F' },
   { id: 'pink', name: 'Pink', hex: '#E868B2' },
@@ -90,6 +90,31 @@ const hexToHsl = (hex: string) => {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+export const applyThemeColor = (colorId: string) => {
+  const color = themeColors.find((c) => c.id === colorId) || themeColors[0];
+  const hslFromHex = color.hex ? hexToHsl(color.hex) : null;
+  const hue = hslFromHex?.h ?? color.hue ?? themeColors[0].hue ?? 160;
+  const saturation = hslFromHex?.s ?? 84;
+  const lightness = hslFromHex?.l ?? 39;
+  const gradientEndLightness = clamp(lightness - 10, 0, 100);
+  const root = document.documentElement;
+
+  // Light mode
+  root.style.setProperty('--primary', `${hue} ${saturation}% ${lightness}%`);
+  root.style.setProperty('--accent', `${hue} ${saturation}% ${lightness}%`);
+  root.style.setProperty('--ring', `${hue} ${saturation}% ${lightness}%`);
+  root.style.setProperty('--success', `${hue} ${saturation}% ${lightness}%`);
+  root.style.setProperty('--sidebar-ring', `${hue} ${saturation}% ${lightness}%`);
+  root.style.setProperty('--sidebar-primary', `${hue} 5.9% 10%`);
+
+  // Update gradients
+  root.style.setProperty(
+    '--gradient-primary',
+    `linear-gradient(135deg, hsl(${hue} ${saturation}% ${lightness}%) 0%, hsl(${hue} ${saturation}% ${gradientEndLightness}%) 100%)`
+  );
+  root.style.setProperty('--shadow-glow', `0 0 20px hsl(${hue} ${saturation}% ${lightness}% / 0.2)`);
+};
+
 export const ThemeColorProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const [themeColor, setThemeColorState] = useState('default');
@@ -120,31 +145,6 @@ export const ThemeColorProvider = ({ children }: { children: ReactNode }) => {
     if (data?.theme_color) {
       setThemeColorState(data.theme_color);
     }
-  };
-
-  const applyThemeColor = (colorId: string) => {
-    const color = themeColors.find((c) => c.id === colorId) || themeColors[0];
-    const hslFromHex = color.hex ? hexToHsl(color.hex) : null;
-    const hue = hslFromHex?.h ?? color.hue ?? themeColors[0].hue ?? 160;
-    const saturation = hslFromHex?.s ?? 84;
-    const lightness = hslFromHex?.l ?? 39;
-    const gradientEndLightness = clamp(lightness - 10, 0, 100);
-    const root = document.documentElement;
-    
-    // Light mode
-    root.style.setProperty('--primary', `${hue} ${saturation}% ${lightness}%`);
-    root.style.setProperty('--accent', `${hue} ${saturation}% ${lightness}%`);
-    root.style.setProperty('--ring', `${hue} ${saturation}% ${lightness}%`);
-    root.style.setProperty('--success', `${hue} ${saturation}% ${lightness}%`);
-    root.style.setProperty('--sidebar-ring', `${hue} ${saturation}% ${lightness}%`);
-    root.style.setProperty('--sidebar-primary', `${hue} 5.9% 10%`);
-    
-    // Update gradients
-    root.style.setProperty(
-      '--gradient-primary',
-      `linear-gradient(135deg, hsl(${hue} ${saturation}% ${lightness}%) 0%, hsl(${hue} ${saturation}% ${gradientEndLightness}%) 100%)`
-    );
-    root.style.setProperty('--shadow-glow', `0 0 20px hsl(${hue} ${saturation}% ${lightness}% / 0.2)`);
   };
 
   const setThemeColor = async (colorId: string) => {

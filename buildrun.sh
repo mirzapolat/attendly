@@ -1,0 +1,1 @@
+docker build -t attendly:latest --build-arg VITE_SUPABASE_URL="https://stfxeeljtodwubcptycv.supabase.co" --build-arg VITE_SUPABASE_PUBLISHABLE_KEY="sb_publishable_sWaDpngZ-X7YYE7EhsityA_TbLw2AQl" -f Dockerfile .

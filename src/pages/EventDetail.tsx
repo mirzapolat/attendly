@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo, type CSSProperties } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo, type CSSProperties, type MouseEvent } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -75,7 +75,7 @@ const maskEmail = (email: string): string => {
 
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -123,6 +123,7 @@ const EventDetail = () => {
   }, []);
 
   const justCreated = Boolean((location.state as { justCreated?: boolean } | null)?.justCreated);
+  const shouldWarnOnLeave = Boolean(event?.is_active && event?.rotating_qr_enabled);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -192,6 +193,99 @@ const EventDetail = () => {
       };
     }
   }, [user, id]);
+
+  useEffect(() => {
+    if (!shouldWarnOnLeave) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = 'Leaving will stop the event and pause rotating QR codes.';
+    };
+
+    const handlePageHide = () => {
+      if (!id || !session?.access_token) {
+        return;
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!supabaseUrl || !supabaseKey) {
+        return;
+      }
+
+      const payload = JSON.stringify({
+        is_active: false,
+        current_qr_token: null,
+        qr_token_expires_at: null,
+      });
+
+      void fetch(`${supabaseUrl}/rest/v1/events?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: payload,
+        keepalive: true,
+      });
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
+  }, [shouldWarnOnLeave, id, session?.access_token]);
+
+  const stopEventForExit = async () => {
+    if (!event?.is_active || !id) {
+      return true;
+    }
+
+    const { error } = await supabase
+      .from('events')
+      .update({
+        is_active: false,
+        current_qr_token: null,
+        qr_token_expires_at: null,
+      })
+      .eq('id', id);
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: sanitizeError(error),
+      });
+      return false;
+    }
+
+    setEvent((prev) => (prev ? { ...prev, is_active: false } : null));
+    return true;
+  };
+
+  const handleDashboardClick = async (clickEvent: MouseEvent<HTMLAnchorElement>) => {
+    if (!shouldWarnOnLeave) {
+      return;
+    }
+
+    clickEvent.preventDefault();
+    const confirmed = window.confirm(
+      'Leaving this page will stop the event and pause rotating QR codes. Do you want to proceed?'
+    );
+    if (!confirmed) {
+      return;
+    }
+    const stopped = await stopEventForExit();
+    if (stopped) {
+      navigate('/dashboard');
+    }
+  };
 
   const fetchEvent = async () => {
     const { data, error } = await supabase
@@ -468,7 +562,7 @@ const EventDetail = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground mb-4">Event not found</p>
-          <Link to="/dashboard">
+          <Link to="/dashboard" onClick={handleDashboardClick}>
             <Button>Back to Dashboard</Button>
           </Link>
         </div>
@@ -517,7 +611,11 @@ const EventDetail = () => {
       )}
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/dashboard" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+          <Link
+            to="/dashboard"
+            onClick={handleDashboardClick}
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
             <ArrowLeft className="w-4 h-4" />
             Dashboard
           </Link>
@@ -563,10 +661,12 @@ const EventDetail = () => {
                     <Calendar className="w-4 h-4" />
                     {format(new Date(event.event_date), 'PPP p')}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-4 h-4" />
-                    {event.location_name}
-                  </span>
+                  {event.location_check_enabled && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
+                      {event.location_name}
+                    </span>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent>

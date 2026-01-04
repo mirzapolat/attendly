@@ -33,11 +33,11 @@ const Index = () => {
                 <div className="container mx-auto max-w-5xl text-center relative">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-8 animate-fade-in">
                         <Sparkles className="w-4 h-4" />
-                        Secure attendance tracking made simple
+                        Simplify attendance tracking at your events
                     </div>
                     <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 animate-fade-in">
-                        Stop chasing
-                        <span className="text-gradient block mt-2">attendance sheets</span>
+                        Easy and secure
+                        <span className="text-gradient block mt-2">attendance tracking</span>
                     </h1>
                     <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed animate-fade-in">
                         QR codes that rotate every 3 seconds. Location verification. Device fingerprinting.

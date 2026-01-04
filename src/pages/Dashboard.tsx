@@ -76,8 +76,8 @@ const Dashboard = () => {
   const fetchData = async () => {
     try {
       const [eventsRes, seasonsRes, profileRes] = await Promise.all([
-        supabase.from('events').select('*').order('event_date', { ascending: false }),
-        supabase.from('seasons').select('*').order('created_at', { ascending: false }),
+        supabase.from('events').select('*').eq('admin_id', user!.id).order('event_date', { ascending: false }),
+        supabase.from('seasons').select('*').eq('admin_id', user!.id).order('created_at', { ascending: false }),
         supabase.from('profiles').select('full_name').eq('id', user!.id).maybeSingle(),
       ]);
 
