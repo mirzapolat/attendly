@@ -59,7 +59,7 @@ npm install
 ```
 
 ### Environment Variables
-Create a `.env.local` file:
+Create a `.env.local` file for local development:
 ```bash
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_or_publishable_key
@@ -97,20 +97,27 @@ supabase secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
 ## Docker
-`docker-compose.yml` builds the Vite app into an Nginx image.
-Update the Supabase build args to your own project keys.
+The container reads Supabase config at runtime and writes `/env.js`, so the same image can be
+used with different projects.
 
+Build:
 ```bash
-docker compose up --build
+docker build -t attendly:latest .
 ```
 
-App will be available at `http://localhost:8080`.
+Run:
+```bash
+docker run --rm -p 8080:80 \
+  -e VITE_SUPABASE_URL=your_supabase_url \
+  -e VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_or_publishable_key \
+  attendly:latest
+```
+
+App will be available at `http://localhost:8080`. The Supabase publishable/anon key is
+client-side; do not use a service role key here.
 
 ## Security Notes
 - Rotating QR tokens are short-lived and validated by timestamp.
 - Device fingerprinting is enforced at the database level (unique per event).
 - Location verification marks submissions as suspicious if denied or out of range.
 - Attendance form sessions expire after 2 minutes per scan.
-
-## License
-No license file is included. Add one if you intend to distribute this project.

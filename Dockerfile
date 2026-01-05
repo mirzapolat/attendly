@@ -12,14 +12,6 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build arguments
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_PUBLISHABLE_KEY
-
-# Make Vite env vars available at build time
-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
-    VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
-
 # Build the application
 RUN npm run build
 
@@ -31,6 +23,10 @@ COPY --from=build /app/dist /usr/share/nginx/html
 
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Runtime env injection
+COPY docker-entrypoint.d/99-runtime-env.sh /docker-entrypoint.d/99-runtime-env.sh
+RUN chmod +x /docker-entrypoint.d/99-runtime-env.sh
 
 EXPOSE 80
 

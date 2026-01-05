@@ -1,7 +1,0 @@
-project_id = "stfxeeljtodwubcptycv"
-
-[functions.moderator-state]
-verify_jwt = false
-
-[functions.moderator-action]
-verify_jwt = false
