@@ -64,6 +64,41 @@ export type Database = {
           },
         ]
       }
+      attendance_sessions: {
+        Row: {
+          created_at: string
+          event_id: string
+          expires_at: string
+          id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          expires_at: string
+          id?: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           admin_id: string
@@ -155,6 +190,7 @@ export type Database = {
         Row: {
           created_at: string
           event_id: string
+          expires_at: string | null
           id: string
           is_active: boolean
           label: string | null
@@ -163,6 +199,7 @@ export type Database = {
         Insert: {
           created_at?: string
           event_id: string
+          expires_at?: string | null
           id?: string
           is_active?: boolean
           label?: string | null
@@ -171,6 +208,7 @@ export type Database = {
         Update: {
           created_at?: string
           event_id?: string
+          expires_at?: string | null
           id?: string
           is_active?: boolean
           label?: string | null

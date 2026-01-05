@@ -13,7 +13,6 @@ type ModeratorStateRequest = {
 };
 
 const ROTATION_INTERVAL_MS = 3000;
-const TOKEN_VALIDITY_MS = 15000;
 
 const generateToken = () => `${crypto.randomUUID()}_${Date.now()}`;
 
@@ -23,6 +22,40 @@ const shouldRotateToken = (token: string | null, now: number): boolean => {
   const timestamp = Number.parseInt(parts[parts.length - 1] ?? "", 10);
   if (Number.isNaN(timestamp)) return true;
   return now - timestamp >= ROTATION_INTERVAL_MS;
+};
+
+const isLinkExpired = (expiresAt: string | null, now: number): boolean => {
+  if (!expiresAt) return false;
+  const expiresMs = Date.parse(expiresAt);
+  if (Number.isNaN(expiresMs)) return true;
+  return now >= expiresMs;
+};
+
+const sanitizeAttendance = (
+  rows: {
+    id: string;
+    attendee_name: string;
+    attendee_email: string | null;
+    status: string | null;
+    suspicious_reason: string | null;
+    location_provided: boolean | null;
+    location_lat: number | null;
+    location_lng: number | null;
+    recorded_at: string | null;
+  }[],
+  options: { showFullName: boolean; showEmail: boolean },
+) => {
+  return rows.map((row) => {
+    const next = { ...row };
+    if (!options.showFullName) {
+      const firstName = row.attendee_name.split(" ")[0] || row.attendee_name;
+      next.attendee_name = firstName;
+    }
+    if (!options.showEmail) {
+      next.attendee_email = null;
+    }
+    return next;
+  });
 };
 
 serve(async (req) => {
@@ -58,12 +91,13 @@ serve(async (req) => {
     // Validate moderation link
     const { data: link, error: linkError } = await admin
       .from("moderation_links")
-      .select("id, is_active, event_id")
+      .select("id, is_active, event_id, expires_at")
       .eq("event_id", eventId)
       .eq("token", token)
       .maybeSingle();
 
-    if (linkError || !link?.is_active) {
+    const now = Date.now();
+    if (linkError || !link?.is_active || isLinkExpired(link.expires_at, now)) {
       return new Response(
         JSON.stringify({ authorized: false }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -73,7 +107,25 @@ serve(async (req) => {
     // Load event + verify moderation is enabled
     const { data: event, error: eventError } = await admin
       .from("events")
-      .select("*")
+      .select(
+        [
+          "id",
+          "name",
+          "description",
+          "event_date",
+          "location_name",
+          "location_lat",
+          "location_lng",
+          "location_radius_meters",
+          "is_active",
+          "current_qr_token",
+          "qr_token_expires_at",
+          "rotating_qr_enabled",
+          "moderation_enabled",
+          "moderator_show_full_name",
+          "moderator_show_email",
+        ].join(","),
+      )
       .eq("id", eventId)
       .maybeSingle();
 
@@ -85,7 +137,6 @@ serve(async (req) => {
     }
 
     let nextEvent = event;
-    const now = Date.now();
     if (event.is_active && event.rotating_qr_enabled && shouldRotateToken(event.current_qr_token, now)) {
       const { data: rotatedEvent, error: rotateError } = await admin
         .from("events")
@@ -109,7 +160,19 @@ serve(async (req) => {
     if (includeAttendance) {
       const { data: attendanceData, error: attendanceError } = await admin
         .from("attendance_records")
-        .select("*")
+        .select(
+          [
+            "id",
+            "attendee_name",
+            "attendee_email",
+            "status",
+            "suspicious_reason",
+            "location_provided",
+            "location_lat",
+            "location_lng",
+            "recorded_at",
+          ].join(","),
+        )
         .eq("event_id", eventId)
         .order("recorded_at", { ascending: false })
         .range(0, 2000);
@@ -118,7 +181,11 @@ serve(async (req) => {
         console.error("attendanceError", attendanceError);
         attendance = [];
       } else {
-        attendance = attendanceData ?? [];
+        const sanitized = sanitizeAttendance(attendanceData ?? [], {
+          showFullName: !!nextEvent.moderator_show_full_name,
+          showEmail: !!nextEvent.moderator_show_email,
+        });
+        attendance = sanitized;
       }
     }
 

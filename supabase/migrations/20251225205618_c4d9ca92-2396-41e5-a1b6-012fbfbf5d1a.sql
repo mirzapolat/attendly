@@ -25,8 +25,3 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
--- Insert the missing profile for existing user
-INSERT INTO public.profiles (id, email, full_name)
-VALUES ('44eda19d-1a73-4edf-932d-4636e5fe4b64', 'mirza.can.polat@gmail.com', 'Mirza Polat')
-ON CONFLICT (id) DO NOTHING;

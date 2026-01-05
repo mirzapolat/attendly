@@ -36,7 +36,7 @@ interface Event {
 interface AttendanceRecord {
   id: string;
   attendee_name: string;
-  attendee_email: string;
+  attendee_email: string | null;
   status: 'verified' | 'suspicious' | 'cleared';
   suspicious_reason: string | null;
   location_provided: boolean;
@@ -47,7 +47,7 @@ interface AttendanceRecord {
 
 interface KnownAttendee {
   attendee_name: string;
-  attendee_email: string;
+  attendee_email: string | null;
 }
 
 const POLL_INTERVAL_MS = 1100;
@@ -81,7 +81,6 @@ const ModeratorView = () => {
   const [timeLeft, setTimeLeft] = useState(3);
   const pollIntervalRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
-  const rotateIntervalRef = useRef<number | null>(null);
   const liveUpdatesRef = useRef(true);
 
   // Privacy controls
@@ -104,8 +103,6 @@ const ModeratorView = () => {
 
   const pageTitle = event?.name ? `${event.name} - Moderator View` : 'Moderator View - Attendly';
   usePageTitle(pageTitle);
-
-  const generateToken = useCallback(() => `${crypto.randomUUID()}_${Date.now()}`, []);
 
   const fetchModeratorState = useCallback(
     async (opts?: { includeAttendance?: boolean }) => {
@@ -189,41 +186,21 @@ const ModeratorView = () => {
         countdownIntervalRef.current = null;
       }
     };
-  }, [event?.is_active, event?.rotating_qr_enabled]);
+  }, [event?.is_active, event?.rotating_qr_enabled, event?.current_qr_token]);
 
-  // Local QR rotation so moderator view keeps rotating without admin page open
   useEffect(() => {
-    if (rotateIntervalRef.current) {
-      clearInterval(rotateIntervalRef.current);
-      rotateIntervalRef.current = null;
-    }
-
     if (event?.is_active && event?.rotating_qr_enabled) {
-      setQrToken(event.current_qr_token ?? generateToken());
-      rotateIntervalRef.current = window.setInterval(() => {
-        setQrToken(generateToken());
-      }, 3000);
-      return () => {
-        if (rotateIntervalRef.current) {
-          clearInterval(rotateIntervalRef.current);
-          rotateIntervalRef.current = null;
-        }
-      };
+      setQrToken(event.current_qr_token ?? '');
+      return;
     }
 
     if (event?.is_active && !event?.rotating_qr_enabled) {
       setQrToken('static');
-    } else {
-      setQrToken('');
+      return;
     }
 
-    return () => {
-      if (rotateIntervalRef.current) {
-        clearInterval(rotateIntervalRef.current);
-        rotateIntervalRef.current = null;
-      }
-    };
-  }, [event?.is_active, event?.rotating_qr_enabled, event?.current_qr_token, generateToken]);
+    setQrToken('');
+  }, [event?.is_active, event?.rotating_qr_enabled, event?.current_qr_token]);
 
   // Handle live updates toggle - refetch when re-enabled
   const handleLiveUpdatesToggle = (enabled: boolean) => {
@@ -253,45 +230,21 @@ const ModeratorView = () => {
   };
 
   const fetchSuggestions = async (searchName: string) => {
-    if (!event || searchName.length < 2) {
+    if (!event || searchName.length < 2 || !eventId || !token) {
       setSuggestions([]);
       return;
     }
 
-    const { data: eventData } = await supabase
-      .from('events')
-      .select('season_id')
-      .eq('id', eventId)
-      .maybeSingle();
+    const { data, error } = await supabase.functions.invoke('moderator-action', {
+      body: { eventId, token, action: 'search_attendees', searchName },
+    });
 
-    if (!eventData?.season_id) {
+    if (error || !data?.success || !Array.isArray(data.attendees)) {
       setSuggestions([]);
       return;
     }
 
-    const { data: seasonEvents } = await supabase
-      .from('events')
-      .select('id')
-      .eq('season_id', eventData.season_id);
-
-    if (!seasonEvents?.length) {
-      setSuggestions([]);
-      return;
-    }
-
-    const eventIds = seasonEvents.map(e => e.id);
-    const { data: attendees } = await supabase
-      .from('attendance_records')
-      .select('attendee_name, attendee_email')
-      .in('event_id', eventIds)
-      .ilike('attendee_name', `%${searchName}%`);
-
-    if (attendees) {
-      const unique = Array.from(
-        new Map(attendees.map(a => [a.attendee_email, a])).values()
-      );
-      setSuggestions(unique);
-    }
+    setSuggestions(data.attendees as KnownAttendee[]);
   };
 
   const addManualAttendee = async () => {
@@ -335,7 +288,7 @@ const ModeratorView = () => {
 
   const selectSuggestion = (suggestion: KnownAttendee) => {
     setManualName(suggestion.attendee_name);
-    setManualEmail(suggestion.attendee_email);
+    setManualEmail(suggestion.attendee_email ?? '');
     setSuggestions([]);
     setShowSuggestions(false);
   };
@@ -410,6 +363,10 @@ const ModeratorView = () => {
     
     if (!event.moderator_show_email) {
       // Admin restricted - don't show email at all
+      return null;
+    }
+
+    if (!record.attendee_email) {
       return null;
     }
     

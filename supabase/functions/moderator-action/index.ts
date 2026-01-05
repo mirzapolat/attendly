@@ -9,11 +9,34 @@ const corsHeaders = {
 type ModeratorActionRequest = {
   eventId: string;
   token: string;
-  action: "update_status" | "delete_record" | "add_attendee";
+  action: "update_status" | "delete_record" | "add_attendee" | "search_attendees";
   recordId?: string;
   newStatus?: "verified" | "suspicious" | "cleared";
   attendeeName?: string;
   attendeeEmail?: string;
+  searchName?: string;
+};
+
+const isLinkExpired = (expiresAt: string | null, now: number): boolean => {
+  if (!expiresAt) return false;
+  const expiresMs = Date.parse(expiresAt);
+  if (Number.isNaN(expiresMs)) return true;
+  return now >= expiresMs;
+};
+
+const sanitizeSuggestion = (
+  row: { attendee_name: string; attendee_email: string | null },
+  options: { showFullName: boolean; showEmail: boolean },
+) => {
+  const next = { ...row };
+  if (!options.showFullName) {
+    const firstName = row.attendee_name.split(" ")[0] || row.attendee_name;
+    next.attendee_name = firstName;
+  }
+  if (!options.showEmail) {
+    next.attendee_email = null;
+  }
+  return next;
 };
 
 serve(async (req) => {
@@ -48,12 +71,13 @@ serve(async (req) => {
     // Validate moderation link
     const { data: link, error: linkError } = await admin
       .from("moderation_links")
-      .select("id, is_active, event_id")
+      .select("id, is_active, event_id, expires_at")
       .eq("event_id", eventId)
       .eq("token", token)
       .maybeSingle();
 
-    if (linkError || !link?.is_active) {
+    const now = Date.now();
+    if (linkError || !link?.is_active || isLinkExpired(link.expires_at, now)) {
       console.log("Invalid or inactive moderation link");
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized" }),
@@ -64,7 +88,7 @@ serve(async (req) => {
     // Verify moderation is enabled for the event
     const { data: event, error: eventError } = await admin
       .from("events")
-      .select("id, moderation_enabled")
+      .select("id, moderation_enabled, season_id, moderator_show_full_name, moderator_show_email")
       .eq("id", eventId)
       .maybeSingle();
 
@@ -73,6 +97,66 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ success: false, error: "Moderation not enabled" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "search_attendees") {
+      const searchName = body.searchName?.trim();
+      if (!searchName || searchName.length < 2) {
+        return new Response(
+          JSON.stringify({ success: true, attendees: [] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!event.season_id) {
+        return new Response(
+          JSON.stringify({ success: true, attendees: [] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: seasonEvents, error: seasonError } = await admin
+        .from("events")
+        .select("id")
+        .eq("season_id", event.season_id);
+
+      if (seasonError || !seasonEvents?.length) {
+        return new Response(
+          JSON.stringify({ success: true, attendees: [] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const eventIds = seasonEvents.map((row) => row.id);
+      const { data: attendees, error: attendeesError } = await admin
+        .from("attendance_records")
+        .select("attendee_name, attendee_email")
+        .in("event_id", eventIds)
+        .ilike("attendee_name", `%${searchName}%`)
+        .limit(200);
+
+      if (attendeesError || !attendees) {
+        return new Response(
+          JSON.stringify({ success: true, attendees: [] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const sanitized = attendees.map((row) =>
+        sanitizeSuggestion(row, {
+          showFullName: !!event.moderator_show_full_name,
+          showEmail: !!event.moderator_show_email,
+        }),
+      );
+
+      const unique = Array.from(
+        new Map(sanitized.map((row) => [row.attendee_email ?? row.attendee_name, row])).values(),
+      );
+
+      return new Response(
+        JSON.stringify({ success: true, attendees: unique }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

@@ -85,14 +85,15 @@ npm run lint
 This repo includes database migrations and Edge Functions for moderator workflows.
 
 - Migrations: `supabase/migrations`
-- Edge Functions: `moderator-state`, `moderator-action`, `delete-account`
+- Edge Functions: `moderator-state`, `moderator-action`, `attendance-start`, `attendance-submit`, `delete-account`
 - RPC: `delete_own_account`
+ - Step-by-step guide: `SUPABASE_SETUP.md`
 
 Example Supabase CLI flow (adjust to your project):
 ```bash
 supabase link --project-ref <project-ref>
 supabase db push
-supabase functions deploy moderator-state moderator-action delete-account
+supabase functions deploy moderator-state moderator-action attendance-start attendance-submit delete-account
 supabase secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=...
 ```
 

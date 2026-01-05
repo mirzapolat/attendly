@@ -14,6 +14,7 @@ interface ModerationLink {
   label: string | null;
   is_active: boolean;
   created_at: string;
+  expires_at: string | null;
 }
 
 interface ModerationSettingsProps {
@@ -40,6 +41,12 @@ const ModerationSettings = ({
   onUpdate,
 }: ModerationSettingsProps) => {
   const { toast } = useToast();
+  const formatExpiry = (value: string | null): string | null => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleDateString();
+  };
   const [enabled, setEnabled] = useState(moderationEnabled);
   const [showFullName, setShowFullName] = useState(moderatorShowFullName);
   const [showEmail, setShowEmail] = useState(moderatorShowEmail);
@@ -315,9 +322,16 @@ const ModerationSettings = ({
                       >
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <LinkIcon className="w-4 h-4 text-muted-foreground shrink-0" />
-                          <span className="text-sm truncate">
-                            {link.label || `Link ${link.token.slice(0, 8)}...`}
-                          </span>
+                          <div className="min-w-0">
+                            <div className="text-sm truncate">
+                              {link.label || `Link ${link.token.slice(0, 8)}...`}
+                            </div>
+                            {formatExpiry(link.expires_at) && (
+                              <div className="text-xs text-muted-foreground">
+                                Expires {formatExpiry(link.expires_at)}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-1">
                           <Switch

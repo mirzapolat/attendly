@@ -11,7 +11,6 @@ import { CheckCircle, XCircle, MapPin, Loader2, QrCode, AlertTriangle, Clock } f
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
-import { usePageTitle } from '@/hooks/usePageTitle';
 
 interface Event {
   id: string;
@@ -22,12 +21,11 @@ interface Event {
   location_lat: number;
   location_lng: number;
   location_radius_meters: number;
-  current_qr_token: string | null;
-  qr_token_expires_at: string | null;
   is_active: boolean;
   rotating_qr_enabled: boolean;
   device_fingerprint_enabled: boolean;
   location_check_enabled: boolean;
+  theme_color?: string | null;
 }
 
 const attendeeSchema = z.object({
@@ -47,6 +45,8 @@ const Attend = () => {
   const { themeColor } = useThemeColor();
 
   const [event, setEvent] = useState<Event | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -61,67 +61,43 @@ const Attend = () => {
   const timerRef = useRef<number | null>(null);
   const pendingLocationSubmitRef = useRef(false);
 
-  // Get storage key for this event + fingerprint + token (each QR scan gets fresh timer)
-  const getStorageKey = (fp: string) => `attend_start_${id}_${fp}_${token || 'static'}`;
-
-  // Check and manage form time limit
-  const checkTimeLimit = (fp: string): boolean => {
-    const storageKey = getStorageKey(fp);
-    const storedData = localStorage.getItem(storageKey);
-    
-    if (storedData) {
-      const startTime = parseInt(storedData, 10);
-      const elapsed = Date.now() - startTime;
-      
-      if (elapsed >= FORM_TIME_LIMIT_MS) {
-        return false; // Time expired
+  useEffect(() => {
+    if (!sessionExpiresAt || submitState === 'success' || submitState === 'already-submitted') {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
       }
-      
-      setTimeRemaining(FORM_TIME_LIMIT_MS - elapsed);
-      return true;
-    } else {
-      // First visit with this token - store start time
-      localStorage.setItem(storageKey, Date.now().toString());
-      setTimeRemaining(FORM_TIME_LIMIT_MS);
-      return true;
+      return;
     }
-  };
 
-  // Start countdown timer
-  const startTimer = (fp: string) => {
+    const updateRemaining = () => {
+      const expiresMs = Date.parse(sessionExpiresAt);
+      const remaining = Number.isNaN(expiresMs) ? 0 : expiresMs - Date.now();
+      if (remaining <= 0) {
+        setTimeRemaining(0);
+        setSubmitState('time-expired');
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        return;
+      }
+      setTimeRemaining(remaining);
+    };
+
+    updateRemaining();
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
+    timerRef.current = window.setInterval(updateRemaining, 1000);
 
-    timerRef.current = window.setInterval(() => {
-      const storageKey = getStorageKey(fp);
-      const storedData = localStorage.getItem(storageKey);
-      
-      if (storedData) {
-        const startTime = parseInt(storedData, 10);
-        const elapsed = Date.now() - startTime;
-        const remaining = FORM_TIME_LIMIT_MS - elapsed;
-        
-        if (remaining <= 0) {
-          setTimeRemaining(0);
-          setSubmitState('time-expired');
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-          }
-        } else {
-          setTimeRemaining(remaining);
-        }
-      }
-    }, 1000);
-  };
-
-  useEffect(() => {
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
-  }, []);
+  }, [sessionExpiresAt, submitState]);
 
   useEffect(() => {
     if (eventThemeColor) {
@@ -141,6 +117,8 @@ const Attend = () => {
     }
 
     setEvent(null);
+    setSessionId(null);
+    setSessionExpiresAt(null);
     setSubmitState('loading');
     setName('');
     setEmail('');
@@ -153,7 +131,7 @@ const Attend = () => {
     setEventThemeColor(null);
 
     initializeFingerprint();
-    fetchEvent();
+    startAttendanceSession();
   }, [id, token]);
 
   const initializeFingerprint = async () => {
@@ -167,90 +145,31 @@ const Attend = () => {
     }
   };
 
-  // Check time limit once fingerprint is ready
-  useEffect(() => {
-    if (!fingerprint || !event || submitState === 'loading') return;
-    if (submitState !== 'form') return;
+  const startAttendanceSession = async () => {
+    if (!id) return;
 
-    const hasTime = checkTimeLimit(fingerprint);
-    if (!hasTime) {
-      setSubmitState('time-expired');
-    } else {
-      startTimer(fingerprint);
-    }
-  }, [fingerprint, event, submitState]);
+    const { data, error } = await supabase.functions.invoke('attendance-start', {
+      body: { eventId: id, token },
+    });
 
-  const fetchEvent = async () => {
-    const { data, error } = await supabase
-      .from('events')
-      .select('id, admin_id, name, event_date, location_name, location_lat, location_lng, location_radius_meters, current_qr_token, qr_token_expires_at, is_active, rotating_qr_enabled, device_fingerprint_enabled, location_check_enabled')
-      .eq('id', id)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (!data) {
-      setSubmitState('inactive');
+    if (error || !data?.authorized || !data?.event) {
+      const reason = data?.reason;
+      if (reason === 'inactive' || reason === 'not_found') {
+        setSubmitState('inactive');
+      } else if (reason === 'expired') {
+        setSubmitState('expired');
+      } else {
+        setSubmitState('error');
+      }
       return;
     }
 
-    setEvent(data);
-    if (data.admin_id) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('theme_color')
-        .eq('id', data.admin_id)
-        .maybeSingle();
-      setEventThemeColor(profile?.theme_color ?? 'default');
-    }
-
-    // Check if token is valid (only if rotating QR is enabled)
-    if (data.rotating_qr_enabled) {
-      if (!token || token === 'static') {
-        setSubmitState('expired');
-        return;
-      }
-      
-      // Parse timestamp from token (format: uuid_timestamp)
-      const tokenParts = token.split('_');
-      if (tokenParts.length < 2) {
-        setSubmitState('expired');
-        return;
-      }
-      
-      const tokenTimestamp = parseInt(tokenParts[tokenParts.length - 1], 10);
-      const now = Date.now();
-      const tokenAge = now - tokenTimestamp;
-      
-      // Token is valid for 15 seconds (3s display + 12s grace period for moderator polling + scan time)
-      if (isNaN(tokenTimestamp) || tokenAge > 15000) {
-        setSubmitState('expired');
-        return;
-      }
-    }
-
+    setEvent(data.event as Event);
+    setSessionId(data.sessionId ?? null);
+    setSessionExpiresAt(data.sessionExpiresAt ?? null);
+    setEventThemeColor((data.event as Event).theme_color ?? 'default');
     setSubmitState('form');
   };
-
-  // Check fingerprint after it's loaded (separate from fetchEvent to avoid race condition)
-  useEffect(() => {
-    const checkFingerprint = async () => {
-      if (!fingerprint || !event || !event.device_fingerprint_enabled) return;
-      if (submitState !== 'form') return;
-      
-      const { data: existing } = await supabase
-        .from('attendance_records')
-        .select('id')
-        .eq('event_id', id)
-        .eq('device_fingerprint', fingerprint)
-        .maybeSingle();
-
-      if (existing) {
-        setSubmitState('already-submitted');
-      }
-    };
-    
-    checkFingerprint();
-  }, [fingerprint, event, id, submitState]);
 
   const requestLocation = () => {
     setLocationRequested(true);
@@ -275,21 +194,6 @@ const Attend = () => {
     );
   };
 
-  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const R = 6371e3; // Earth's radius in meters
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lng2 - lng1) * Math.PI) / 180;
-
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c;
-  };
-
   const formatTimeRemaining = (ms: number): string => {
     const totalSeconds = Math.ceil(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -302,82 +206,43 @@ const Attend = () => {
       return;
     }
 
-    // Re-check time limit before submitting (location prompts can take time).
-    if (fingerprint) {
-      const hasTime = checkTimeLimit(fingerprint);
-      if (!hasTime) {
-        setSubmitState('time-expired');
-        return;
-      }
+    if (!sessionId) {
+      setSubmitState('error');
+      return;
+    }
+
+    if (timeRemaining <= 0) {
+      setSubmitState('time-expired');
+      return;
     }
 
     setSubmitState('loading');
 
-    // Re-fetch event to get latest location settings (in case admin updated them)
-    let currentEvent = event;
-    if (event?.location_check_enabled) {
-      const { data: freshEvent } = await supabase
-        .from('events')
-        .select('id, location_lat, location_lng, location_radius_meters, location_check_enabled')
-        .eq('id', id)
-        .maybeSingle();
-      
-      if (freshEvent) {
-        currentEvent = { ...event, ...freshEvent };
-      }
-    }
-
-    // Determine status based on location check setting
-    let status: 'verified' | 'suspicious' = 'verified';
-    let suspiciousReason: string | null = null;
-    const effectiveLocation = locationOverride ?? location;
-
-    if (currentEvent?.location_check_enabled) {
-      if (locationDenied || !effectiveLocation) {
-        status = 'suspicious';
-        suspiciousReason = 'Location access denied';
-      } else if (currentEvent) {
-        const distance = calculateDistance(
-          effectiveLocation.lat,
-          effectiveLocation.lng,
-          currentEvent.location_lat,
-          currentEvent.location_lng
-        );
-        if (distance > currentEvent.location_radius_meters) {
-          status = 'suspicious';
-          suspiciousReason = `Location ${Math.round(distance)}m away from event (allowed: ${currentEvent.location_radius_meters}m)`;
-        }
-      }
-    }
-
     try {
-      const deviceFingerprintToStore = event?.device_fingerprint_enabled
-        ? fingerprint
-        : `no-fp-${crypto.randomUUID()}`;
-
-      const { error } = await supabase.from('attendance_records').insert({
-        event_id: id,
-        attendee_name: name.trim(),
-        attendee_email: email.trim().toLowerCase(),
-        device_fingerprint: deviceFingerprintToStore,
-        location_lat: currentEvent?.location_check_enabled ? (effectiveLocation?.lat || null) : null,
-        location_lng: currentEvent?.location_check_enabled ? (effectiveLocation?.lng || null) : null,
-        location_provided: currentEvent?.location_check_enabled ? !!effectiveLocation : false,
-        status,
-        suspicious_reason: suspiciousReason,
+      const effectiveLocation = locationOverride ?? location;
+      const { data, error } = await supabase.functions.invoke('attendance-submit', {
+        body: {
+          sessionId,
+          attendeeName: name.trim(),
+          attendeeEmail: email.trim().toLowerCase(),
+          deviceFingerprint: event?.device_fingerprint_enabled ? fingerprint : undefined,
+          location: event?.location_check_enabled ? effectiveLocation : null,
+          locationDenied,
+        },
       });
 
-      if (error) {
-        if (error.code === '23505' && event?.device_fingerprint_enabled) {
+      if (error || !data?.success) {
+        const reason = data?.reason;
+        if (reason === 'already_submitted' || reason === 'session_used') {
           setSubmitState('already-submitted');
+        } else if (reason === 'session_expired' || reason === 'session_invalid') {
+          setSubmitState('time-expired');
+        } else if (reason === 'inactive') {
+          setSubmitState('inactive');
         } else {
-          throw error;
+          throw error ?? new Error(reason || 'Unknown error');
         }
       } else {
-        // Clear the timer storage on successful submission
-        if (fingerprint) {
-          localStorage.removeItem(getStorageKey(fingerprint));
-        }
         setSubmitState('success');
       }
     } catch (error: unknown) {
@@ -392,15 +257,6 @@ const Attend = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Re-check time limit before submitting
-    if (fingerprint) {
-      const hasTime = checkTimeLimit(fingerprint);
-      if (!hasTime) {
-        setSubmitState('time-expired');
-        return;
-      }
-    }
 
     try {
       attendeeSchema.parse({ name, email });
@@ -452,6 +308,22 @@ const Attend = () => {
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
           <p className="text-muted-foreground">Loading event...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (submitState === 'error' && !event) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
+        <Card className="max-w-md w-full bg-gradient-card text-center">
+          <CardContent className="py-12">
+            <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-4" />
+            <h1 className="text-xl font-semibold mb-2">Something went wrong</h1>
+            <p className="text-muted-foreground">
+              Please rescan the QR code and try again.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
