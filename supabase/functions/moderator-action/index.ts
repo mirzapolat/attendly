@@ -57,11 +57,16 @@ serve(async (req) => {
       );
     }
 
-    const url = Deno.env.get("SUPABASE_URL");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const url =
+      Deno.env.get("SUPABASE_URL") ?? Deno.env.get("ATTENDLY_SUPABASE_URL");
+    const serviceKey =
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+      Deno.env.get("ATTENDLY_SERVICE_ROLE_KEY");
 
     if (!url || !serviceKey) {
-      throw new Error("Backend credentials are not configured");
+      throw new Error(
+        "Backend credentials are not configured. Set ATTENDLY_SUPABASE_URL and ATTENDLY_SERVICE_ROLE_KEY.",
+      );
     }
 
     const admin = createClient(url, serviceKey, {

@@ -51,6 +51,7 @@ const Attend = () => {
   const [email, setEmail] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitState, setSubmitState] = useState<SubmitState>('loading');
+  const [startErrorMessage, setStartErrorMessage] = useState<string | null>(null);
   const [fingerprint, setFingerprint] = useState<string>('');
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationRequested, setLocationRequested] = useState(false);
@@ -123,6 +124,7 @@ const Attend = () => {
     setName('');
     setEmail('');
     setErrors({});
+    setStartErrorMessage(null);
     setFingerprint('');
     setLocation(null);
     setLocationRequested(false);
@@ -159,6 +161,10 @@ const Attend = () => {
       } else if (reason === 'expired') {
         setSubmitState('expired');
       } else {
+        const parsed = error ? await parseFunctionError(error) : {};
+        const normalizedReason =
+          reason ?? parsed.reason ?? (parsed.status === 404 ? 'function_not_found' : null);
+        setStartErrorMessage(resolveStartErrorMessage(normalizedReason));
         setSubmitState('error');
       }
       return;
@@ -199,6 +205,38 @@ const Attend = () => {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const resolveStartErrorMessage = (reason?: string | null): string => {
+    switch (reason) {
+      case 'missing_migrations':
+        return "Attendance isn't fully configured yet. Ask the organizer to run the latest database migrations.";
+      case 'function_not_found':
+        return 'Attendance service is not deployed. Ask the organizer to deploy Edge Functions.';
+      case 'server_error':
+        return 'Unable to start attendance right now. Please try again shortly.';
+      case 'invalid_request':
+        return 'Invalid attendance link. Please rescan the QR code.';
+      default:
+        return 'Please rescan the QR code and try again.';
+    }
+  };
+
+  const parseFunctionError = async (error: unknown): Promise<{ reason?: string; status?: number }> => {
+    if (!error || typeof error !== 'object') return {};
+    const maybeError = error as { context?: Response; status?: number };
+    const status = maybeError.status ?? maybeError.context?.status;
+
+    if (!maybeError.context) {
+      return { status };
+    }
+
+    try {
+      const body = await maybeError.context.clone().json();
+      return { reason: body?.reason, status };
+    } catch {
+      return { status };
+    }
   };
 
   const submitAttendance = async (locationOverride?: { lat: number; lng: number } | null) => {
@@ -320,7 +358,7 @@ const Attend = () => {
             <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-4" />
             <h1 className="text-xl font-semibold mb-2">Something went wrong</h1>
             <p className="text-muted-foreground">
-              Please rescan the QR code and try again.
+              {startErrorMessage ?? 'Please rescan the QR code and try again.'}
             </p>
           </CardContent>
         </Card>

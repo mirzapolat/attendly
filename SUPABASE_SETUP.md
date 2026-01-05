@@ -24,8 +24,13 @@ supabase login
 supabase link --project-ref <project-ref>
 supabase db push
 supabase functions deploy moderator-state moderator-action attendance-start attendance-submit delete-account
-supabase secrets set SUPABASE_URL="https://<project-ref>.supabase.co" \
-  SUPABASE_SERVICE_ROLE_KEY="<service-role-key>"
+```
+Notes:
+- The Supabase CLI reserves `SUPABASE_*` env names; those values are injected automatically into Edge Functions.
+- If your Edge Functions logs show "Backend credentials are not configured", set custom secrets:
+```bash
+supabase secrets set ATTENDLY_SUPABASE_URL="https://<project-ref>.supabase.co" \
+  ATTENDLY_SERVICE_ROLE_KEY="<service-role-key>"
 ```
 
 ## 3) Configure Auth URLs

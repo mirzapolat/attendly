@@ -77,6 +77,7 @@ const ModeratorView = () => {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
+  const [unauthorizedMessage, setUnauthorizedMessage] = useState<string | null>(null);
   const [qrToken, setQrToken] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(3);
   const pollIntervalRef = useRef<number | null>(null);
@@ -104,6 +105,47 @@ const ModeratorView = () => {
   const pageTitle = event?.name ? `${event.name} - Moderator View` : 'Moderator View - Attendly';
   usePageTitle(pageTitle);
 
+  const parseFunctionError = async (error: unknown): Promise<{ reason?: string; status?: number }> => {
+    if (!error || typeof error !== 'object') return {};
+    const maybeError = error as { context?: Response; status?: number };
+    const status = maybeError.status ?? maybeError.context?.status;
+
+    if (!maybeError.context) {
+      return { status };
+    }
+
+    try {
+      const body = await maybeError.context.clone().json();
+      return { reason: body?.reason, status };
+    } catch {
+      return { status };
+    }
+  };
+
+  const resolveUnauthorizedMessage = (reason?: string | null): string => {
+    switch (reason) {
+      case 'link_expired':
+        return 'This moderation link has expired.';
+      case 'link_inactive':
+        return 'This moderation link has been deactivated.';
+      case 'moderation_disabled':
+        return 'Moderation is disabled for this event.';
+      case 'missing_migrations':
+        return 'Moderation is not fully configured. Ask the admin to run the latest database migrations.';
+      case 'function_not_found':
+        return 'Moderation service is not deployed. Ask the admin to deploy Edge Functions.';
+      case 'server_error':
+      case 'link_error':
+      case 'event_error':
+        return 'Unable to validate this moderation link right now. Please try again.';
+      case 'missing_params':
+      case 'link_not_found':
+      case 'event_missing':
+      default:
+        return 'This moderation link is invalid or has been deactivated.';
+    }
+  };
+
   const fetchModeratorState = useCallback(
     async (opts?: { includeAttendance?: boolean }) => {
       if (!eventId || !token) {
@@ -111,6 +153,7 @@ const ModeratorView = () => {
         setEvent(null);
         setAttendance([]);
         setLoading(false);
+        setUnauthorizedMessage(resolveUnauthorizedMessage('missing_params'));
         return;
       }
 
@@ -121,11 +164,16 @@ const ModeratorView = () => {
       });
 
       if (error) {
+        const parsed = await parseFunctionError(error);
+        const reason = parsed.reason ?? (parsed.status === 404 ? 'function_not_found' : null);
         console.error('moderator-state invoke error', error);
         setAuthorized(false);
         setEvent(null);
         setAttendance([]);
         setLoading(false);
+        setUnauthorizedMessage(
+          reason ? resolveUnauthorizedMessage(reason) : 'Unable to reach moderation service. Please refresh and try again.'
+        );
         return;
       }
 
@@ -134,12 +182,14 @@ const ModeratorView = () => {
         setEvent(null);
         setAttendance([]);
         setLoading(false);
+        setUnauthorizedMessage(resolveUnauthorizedMessage(data?.reason ?? null));
         return;
       }
 
       const nextEvent = data.event as Event;
       setAuthorized(true);
       setEvent(nextEvent);
+      setUnauthorizedMessage(null);
 
       if (includeAttendance && Array.isArray(data.attendance)) {
         setAttendance(data.attendance as AttendanceRecord[]);
@@ -402,7 +452,7 @@ const ModeratorView = () => {
           <Shield className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
           <h1 className="text-xl font-semibold mb-2">Access Denied</h1>
           <p className="text-muted-foreground mb-4">
-            This moderation link is invalid or has been deactivated.
+            {unauthorizedMessage ?? 'This moderation link is invalid or has been deactivated.'}
           </p>
           <Button onClick={() => window.location.reload()}>
             <RefreshCw className="w-4 h-4 mr-2" />

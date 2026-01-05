@@ -87,14 +87,20 @@ This repo includes database migrations and Edge Functions for moderator workflow
 - Migrations: `supabase/migrations`
 - Edge Functions: `moderator-state`, `moderator-action`, `attendance-start`, `attendance-submit`, `delete-account`
 - RPC: `delete_own_account`
- - Step-by-step guide: `SUPABASE_SETUP.md`
+- Step-by-step guide: `SUPABASE_SETUP.md`
 
 Example Supabase CLI flow (adjust to your project):
 ```bash
 supabase link --project-ref <project-ref>
 supabase db push
 supabase functions deploy moderator-state moderator-action attendance-start attendance-submit delete-account
-supabase secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=...
+```
+Notes:
+- The Supabase CLI reserves `SUPABASE_*` env names; those values are injected into Edge Functions automatically.
+- If your Edge Functions logs show "Backend credentials are not configured", set custom secrets:
+```bash
+supabase secrets set ATTENDLY_SUPABASE_URL="https://<project-ref>.supabase.co" \
+  ATTENDLY_SERVICE_ROLE_KEY="<service-role-key>"
 ```
 
 ## Docker
