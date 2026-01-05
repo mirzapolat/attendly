@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Calendar, BarChart3, Settings, LogOut, QrCode, FolderOpen, Search, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import EventCard from '@/components/EventCard';
 import { sanitizeError } from '@/utils/errorHandler';
+import { usePageTitle } from '@/hooks/usePageTitle';
 
 interface Event {
   id: string;
@@ -30,6 +31,8 @@ const EVENTS_PER_PAGE = 5;
 const SEASONS_PER_PAGE = 5;
 
 const Dashboard = () => {
+  usePageTitle('Dashboard - Attendly');
+
   const { user, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();

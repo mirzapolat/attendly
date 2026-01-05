@@ -11,6 +11,7 @@ import { CheckCircle, XCircle, MapPin, Loader2, QrCode, AlertTriangle, Clock } f
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
+import { usePageTitle } from '@/hooks/usePageTitle';
 
 interface Event {
   id: string;

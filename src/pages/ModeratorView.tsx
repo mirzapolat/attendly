@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { usePageTitle } from '@/hooks/usePageTitle';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, 
   AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Copy, Radio, Search
@@ -100,6 +101,9 @@ const ModeratorView = () => {
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious'>('all');
+
+  const pageTitle = event?.name ? `${event.name} - Moderator View` : 'Moderator View - Attendly';
+  usePageTitle(pageTitle);
 
   const generateToken = useCallback(() => `${crypto.randomUUID()}_${Date.now()}`, []);
 

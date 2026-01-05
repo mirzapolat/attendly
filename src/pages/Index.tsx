@@ -5,10 +5,13 @@ import {
     QrCode, Shield, BarChart3, Users, MapPin, Clock,
     Fingerprint, Download, UserCheck, Zap, ArrowRight, Sparkles
 } from 'lucide-react';
+import { usePageTitle } from '@/hooks/usePageTitle';
 
 const Index = () => {
+    usePageTitle('Attendly by Mirza Polat');
+
     return (
-        <div className="min-h-screen bg-background overflow-hidden">
+        <div className="min-h-screen bg-background overflow-hidden landing-emerald">
             {/* Top Section - Quick Sign In */}
             <section className="relative py-8 px-6">
                 <div className="container mx-auto flex items-center justify-between">
