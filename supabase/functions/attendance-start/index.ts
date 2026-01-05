@@ -12,7 +12,7 @@ const jsonHeaders = {
 };
 
 const FORM_TIME_LIMIT_MS = 2 * 60 * 1000;
-const TOKEN_VALIDITY_MS = 15000;
+const TOKEN_GRACE_MS = 10 * 1000;
 
 type AttendanceStartRequest = {
   eventId?: string;
@@ -26,10 +26,10 @@ const getTokenAgeMs = (token: string, now: number): number | null => {
   return now - timestamp;
 };
 
-const isTokenExpired = (token: string, now: number): boolean => {
+const isTokenWithinGrace = (token: string, now: number): boolean => {
   const age = getTokenAgeMs(token, now);
-  if (age === null) return true;
-  return age > TOKEN_VALIDITY_MS;
+  if (age === null || age < 0) return false;
+  return age <= TOKEN_GRACE_MS;
 };
 
 const respond = (payload: Record<string, unknown>, status = 200) =>
@@ -120,16 +120,7 @@ serve(async (req) => {
     const providedToken = token ?? null;
 
     if (event.rotating_qr_enabled) {
-      if (!providedToken || providedToken !== event.current_qr_token) {
-        return respond({ authorized: false, reason: "expired" });
-      }
-
-      if (event.qr_token_expires_at) {
-        const expiresAt = Date.parse(event.qr_token_expires_at);
-        if (Number.isNaN(expiresAt) || now > expiresAt) {
-          return respond({ authorized: false, reason: "expired" });
-        }
-      } else if (isTokenExpired(providedToken, now)) {
+      if (!providedToken || !isTokenWithinGrace(providedToken, now)) {
         return respond({ authorized: false, reason: "expired" });
       }
     } else {

@@ -459,8 +459,8 @@ const EventDetail = () => {
     if (!event?.is_active || !event?.rotating_qr_enabled) return;
 
     const newToken = generateToken();
-    // 15 second validity: 3s display + 12s grace period for moderator polling delay + scan time
-    const expiresAt = new Date(Date.now() + 15000).toISOString();
+    // 10 second validity: 3s display + 7s grace period for scan time
+    const expiresAt = new Date(Date.now() + 10000).toISOString();
 
     await supabase
       .from('events')
@@ -507,7 +507,7 @@ const EventDetail = () => {
       .update({ 
         is_active: newStatus,
         current_qr_token: newStatus ? generateToken() : null,
-        qr_token_expires_at: newStatus ? new Date(Date.now() + 8000).toISOString() : null,
+        qr_token_expires_at: newStatus ? new Date(Date.now() + 10000).toISOString() : null,
       })
       .eq('id', id);
 
