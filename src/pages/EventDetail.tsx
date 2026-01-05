@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo, type CSSProperties, 
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { getRuntimeEnv } from '@/lib/runtimeEnv';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -208,8 +209,10 @@ const EventDetail = () => {
         return;
       }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const runtimeEnv = getRuntimeEnv();
+      const supabaseUrl = runtimeEnv.VITE_SUPABASE_URL ?? import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey =
+        runtimeEnv.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       if (!supabaseUrl || !supabaseKey) {
         return;
       }
