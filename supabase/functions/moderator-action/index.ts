@@ -11,9 +11,10 @@ type ModeratorActionRequest = {
   token: string;
   action: "update_status" | "delete_record" | "add_attendee" | "search_attendees";
   recordId?: string;
-  newStatus?: "verified" | "suspicious" | "cleared";
+  newStatus?: "verified" | "suspicious" | "cleared" | "excused";
   attendeeName?: string;
   attendeeEmail?: string;
+  attendeeStatus?: "verified" | "excused";
   searchName?: string;
 };
 
@@ -46,7 +47,7 @@ serve(async (req) => {
 
   try {
     const body = (await req.json()) as ModeratorActionRequest;
-    const { eventId, token, action, recordId, newStatus, attendeeName, attendeeEmail } = body;
+    const { eventId, token, action, recordId, newStatus, attendeeName, attendeeEmail, attendeeStatus } = body;
 
     console.log("moderator-action request:", { eventId, action, recordId, newStatus });
 
@@ -169,10 +170,10 @@ serve(async (req) => {
     if (action === "update_status" && recordId && newStatus) {
       const { error } = await admin
         .from("attendance_records")
-        .update({ 
-          status: newStatus, 
-          suspicious_reason: newStatus === "cleared" ? null : undefined 
-        })
+      .update({
+        status: newStatus,
+        suspicious_reason: newStatus === "suspicious" ? undefined : null,
+      })
         .eq("id", recordId)
         .eq("event_id", eventId);
 
@@ -214,6 +215,7 @@ serve(async (req) => {
     }
 
     if (action === "add_attendee" && attendeeName && attendeeEmail) {
+      const status = attendeeStatus === "excused" ? "excused" : "verified";
       const { error } = await admin
         .from("attendance_records")
         .insert({
@@ -221,7 +223,7 @@ serve(async (req) => {
           attendee_name: attendeeName.trim(),
           attendee_email: attendeeEmail.trim().toLowerCase(),
           device_fingerprint: `moderator-${crypto.randomUUID()}`,
-          status: "verified",
+          status,
           location_provided: false,
         });
 

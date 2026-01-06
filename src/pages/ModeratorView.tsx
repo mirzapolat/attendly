@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Copy, Radio, Search
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Copy, Radio, Search, UserMinus
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -37,7 +37,7 @@ interface AttendanceRecord {
   id: string;
   attendee_name: string;
   attendee_email: string | null;
-  status: 'verified' | 'suspicious' | 'cleared';
+  status: 'verified' | 'suspicious' | 'cleared' | 'excused';
   suspicious_reason: string | null;
   location_provided: boolean;
   location_lat: number | null;
@@ -93,6 +93,7 @@ const ModeratorView = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualEmail, setManualEmail] = useState('');
+  const [manualExcused, setManualExcused] = useState(false);
   const [suggestions, setSuggestions] = useState<KnownAttendee[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -314,6 +315,7 @@ const ModeratorView = () => {
         action: 'add_attendee',
         attendeeName: manualName.trim(),
         attendeeEmail: manualEmail.trim().toLowerCase(),
+        attendeeStatus: manualExcused ? 'excused' : 'verified',
       },
     });
 
@@ -326,10 +328,13 @@ const ModeratorView = () => {
     } else {
       toast({
         title: 'Attendee added',
-        description: `${manualName} has been added`,
+        description: manualExcused
+          ? `${manualName} has been added as excused`
+          : `${manualName} has been added`,
       });
       setManualName('');
       setManualEmail('');
+      setManualExcused(false);
       setShowAddForm(false);
       setSuggestions([]);
       await fetchModeratorState({ includeAttendance: true });
@@ -343,7 +348,10 @@ const ModeratorView = () => {
     setShowSuggestions(false);
   };
 
-  const updateStatus = async (recordId: string, newStatus: 'verified' | 'suspicious' | 'cleared') => {
+  const updateStatus = async (
+    recordId: string,
+    newStatus: 'verified' | 'suspicious' | 'cleared' | 'excused'
+  ) => {
     const { data, error } = await supabase.functions.invoke('moderator-action', {
       body: {
         eventId,
@@ -653,6 +661,15 @@ const ModeratorView = () => {
                       value={manualEmail}
                       onChange={(e) => setManualEmail(e.target.value)}
                     />
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-border text-warning focus:ring-warning"
+                        checked={manualExcused}
+                        onChange={(e) => setManualExcused(e.target.checked)}
+                      />
+                      Mark as excused (not attended)
+                    </label>
                     <div className="flex gap-2">
                       <Button size="sm" onClick={addManualAttendee} className="flex-1">
                         Add Attendee
@@ -661,6 +678,7 @@ const ModeratorView = () => {
                         setShowAddForm(false);
                         setManualName('');
                         setManualEmail('');
+                        setManualExcused(false);
                         setSuggestions([]);
                       }}>
                         Cancel
@@ -718,10 +736,20 @@ const ModeratorView = () => {
                             >
                               {getDisplayName(record)}
                             </p>
-                            <Badge variant={
-                              record.status === 'verified' ? 'default' :
-                              record.status === 'suspicious' ? 'destructive' : 'secondary'
-                            }>
+                            <Badge
+                              variant={
+                                record.status === 'verified'
+                                  ? 'default'
+                                  : record.status === 'suspicious'
+                                    ? 'destructive'
+                                    : 'secondary'
+                              }
+                              className={
+                                record.status === 'excused'
+                                  ? 'bg-warning/10 text-warning border-warning/20'
+                                  : undefined
+                              }
+                            >
                               {record.status}
                             </Badge>
                           </div>
@@ -765,6 +793,26 @@ const ModeratorView = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-1">
+                          {record.status === 'excused' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => updateStatus(record.id, 'verified')}
+                              title="Mark as attending"
+                            >
+                              <CheckCircle className="w-4 h-4 text-success" />
+                            </Button>
+                          )}
+                          {(record.status === 'verified' || record.status === 'cleared') && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => updateStatus(record.id, 'excused')}
+                              title="Mark as excused"
+                            >
+                              <UserMinus className="w-4 h-4 text-warning" />
+                            </Button>
+                          )}
                           {record.status === 'suspicious' && (
                             <Button
                               variant="ghost"

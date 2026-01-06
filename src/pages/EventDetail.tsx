@@ -11,11 +11,12 @@ import { useToast } from '@/hooks/use-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, Play, Square, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2, Search
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2, Search, UserMinus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EventSettings from '@/components/EventSettings';
 import ModerationSettings from '@/components/ModerationSettings';
+import ExcuseLinkSettings from '@/components/ExcuseLinkSettings';
 import AttendeeActions from '@/components/AttendeeActions';
 import QRCodeExport from '@/components/QRCodeExport';
 import { sanitizeError } from '@/utils/errorHandler';
@@ -44,7 +45,7 @@ interface AttendanceRecord {
   id: string;
   attendee_name: string;
   attendee_email: string;
-  status: 'verified' | 'suspicious' | 'cleared';
+  status: 'verified' | 'suspicious' | 'cleared' | 'excused';
   suspicious_reason: string | null;
   location_provided: boolean;
   location_lat: number | null;
@@ -97,12 +98,14 @@ const EventDetail = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualEmail, setManualEmail] = useState('');
+  const [manualExcused, setManualExcused] = useState(false);
   const [suggestions, setSuggestions] = useState<KnownAttendee[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   
   // Settings modals
   const [showSettings, setShowSettings] = useState(false);
   const [showModeration, setShowModeration] = useState(false);
+  const [showExcuseLinks, setShowExcuseLinks] = useState(false);
 
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -426,7 +429,7 @@ const EventDetail = () => {
         attendee_name: manualName.trim(),
         attendee_email: manualEmail.trim().toLowerCase(),
         device_fingerprint: `manual-${crypto.randomUUID()}`,
-        status: 'verified',
+        status: manualExcused ? 'excused' : 'verified',
         location_provided: false,
       });
 
@@ -439,10 +442,13 @@ const EventDetail = () => {
     } else {
       toast({
         title: 'Attendee added',
-        description: `${manualName} has been added manually`,
+        description: manualExcused
+          ? `${manualName} has been added as excused`
+          : `${manualName} has been added manually`,
       });
       setManualName('');
       setManualEmail('');
+      setManualExcused(false);
       setShowAddForm(false);
       setSuggestions([]);
     }
@@ -520,10 +526,16 @@ const EventDetail = () => {
     }
   };
 
-  const updateStatus = async (recordId: string, newStatus: 'verified' | 'suspicious' | 'cleared') => {
+  const updateStatus = async (
+    recordId: string,
+    newStatus: 'verified' | 'suspicious' | 'cleared' | 'excused'
+  ) => {
     const { error } = await supabase
       .from('attendance_records')
-      .update({ status: newStatus, suspicious_reason: newStatus === 'cleared' ? null : undefined })
+      .update({
+        status: newStatus,
+        suspicious_reason: newStatus === 'suspicious' ? undefined : null,
+      })
       .eq('id', recordId);
 
     if (!error) {
@@ -574,6 +586,7 @@ const EventDetail = () => {
 
   const verifiedCount = attendance.filter(a => a.status === 'verified' || a.status === 'cleared').length;
   const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
+  const excusedCount = attendance.filter(a => a.status === 'excused').length;
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -611,6 +624,13 @@ const EventDetail = () => {
           onUpdate={(settings) => setEvent((prev) => prev ? { ...prev, ...settings } : null)}
         />
       )}
+      {showExcuseLinks && event && (
+        <ExcuseLinkSettings
+          eventId={event.id}
+          eventName={event.name}
+          onClose={() => setShowExcuseLinks(false)}
+        />
+      )}
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <Link
@@ -624,6 +644,9 @@ const EventDetail = () => {
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => setShowModeration(true)} title="Moderation settings">
               <Users2 className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="icon" onClick={() => setShowExcuseLinks(true)} title="Excuse links">
+              <UserMinus className="w-4 h-4" />
             </Button>
             <Button variant="outline" size="icon" onClick={() => setShowSettings(true)} title="Event settings">
               <Settings className="w-4 h-4" />
@@ -658,6 +681,9 @@ const EventDetail = () => {
                   <QrCode className="w-5 h-5" />
                   {event.name}
                 </CardTitle>
+                {event.description && (
+                  <p className="text-sm text-muted-foreground mt-1">{event.description}</p>
+                )}
                 <CardDescription className="flex items-center gap-4 flex-wrap">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
@@ -721,7 +747,11 @@ const EventDetail = () => {
             </Card>
 
             {/* Stats - clickable filters */}
-            <div className="grid grid-cols-3 gap-4 mt-4">
+            <div
+              className={`grid grid-cols-2 gap-4 mt-4 ${
+                suspiciousCount > 0 ? 'md:grid-cols-4' : 'md:grid-cols-3'
+              }`}
+            >
               <Card 
                 className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-primary/50 ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
                 onClick={() => setStatusFilter('all')}
@@ -730,6 +760,16 @@ const EventDetail = () => {
                   <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
                   <p className="text-2xl font-bold">{attendance.length}</p>
                   <p className="text-xs text-muted-foreground">Total</p>
+                </CardContent>
+              </Card>
+              <Card 
+                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-warning/50 ${statusFilter === 'excused' ? 'ring-2 ring-warning' : ''}`}
+                onClick={() => setStatusFilter('excused')}
+              >
+                <CardContent className="py-4 text-center">
+                  <UserMinus className="w-5 h-5 mx-auto mb-1 text-warning" />
+                  <p className="text-2xl font-bold">{excusedCount}</p>
+                  <p className="text-xs text-muted-foreground">Excused</p>
                 </CardContent>
               </Card>
               <Card 
@@ -742,16 +782,18 @@ const EventDetail = () => {
                   <p className="text-xs text-muted-foreground">Verified</p>
                 </CardContent>
               </Card>
-              <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-warning/50 ${statusFilter === 'suspicious' ? 'ring-2 ring-warning' : ''}`}
-                onClick={() => setStatusFilter('suspicious')}
-              >
-                <CardContent className="py-4 text-center">
-                  <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-warning" />
-                  <p className="text-2xl font-bold">{suspiciousCount}</p>
-                  <p className="text-xs text-muted-foreground">Suspicious</p>
-                </CardContent>
-              </Card>
+              {suspiciousCount > 0 && (
+                <Card 
+                  className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-warning/50 ${statusFilter === 'suspicious' ? 'ring-2 ring-warning' : ''}`}
+                  onClick={() => setStatusFilter('suspicious')}
+                >
+                  <CardContent className="py-4 text-center">
+                    <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-warning" />
+                    <p className="text-2xl font-bold">{suspiciousCount}</p>
+                    <p className="text-xs text-muted-foreground">Suspicious</p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
 
@@ -838,6 +880,15 @@ const EventDetail = () => {
                       value={manualEmail}
                       onChange={(e) => setManualEmail(e.target.value)}
                     />
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-border text-warning focus:ring-warning"
+                        checked={manualExcused}
+                        onChange={(e) => setManualExcused(e.target.checked)}
+                      />
+                      Mark as excused (not attended)
+                    </label>
                     <div className="flex gap-2">
                       <Button size="sm" onClick={addManualAttendee} className="flex-1">
                         Add Attendee
@@ -846,6 +897,7 @@ const EventDetail = () => {
                         setShowAddForm(false);
                         setManualName('');
                         setManualEmail('');
+                        setManualExcused(false);
                         setSuggestions([]);
                       }}>
                         Cancel
@@ -861,7 +913,8 @@ const EventDetail = () => {
                   record.attendee_name.toLowerCase().includes(searchQuery.toLowerCase());
                 const matchesStatus = statusFilter === 'all' ||
                   (statusFilter === 'verified' && (record.status === 'verified' || record.status === 'cleared')) ||
-                  (statusFilter === 'suspicious' && record.status === 'suspicious');
+                  (statusFilter === 'suspicious' && record.status === 'suspicious') ||
+                  (statusFilter === 'excused' && record.status === 'excused');
                 return matchesSearch && matchesStatus;
               });
 
@@ -904,10 +957,20 @@ const EventDetail = () => {
                                 ? record.attendee_name 
                                 : maskName(record.attendee_name)}
                             </p>
-                            <Badge variant={
-                              record.status === 'verified' ? 'default' :
-                              record.status === 'suspicious' ? 'destructive' : 'secondary'
-                            }>
+                            <Badge
+                              variant={
+                                record.status === 'verified'
+                                  ? 'default'
+                                  : record.status === 'suspicious'
+                                    ? 'destructive'
+                                    : 'secondary'
+                              }
+                              className={
+                                record.status === 'excused'
+                                  ? 'bg-warning/10 text-warning border-warning/20'
+                                  : undefined
+                              }
+                            >
                               {record.status}
                             </Badge>
                           </div>
@@ -951,6 +1014,26 @@ const EventDetail = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-1">
+                          {record.status === 'excused' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => updateStatus(record.id, 'verified')}
+                              title="Mark as attending"
+                            >
+                              <CheckCircle className="w-4 h-4 text-success" />
+                            </Button>
+                          )}
+                          {(record.status === 'verified' || record.status === 'cleared') && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => updateStatus(record.id, 'excused')}
+                              title="Mark as excused"
+                            >
+                              <UserMinus className="w-4 h-4 text-warning" />
+                            </Button>
+                          )}
                           {record.status === 'suspicious' && (
                             <Button
                               variant="ghost"

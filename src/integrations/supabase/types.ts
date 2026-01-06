@@ -186,6 +186,44 @@ export type Database = {
           },
         ]
       }
+      excuse_links: {
+        Row: {
+          created_at: string
+          event_id: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          label: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          token: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "excuse_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       moderation_links: {
         Row: {
           created_at: string
@@ -294,7 +332,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      attendance_status: "verified" | "suspicious" | "cleared"
+      attendance_status: "verified" | "suspicious" | "cleared" | "excused"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -422,7 +460,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      attendance_status: ["verified", "suspicious", "cleared"],
+      attendance_status: ["verified", "suspicious", "cleared", "excused"],
     },
   },
 } as const

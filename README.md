@@ -70,7 +70,7 @@ From this repository:
 supabase login
 supabase link # Link your project
 supabase db push
-supabase functions deploy moderator-state moderator-action attendance-start attendance-submit --no-verify-jwt
+supabase functions deploy moderator-state moderator-action attendance-start attendance-submit excuse-start excuse-submit --no-verify-jwt
 supabase functions deploy delete-account
 ```
 
@@ -103,7 +103,7 @@ docker run --rm -p 8080:80 \
 Create `.env.local`:
 ```bash
 VITE_SUPABASE_URL="https://<project-ref>.supabase.co"
-VITE_SUPABASE_PUBLISHABLE_KEY="<anon-or-publishable-key>"
+VITE_SUPABASE_PUBLISHABLE_KEY="<publishable-key>"
 ```
 Start dev server:
 ```bash

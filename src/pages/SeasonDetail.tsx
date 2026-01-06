@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X, Settings } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { sanitizeError } from '@/utils/errorHandler';
@@ -25,20 +28,24 @@ interface Event {
   season_id: string | null;
 }
 
+type AttendanceStatus = 'verified' | 'suspicious' | 'cleared' | 'excused';
+
 interface AttendanceRecord {
   id: string;
   event_id: string;
   attendee_email: string;
   attendee_name: string;
-  status: string;
+  status: AttendanceStatus;
 }
 
 interface MemberStats {
   email: string;
   name: string;
   eventsAttended: number;
+  eventsExcused: number;
   attendanceRate: number;
   attendedEventIds: Set<string>;
+  excusedEventIds: Set<string>;
 }
 
 const SeasonDetail = () => {
@@ -60,10 +67,20 @@ const SeasonDetail = () => {
   // Member detail modal state
   const [selectedMember, setSelectedMember] = useState<MemberStats | null>(null);
   const [memberEventSearch, setMemberEventSearch] = useState('');
-  const [memberEventFilter, setMemberEventFilter] = useState<'all' | 'attended' | 'not_attended'>('all');
+  const [memberEventFilter, setMemberEventFilter] = useState<'all' | 'attended' | 'excused' | 'not_attended'>('all');
 
   // Events list state
   const [eventSearch, setEventSearch] = useState('');
+  const [manageEventsOpen, setManageEventsOpen] = useState(false);
+  const [removeEventSearch, setRemoveEventSearch] = useState('');
+  const [addEventSearch, setAddEventSearch] = useState('');
+  const [seasonSettingsOpen, setSeasonSettingsOpen] = useState(false);
+  const [seasonName, setSeasonName] = useState('');
+  const [seasonDescription, setSeasonDescription] = useState('');
+  const [seasonSaving, setSeasonSaving] = useState(false);
+  const [conflictsOpen, setConflictsOpen] = useState(false);
+  const [conflictSelections, setConflictSelections] = useState<Record<string, string>>({});
+  const [resolvingConflicts, setResolvingConflicts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -149,9 +166,148 @@ const SeasonDetail = () => {
     }
   };
 
+  const openSeasonSettings = () => {
+    if (!season) return;
+    setSeasonName(season.name);
+    setSeasonDescription(season.description ?? '');
+    setSeasonSettingsOpen(true);
+  };
+
+  const handleSeasonUpdate = async () => {
+    if (!season) return;
+    if (!seasonName.trim()) {
+      toast({
+        title: 'Missing name',
+        description: 'Season name is required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSeasonSaving(true);
+    const { error } = await supabase
+      .from('seasons')
+      .update({
+        name: seasonName.trim(),
+        description: seasonDescription.trim() ? seasonDescription.trim() : null,
+      })
+      .eq('id', season.id);
+
+    setSeasonSaving(false);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update season settings',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSeason((prev) =>
+      prev
+        ? {
+            ...prev,
+            name: seasonName.trim(),
+            description: seasonDescription.trim() ? seasonDescription.trim() : null,
+          }
+        : prev,
+    );
+    setSeasonSettingsOpen(false);
+    toast({ title: 'Season updated' });
+  };
+
+  const nameConflicts = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    attendance.forEach((record) => {
+      const email = record.attendee_email;
+      const name = record.attendee_name.trim();
+      if (!email || !name) return;
+      if (!map.has(email)) {
+        map.set(email, new Map());
+      }
+      const nameCounts = map.get(email)!;
+      nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
+    });
+
+    const conflicts = Array.from(map.entries())
+      .map(([email, namesMap]) => {
+        const names = Array.from(namesMap.entries())
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+        return { email, names };
+      })
+      .filter((entry) => entry.names.length > 1)
+      .sort((a, b) => a.email.localeCompare(b.email));
+
+    return conflicts;
+  }, [attendance]);
+
+  useEffect(() => {
+    setConflictSelections((prev) => {
+      const next = { ...prev };
+      const emails = new Set(nameConflicts.map((conflict) => conflict.email));
+      Object.keys(next).forEach((email) => {
+        if (!emails.has(email)) {
+          delete next[email];
+        }
+      });
+      nameConflicts.forEach((conflict) => {
+        const existing = prev[conflict.email];
+        if (existing && conflict.names.some((name) => name.name === existing)) {
+          next[conflict.email] = existing;
+        } else if (conflict.names[0]) {
+          next[conflict.email] = conflict.names[0].name;
+        }
+      });
+      return next;
+    });
+  }, [nameConflicts]);
+
+  const resolveNameConflict = async (email: string) => {
+    const selectedName = conflictSelections[email];
+    if (!selectedName) {
+      toast({
+        title: 'Choose a name',
+        description: 'Select the correct name before applying changes.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const eventIds = events.map((event) => event.id);
+    if (eventIds.length === 0) return;
+
+    setResolvingConflicts((prev) => ({ ...prev, [email]: true }));
+    const { error } = await supabase
+      .from('attendance_records')
+      .update({ attendee_name: selectedName })
+      .eq('attendee_email', email)
+      .in('event_id', eventIds);
+    setResolvingConflicts((prev) => ({ ...prev, [email]: false }));
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update attendee names',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setAttendance((prev) =>
+      prev.map((record) =>
+        record.attendee_email === email ? { ...record, attendee_name: selectedName } : record,
+      ),
+    );
+    toast({ title: 'Name updated' });
+  };
+
+  const isActualAttendance = (record: AttendanceRecord) => record.status !== 'excused';
+
   // Calculate analytics with deduplication (only count one attendance per member per event)
   const eventAttendanceData = events.map(event => {
-    const eventAttendance = attendance.filter(a => a.event_id === event.id);
+    const eventAttendance = attendance.filter(a => a.event_id === event.id && isActualAttendance(a));
     // Deduplicate by email
     const uniqueEmails = new Set(eventAttendance.map(a => a.attendee_email));
     return {
@@ -165,19 +321,28 @@ const SeasonDetail = () => {
   const memberStatsMap = new Map<string, MemberStats>();
   attendance.forEach(record => {
     const existing = memberStatsMap.get(record.attendee_email);
+    const isExcused = record.status === 'excused';
+
     if (existing) {
-      // Only count if they haven't already been counted for this event
-      if (!existing.attendedEventIds.has(record.event_id)) {
+      if (isExcused) {
+        if (!existing.attendedEventIds.has(record.event_id)) {
+          existing.excusedEventIds.add(record.event_id);
+        }
+      } else {
         existing.attendedEventIds.add(record.event_id);
-        existing.eventsAttended++;
+        if (existing.excusedEventIds.has(record.event_id)) {
+          existing.excusedEventIds.delete(record.event_id);
+        }
       }
     } else {
       memberStatsMap.set(record.attendee_email, {
         email: record.attendee_email,
         name: record.attendee_name,
-        eventsAttended: 1,
+        eventsAttended: 0,
+        eventsExcused: 0,
         attendanceRate: 0,
-        attendedEventIds: new Set([record.event_id]),
+        attendedEventIds: new Set(isExcused ? [] : [record.event_id]),
+        excusedEventIds: new Set(isExcused ? [record.event_id] : []),
       });
     }
   });
@@ -185,7 +350,9 @@ const SeasonDetail = () => {
   const memberStats = Array.from(memberStatsMap.values())
     .map(member => ({
       ...member,
-      attendanceRate: events.length > 0 ? Math.round((member.eventsAttended / events.length) * 100) : 0,
+      eventsAttended: member.attendedEventIds.size,
+      eventsExcused: member.excusedEventIds.size,
+      attendanceRate: events.length > 0 ? Math.round((member.attendedEventIds.size / events.length) * 100) : 0,
     }));
 
   // Filter and sort member stats
@@ -202,11 +369,17 @@ const SeasonDetail = () => {
 
   // Calculate total attendance with deduplication
   const totalUniqueAttendance = events.reduce((sum, event) => {
-    const eventEmails = new Set(attendance.filter(a => a.event_id === event.id).map(a => a.attendee_email));
+    const eventEmails = new Set(
+      attendance
+        .filter(a => a.event_id === event.id && isActualAttendance(a))
+        .map(a => a.attendee_email)
+    );
     return sum + eventEmails.size;
   }, 0);
-  const uniqueAttendees = memberStats.length;
+  const uniqueAttendees = memberStats.filter(member => member.eventsAttended > 0).length;
   const avgAttendance = events.length > 0 ? Math.round(totalUniqueAttendance / events.length) : 0;
+  const getNotAttendedCount = (member: MemberStats) =>
+    Math.max(0, events.length - member.eventsAttended - member.eventsExcused);
 
   // Events not in this season
   const eventsNotInSeason = allUserEvents.filter(e => e.season_id !== id);
@@ -214,6 +387,12 @@ const SeasonDetail = () => {
   // Filter events list
   const filteredSeasonEvents = events.filter(e => 
     e.name.toLowerCase().includes(eventSearch.toLowerCase())
+  );
+  const filteredRemoveEvents = events.filter((e) =>
+    e.name.toLowerCase().includes(removeEventSearch.toLowerCase()),
+  );
+  const filteredAddEvents = eventsNotInSeason.filter((e) =>
+    e.name.toLowerCase().includes(addEventSearch.toLowerCase()),
   );
 
   // Member detail modal: events for selected member
@@ -223,7 +402,9 @@ const SeasonDetail = () => {
     return events
       .map(event => {
         const attended = selectedMember.attendedEventIds.has(event.id);
-        return { ...event, attended };
+        const excused = selectedMember.excusedEventIds.has(event.id);
+        const status = attended ? 'attended' : excused ? 'excused' : 'not_attended';
+        return { ...event, status };
       })
       .filter(event => {
         // Search filter
@@ -231,8 +412,9 @@ const SeasonDetail = () => {
           return false;
         }
         // Attendance filter
-        if (memberEventFilter === 'attended' && !event.attended) return false;
-        if (memberEventFilter === 'not_attended' && event.attended) return false;
+        if (memberEventFilter === 'attended' && event.status !== 'attended') return false;
+        if (memberEventFilter === 'excused' && event.status !== 'excused') return false;
+        if (memberEventFilter === 'not_attended' && event.status !== 'not_attended') return false;
         return true;
       })
       .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
@@ -265,7 +447,15 @@ const SeasonDetail = () => {
       const cells = [
         escapeCSV(member.name),
         escapeCSV(member.email),
-        ...sortedEvents.map(event => escapeCSV(member.attendedEventIds.has(event.id) ? 'Attended' : '')),
+        ...sortedEvents.map((event) => {
+          if (member.attendedEventIds.has(event.id)) {
+            return escapeCSV('Attended');
+          }
+          if (member.excusedEventIds.has(event.id)) {
+            return escapeCSV('Excused');
+          }
+          return escapeCSV('');
+        }),
       ];
       return cells.join(',');
     });
@@ -313,10 +503,25 @@ const SeasonDetail = () => {
             <ArrowLeft className="w-4 h-4" />
             Dashboard
           </Link>
-          <Button onClick={handleExportAttendanceMatrix} variant="outline" size="sm" className="gap-2">
-            <Download className="w-4 h-4" />
-            Export Matrix
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={openSeasonSettings} variant="outline" size="sm" className="gap-2">
+              <Settings className="w-4 h-4" />
+              Season Settings
+            </Button>
+            <Button
+              onClick={() => setConflictsOpen(true)}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={nameConflicts.length === 0}
+            >
+              Resolve Names{ nameConflicts.length > 0 ? ` (${nameConflicts.length})` : '' }
+            </Button>
+            <Button onClick={handleExportAttendanceMatrix} variant="outline" size="sm" className="gap-2">
+              <Download className="w-4 h-4" />
+              Export Matrix
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -493,9 +698,16 @@ const SeasonDetail = () => {
                           <p className="font-medium truncate">{member.name}</p>
                           <p className="text-sm text-muted-foreground truncate">{member.email}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-semibold">{member.eventsAttended}/{events.length}</p>
-                          <p className="text-sm text-muted-foreground">{member.attendanceRate}%</p>
+                        <div className="flex items-center gap-3 text-sm font-semibold">
+                          <span className="text-green-600" title="Attended">
+                            {member.eventsAttended}
+                          </span>
+                          <span className="text-warning" title="Excused">
+                            {member.eventsExcused}
+                          </span>
+                          <span className="text-muted-foreground" title="Not attended">
+                            {getNotAttendedCount(member)}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -510,6 +722,13 @@ const SeasonDetail = () => {
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Events in this Season</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setManageEventsOpen(true)}
+            >
+              Manage Events
+            </Button>
           </div>
           
           <div className="relative mb-4">
@@ -531,7 +750,11 @@ const SeasonDetail = () => {
           ) : (
             <div className="grid gap-3">
               {filteredSeasonEvents.map((event) => {
-                const eventEmails = new Set(attendance.filter(a => a.event_id === event.id).map(a => a.attendee_email));
+                const eventEmails = new Set(
+                  attendance
+                    .filter(a => a.event_id === event.id && isActualAttendance(a))
+                    .map(a => a.attendee_email)
+                );
                 return (
                   <Card key={event.id} className="bg-gradient-card">
                     <CardContent className="py-3 flex items-center justify-between">
@@ -548,56 +771,11 @@ const SeasonDetail = () => {
                           <p className="font-semibold">{eventEmails.size}</p>
                           <p className="text-sm text-muted-foreground">attendees</p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleRemoveEventFromSeason(event.id);
-                          }}
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Minus className="w-4 h-4" />
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                 );
               })}
-            </div>
-          )}
-
-          {/* Events not in season */}
-          {eventsNotInSeason.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-lg font-medium mb-3 text-muted-foreground">Add Events to Season</h3>
-              <div className="grid gap-2">
-                {eventsNotInSeason.slice(0, 5).map((event) => (
-                  <Card key={event.id} className="bg-muted/30 border-dashed">
-                    <CardContent className="py-2 flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{event.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(event.event_date), 'PPP')}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleAddEventToSeason(event.id)}
-                        className="text-primary hover:text-primary hover:bg-primary/10"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-                {eventsNotInSeason.length > 5 && (
-                  <p className="text-sm text-muted-foreground text-center py-2">
-                    +{eventsNotInSeason.length - 5} more events available
-                  </p>
-                )}
-              </div>
             </div>
           )}
         </div>
@@ -640,11 +818,18 @@ const SeasonDetail = () => {
                 Attended ({selectedMember?.eventsAttended || 0})
               </Button>
               <Button
+                variant={memberEventFilter === 'excused' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setMemberEventFilter('excused')}
+              >
+                Excused ({selectedMember?.eventsExcused || 0})
+              </Button>
+              <Button
                 variant={memberEventFilter === 'not_attended' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setMemberEventFilter('not_attended')}
               >
-                Not Attended ({events.length - (selectedMember?.eventsAttended || 0)})
+                Not Attended ({selectedMember ? getNotAttendedCount(selectedMember) : 0})
               </Button>
             </div>
 
@@ -660,15 +845,24 @@ const SeasonDetail = () => {
                       {format(new Date(event.event_date), 'PPP')}
                     </p>
                   </div>
-                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
-                    event.attended 
-                      ? 'bg-green-500/10 text-green-600 dark:text-green-400' 
-                      : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {event.attended ? (
+                  <div
+                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
+                      event.status === 'attended'
+                        ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                        : event.status === 'excused'
+                          ? 'bg-warning/10 text-warning'
+                          : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {event.status === 'attended' ? (
                       <>
                         <Check className="w-4 h-4" />
                         Attended
+                      </>
+                    ) : event.status === 'excused' ? (
+                      <>
+                        <Minus className="w-4 h-4" />
+                        Excused
                       </>
                     ) : (
                       <>
@@ -683,6 +877,203 @@ const SeasonDetail = () => {
                 <p className="text-center text-muted-foreground py-8">No events match your search</p>
               )}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Events Modal */}
+      <Dialog open={manageEventsOpen} onOpenChange={setManageEventsOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Manage Season Events</DialogTitle>
+            <DialogDescription>
+              Add events to or remove events from {season.name}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-6 md:grid-cols-2 overflow-hidden">
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Remove from Season</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search events in this season..."
+                  value={removeEventSearch}
+                  onChange={(e) => setRemoveEventSearch(e.target.value)}
+                  className="pl-9 mt-1"
+                />
+              </div>
+              <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                {filteredRemoveEvents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No matching events found.</p>
+                ) : (
+                  filteredRemoveEvents.map((event) => (
+                    <Card key={event.id} className="bg-muted/30">
+                      <CardContent className="py-2 flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{event.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(event.event_date), 'PPP')}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveEventFromSeason(event.id)}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Add to Season</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search events to add..."
+                  value={addEventSearch}
+                  onChange={(e) => setAddEventSearch(e.target.value)}
+                  className="pl-9 mt-1"
+                />
+              </div>
+              <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                {filteredAddEvents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No matching events found.</p>
+                ) : (
+                  filteredAddEvents.map((event) => (
+                    <Card key={event.id} className="bg-muted/30 border-dashed">
+                      <CardContent className="py-2 flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{event.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(event.event_date), 'PPP')}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleAddEventToSeason(event.id)}
+                          className="text-primary hover:text-primary hover:bg-primary/10"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Season Settings Modal */}
+      <Dialog open={seasonSettingsOpen} onOpenChange={setSeasonSettingsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Season</DialogTitle>
+            <DialogDescription>Update the season name and description.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="season-name">Name</Label>
+              <Input
+                id="season-name"
+                value={seasonName}
+                onChange={(e) => setSeasonName(e.target.value)}
+                placeholder="Season name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="season-description">Description</Label>
+              <Textarea
+                id="season-description"
+                value={seasonDescription}
+                onChange={(e) => setSeasonDescription(e.target.value)}
+                placeholder="Optional description"
+                rows={4}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setSeasonSettingsOpen(false)}
+                disabled={seasonSaving}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSeasonUpdate} disabled={seasonSaving}>
+                {seasonSaving ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Name Conflict Resolution Modal */}
+      <Dialog open={conflictsOpen} onOpenChange={setConflictsOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Resolve Name Conflicts</DialogTitle>
+            <DialogDescription>
+              Choose the correct name for each email. The selected name will replace all
+              records in this season.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1">
+            {nameConflicts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No name conflicts found.</p>
+            ) : (
+              nameConflicts.map((conflict) => (
+                <Card key={conflict.email} className="bg-muted/30">
+                  <CardContent className="py-4 space-y-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <p className="font-medium">{conflict.email}</p>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1">
+                        <Label className="text-sm font-medium">Correct name</Label>
+                        <Select
+                          value={conflictSelections[conflict.email] ?? ''}
+                          onValueChange={(value) =>
+                            setConflictSelections((prev) => ({
+                              ...prev,
+                              [conflict.email]: value,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Select a name" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {conflict.names.map((nameOption) => (
+                              <SelectItem key={nameOption.name} value={nameOption.name}>
+                                {nameOption.name} ({nameOption.count})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        onClick={() => resolveNameConflict(conflict.email)}
+                        disabled={resolvingConflicts[conflict.email]}
+                        className="sm:self-end"
+                      >
+                        {resolvingConflicts[conflict.email] ? 'Updating...' : 'Apply'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </DialogContent>
       </Dialog>

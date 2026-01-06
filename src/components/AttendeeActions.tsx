@@ -22,7 +22,7 @@ interface AttendanceRecord {
   id: string;
   attendee_name: string;
   attendee_email: string;
-  status: 'verified' | 'suspicious' | 'cleared';
+  status: 'verified' | 'suspicious' | 'cleared' | 'excused';
   suspicious_reason: string | null;
   location_provided: boolean;
   recorded_at: string;
@@ -76,27 +76,11 @@ const AttendeeActions = ({
       return;
     }
 
-    const headers = [
-      'Name',
-      'Email',
-      'Status',
-      'Suspicious Reason',
-      'Location Provided',
-      'Location Lat',
-      'Location Lng',
-      'Device Fingerprint',
-      'Recorded At',
-    ];
+    const headers = ['Name', 'Email', 'Recorded At'];
 
     const rows = data.map((record) => [
       record.attendee_name,
       record.attendee_email,
-      record.status,
-      record.suspicious_reason || '',
-      record.location_provided ? 'Yes' : 'No',
-      record.location_lat?.toString() || '',
-      record.location_lng?.toString() || '',
-      record.device_fingerprint,
       new Date(record.recorded_at).toISOString(),
     ]);
 
@@ -173,11 +157,12 @@ const AttendeeActions = ({
 
           if (!name || !email) continue;
 
-          let status: 'verified' | 'suspicious' | 'cleared' = 'verified';
+          let status: 'verified' | 'suspicious' | 'cleared' | 'excused' = 'verified';
           if (statusIndex !== -1) {
             const statusValue = values[statusIndex]?.trim().toLowerCase();
             if (statusValue === 'suspicious') status = 'suspicious';
             else if (statusValue === 'cleared') status = 'cleared';
+            else if (statusValue === 'excused') status = 'excused';
           }
 
           records.push({
