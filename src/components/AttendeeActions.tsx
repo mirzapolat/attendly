@@ -76,11 +76,12 @@ const AttendeeActions = ({
       return;
     }
 
-    const headers = ['Name', 'Email', 'Recorded At'];
+    const headers = ['Name', 'Email', 'Status', 'Recorded At'];
 
     const rows = data.map((record) => [
       record.attendee_name,
       record.attendee_email,
+      record.status ?? 'verified',
       new Date(record.recorded_at).toISOString(),
     ]);
 
