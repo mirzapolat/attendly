@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X, Settings } from 'lucide-react';
+import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X, Settings, FileText, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { sanitizeError } from '@/utils/errorHandler';
@@ -474,6 +475,45 @@ const SeasonDetail = () => {
     toast({ title: 'Exported', description: 'Attendance matrix exported successfully' });
   };
 
+  const handleExportMembersCsv = () => {
+    if (memberStats.length === 0) {
+      toast({ title: 'No data', description: 'No member data to export', variant: 'destructive' });
+      return;
+    }
+
+    const escapeCSV = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const rows = [...memberStats]
+      .map((member) => ({
+        ...member,
+        notAttended: getNotAttendedCount(member),
+      }))
+      .sort((a, b) => b.eventsAttended - a.eventsAttended || a.name.localeCompare(b.name));
+
+    const headers = ['Name', 'Email', 'Attended', 'Excused', 'Not Attended'];
+    const csvRows = rows.map((member) =>
+      [
+        escapeCSV(member.name),
+        escapeCSV(member.email),
+        member.eventsAttended,
+        member.eventsExcused,
+        member.notAttended,
+      ].join(','),
+    );
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${season?.name || 'season'}_members.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({ title: 'Exported', description: 'Member list exported successfully' });
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -504,22 +544,47 @@ const SeasonDetail = () => {
             Dashboard
           </Link>
           <div className="flex items-center gap-2">
-            <Button onClick={openSeasonSettings} variant="outline" size="sm" className="gap-2">
-              <Settings className="w-4 h-4" />
-              Season Settings
-            </Button>
             <Button
               onClick={() => setConflictsOpen(true)}
               variant="outline"
               size="sm"
-              className="gap-2"
+              className={`gap-2 ${
+                nameConflicts.length > 0
+                  ? 'border-warning text-warning bg-warning/10 ring-2 ring-warning/40 animate-pulse hover:text-warning hover:bg-warning/15 hover:ring-warning/70'
+                  : ''
+              }`}
               disabled={nameConflicts.length === 0}
             >
-              Resolve Names{ nameConflicts.length > 0 ? ` (${nameConflicts.length})` : '' }
+              {nameConflicts.length > 0 && <AlertTriangle className="w-4 h-4 animate-pulse" />}
+              {nameConflicts.length > 0
+                ? `Resolve Names (${nameConflicts.length})`
+                : 'No Name Conflicts'}
             </Button>
-            <Button onClick={handleExportAttendanceMatrix} variant="outline" size="sm" className="gap-2">
-              <Download className="w-4 h-4" />
-              Export Matrix
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Download className="w-4 h-4" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportMembersCsv} className="gap-2">
+                  <FileText className="w-4 h-4" />
+                  Members CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportAttendanceMatrix} className="gap-2">
+                  <Download className="w-4 h-4" />
+                  Attendance Matrix
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              onClick={openSeasonSettings}
+              variant="outline"
+              size="icon"
+              title="Season settings"
+            >
+              <Settings className="w-4 h-4" />
             </Button>
           </div>
         </div>
