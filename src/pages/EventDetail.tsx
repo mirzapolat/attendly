@@ -58,7 +58,7 @@ interface KnownAttendee {
   attendee_email: string;
 }
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 1100;
 
 // Helper to mask last name (keep first name visible)
 const maskName = (fullName: string): string => {
@@ -191,68 +191,14 @@ const EventDetail = () => {
   }, [justCreated, id, navigate]);
 
   useEffect(() => {
-    if (user && id) {
-      fetchEvent();
-      fetchAttendance();
-
-      // Subscribe to real-time attendance updates
-      const channel = supabase
-        .channel(`attendance-updates-${id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'attendance_records',
-            filter: `event_id=eq.${id}`
-          },
-          (payload) => {
-            console.log('New attendance:', payload);
-            setAttendance((prev) => [payload.new as AttendanceRecord, ...prev]);
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'attendance_records',
-            filter: `event_id=eq.${id}`
-          },
-          (payload) => {
-            setAttendance((prev) => 
-              prev.map((r) => r.id === (payload.new as AttendanceRecord).id ? payload.new as AttendanceRecord : r)
-            );
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'attendance_records',
-            filter: `event_id=eq.${id}`
-          },
-          (payload) => {
-            setAttendance((prev) => prev.filter((r) => r.id !== (payload.old as { id: string }).id));
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user, id, fetchEvent, fetchAttendance]);
-
-  useEffect(() => {
     if (!user || !id) return;
+    fetchEvent();
+    fetchAttendance();
     const intervalId = window.setInterval(() => {
-      if (document.visibilityState === 'hidden') return;
       void fetchAttendance({ silent: true });
     }, POLL_INTERVAL_MS);
     return () => window.clearInterval(intervalId);
-  }, [user, id, fetchAttendance]);
+  }, [user, id, fetchEvent, fetchAttendance]);
 
   useEffect(() => {
     if (!shouldWarnOnLeave) {
