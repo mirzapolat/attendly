@@ -305,7 +305,7 @@ const AttendeeActions = ({
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={exportToCsv} className="gap-2">
           <Download className="w-4 h-4" />
-          Export CSV
+          Export
         </Button>
         <input
           ref={fileInputRef}

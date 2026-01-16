@@ -634,7 +634,7 @@ const EventDetail = () => {
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid xl:grid-cols-2 gap-8">
           {/* QR Code Section */}
           <div>
             <Card className="bg-gradient-card">
@@ -790,6 +790,15 @@ const EventDetail = () => {
                 >
                   {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   {showAllDetails ? 'Hide' : 'Show'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchAttendance()}
+                  className="gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh
                 </Button>
               </div>
             </div>
