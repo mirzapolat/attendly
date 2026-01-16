@@ -102,7 +102,7 @@ const Index = () => {
                         <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
                             <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
                         </div>
-                        <span className="text-lg font-semibold tracking-tight">Attendly by Mirza Polat</span>
+                        <span className="text-lg font-semibold tracking-tight">Attendly</span>
                     </div>
                     <div className="hidden items-center gap-6 text-sm md:flex">
                         <div className="flex items-center gap-3">
@@ -123,8 +123,8 @@ const Index = () => {
                                     variant="outline"
                                     size="icon"
                                     className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]"
-                                    aria-label="Attendly by Mirza Polat on GitHub"
-                                    title="Attendly by Mirza Polat on GitHub"
+                                    aria-label="Attendly on GitHub"
+                                    title="Attendly on GitHub"
                                 >
                                     <Github className="h-4 w-4" />
                                 </Button>
@@ -378,7 +378,7 @@ const Index = () => {
                                 <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
                                     <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
                                 </div>
-                                <span className="text-lg font-semibold tracking-tight">Attendly by Mirza Polat</span>
+                                <span className="text-lg font-semibold tracking-tight">Attendly</span>
                             </div>
                                 <Button
                                     variant="outline"
