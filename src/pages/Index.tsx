@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -9,12 +10,14 @@ import {
     Fingerprint,
     Github,
     MapPin,
+    Menu,
     QrCode,
     Shield,
     Sparkles,
     UserCheck,
     UserMinus,
     Users,
+    X,
     Zap,
 } from 'lucide-react';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -82,6 +85,7 @@ const WORKFLOW_STEPS = [
 
 const Index = () => {
     usePageTitle('Attendly by Mirza Polat');
+    const [menuOpen, setMenuOpen] = useState(false);
 
     return (
         <div className="min-h-screen landing-minimal bg-[color:var(--lp-bg)] text-[color:var(--lp-ink)] overflow-hidden">
@@ -92,15 +96,15 @@ const Index = () => {
                 background: 'radial-gradient(circle, var(--lp-accent-fade) 0%, transparent 65%)',
             }} />
 
-            <header className="relative z-10 px-6 pt-8">
+            <header className="relative z-10 px-4 sm:px-6 pt-8">
                 <div className="container mx-auto flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
                             <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
                         </div>
-                        <span className="text-lg font-semibold tracking-tight">Attendly</span>
+                        <span className="text-lg font-semibold tracking-tight">Attendly by Mirza Polat</span>
                     </div>
-                    <div className="flex items-center gap-6 text-sm">
+                    <div className="hidden items-center gap-6 text-sm md:flex">
                         <div className="flex items-center gap-3">
                             <a href="#features" className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors">
                                 Features
@@ -119,8 +123,8 @@ const Index = () => {
                                     variant="outline"
                                     size="icon"
                                     className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]"
-                                    aria-label="Attendly on GitHub"
-                                    title="Attendly on GitHub"
+                                    aria-label="Attendly by Mirza Polat on GitHub"
+                                    title="Attendly by Mirza Polat on GitHub"
                                 >
                                     <Github className="h-4 w-4" />
                                 </Button>
@@ -138,11 +142,22 @@ const Index = () => {
                             </Link>
                         </div>
                     </div>
+                    <div className="flex items-center md:hidden">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]"
+                            onClick={() => setMenuOpen(true)}
+                            aria-label="Open menu"
+                        >
+                            <Menu className="h-5 w-5" />
+                        </Button>
+                    </div>
                 </div>
             </header>
 
             <main className="relative z-10">
-                <section className="px-6 pb-16 pt-16 md:pt-24">
+                <section className="px-4 sm:px-6 pb-16 pt-16 md:pt-24">
                     <div className="container mx-auto grid gap-12 lg:grid-cols-[1.1fr_0.9fr] items-center">
                         <div>
                             <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-4 py-2 text-xs uppercase tracking-[0.3em] text-[color:var(--lp-muted)] animate-fade-in">
@@ -229,7 +244,7 @@ const Index = () => {
                     </div>
                 </section>
 
-                <section id="features" className="px-6 py-20">
+                <section id="features" className="px-4 sm:px-6 py-20">
                     <div className="container mx-auto">
                         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-10">
                             <div>
@@ -256,7 +271,7 @@ const Index = () => {
                     </div>
                 </section>
 
-                <section id="workflow" className="px-6 pb-20">
+                <section id="workflow" className="px-4 sm:px-6 pb-20">
                     <div className="container mx-auto">
                         <div className="rounded-3xl border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] px-6 py-10">
                             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -289,7 +304,7 @@ const Index = () => {
                     </div>
                 </section>
 
-                <section className="px-6 pb-20">
+                <section className="px-4 sm:px-6 pb-20">
                     <div className="container mx-auto">
                         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                             <div className="rounded-3xl border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] p-8">
@@ -325,7 +340,7 @@ const Index = () => {
                     </div>
                 </section>
 
-                <section className="px-6 pb-24">
+                <section className="px-4 sm:px-6 pb-24">
                     <div className="container mx-auto">
                         <div className="rounded-3xl border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] px-8 py-12 text-center shadow-[var(--lp-shadow)]">
                             <h2 className="text-3xl md:text-4xl font-semibold">Ready to simplify attendance?</h2>
@@ -350,9 +365,73 @@ const Index = () => {
                 </section>
             </main>
 
-            <footer className="border-t border-[color:var(--lp-border)] px-6 py-8 text-center text-xs text-[color:var(--lp-muted)]">
+            <footer className="border-t border-[color:var(--lp-border)] px-4 sm:px-6 py-8 text-center text-xs text-[color:var(--lp-muted)]">
                 Built with ❤️ by Mirza Polat. Attendance data should feel trustworthy.
             </footer>
+
+            {menuOpen && (
+                <div className="fixed inset-0 z-50 bg-[color:var(--lp-bg)]">
+                    <div className="flex h-full flex-col px-4 sm:px-6 py-8">
+                        <div className="container mx-auto flex h-full flex-col">
+                            <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
+                                    <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
+                                </div>
+                                <span className="text-lg font-semibold tracking-tight">Attendly by Mirza Polat</span>
+                            </div>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]"
+                                    onClick={() => setMenuOpen(false)}
+                                    aria-label="Close menu"
+                                >
+                                    <X className="h-5 w-5" />
+                                </Button>
+                            </div>
+                            <div className="mt-12 flex max-w-sm flex-col gap-5 text-lg">
+                                <a
+                                    href="#features"
+                                    className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
+                                    onClick={() => setMenuOpen(false)}
+                                >
+                                    Features
+                                </a>
+                                <a
+                                    href="#workflow"
+                                    className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
+                                    onClick={() => setMenuOpen(false)}
+                                >
+                                    Workflow
+                                </a>
+                                <a
+                                    href="https://github.com/mirzapolat/attendly"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
+                                    onClick={() => setMenuOpen(false)}
+                                >
+                                    GitHub
+                                </a>
+                            </div>
+                            <div className="mt-auto flex max-w-sm flex-col gap-3">
+                                <Link to="/auth" onClick={() => setMenuOpen(false)}>
+                                    <Button variant="outline" size="lg" className="w-full border-[color:var(--lp-border)] text-[color:var(--lp-ink)]">
+                                        Sign In
+                                    </Button>
+                                </Link>
+                                <Link to="/auth?mode=signup" onClick={() => setMenuOpen(false)}>
+                                    <Button variant="hero" size="lg" className="w-full gap-2">
+                                        Start now
+                                        <ArrowRight className="h-4 w-4" />
+                                    </Button>
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
