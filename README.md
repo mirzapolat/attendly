@@ -10,7 +10,10 @@ end and Supabase (Auth, Postgres, Realtime, Edge Functions) on the back end.
 - Device fingerprinting to limit duplicate check-ins per event.
 - Event on/off controls for live attendance windows.
 - Moderator links with limited access and privacy controls for attendee data.
+- Excuse links so attendees can self-mark as excused.
 - Seasons for grouping events and analytics dashboards.
+- Name conflict resolution to keep member records clean.
+- Drag-and-drop event assignment to seasons.
 - CSV export/import for attendance records.
 - Theme color personalization and account deletion flow.
 
@@ -21,6 +24,7 @@ end and Supabase (Auth, Postgres, Realtime, Edge Functions) on the back end.
 - `/events/new`: create event.
 - `/events/:id`: event management + QR display.
 - `/attend/:id?token=...`: attendee check-in form.
+- `/excuse/:eventId/:token`: excused attendance form.
 - `/seasons/:id`: season analytics and member stats.
 - `/settings`: profile, theme, and account deletion.
 - `/moderate/:eventId/:token`: moderator view for attendance management.
@@ -30,7 +34,7 @@ end and Supabase (Auth, Postgres, Realtime, Edge Functions) on the back end.
 - `src/components`: shared UI + event/moderation controls.
 - `src/integrations/supabase`: client and generated types.
 - `supabase/migrations`: database schema and RLS policies.
-- `supabase/functions`: Edge Functions for moderator workflows and account deletion.
+- `supabase/functions`: Edge Functions for attendance, moderation, excused attendance, and account deletion.
 - `public`: static assets.
 
 ## Data Model (Supabase)
@@ -39,6 +43,7 @@ end and Supabase (Auth, Postgres, Realtime, Edge Functions) on the back end.
 - `events`: core event info + QR/security flags + moderation settings.
 - `attendance_records`: attendee submissions + status + fingerprint + location.
 - `moderation_links`: shareable tokens for moderator access.
+- `excuse_links`: shareable tokens for excused attendance.
 
 ## Security Notes
 - Rotating QR tokens are short-lived and validated by timestamp.
@@ -110,4 +115,3 @@ Start dev server:
 npm install
 npm run dev
 ```
-
