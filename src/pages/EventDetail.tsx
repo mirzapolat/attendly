@@ -58,6 +58,8 @@ interface KnownAttendee {
   attendee_email: string;
 }
 
+const POLL_INTERVAL_MS = 2000;
+
 // Helper to mask last name (keep first name visible)
 const maskName = (fullName: string): string => {
   const parts = fullName.trim().split(' ');
@@ -128,6 +130,52 @@ const EventDetail = () => {
   const justCreated = Boolean((location.state as { justCreated?: boolean } | null)?.justCreated);
   const shouldWarnOnLeave = Boolean(event?.is_active && event?.rotating_qr_enabled);
 
+  const fetchEvent = useCallback(async () => {
+    if (!id) return;
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: sanitizeError(error),
+      });
+      setLoading(false);
+      return;
+    }
+
+    if (data) {
+      setEvent(data);
+    }
+    setLoading(false);
+  }, [id, toast]);
+
+  const fetchAttendance = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!id) return;
+    const { data, error } = await supabase
+      .from('attendance_records')
+      .select('*')
+      .eq('event_id', id)
+      .order('recorded_at', { ascending: false });
+
+    if (error) {
+      if (!opts?.silent) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: sanitizeError(error),
+        });
+      }
+      return;
+    }
+
+    if (data) setAttendance(data as AttendanceRecord[]);
+  }, [id, toast]);
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
@@ -146,10 +194,10 @@ const EventDetail = () => {
     if (user && id) {
       fetchEvent();
       fetchAttendance();
-      
+
       // Subscribe to real-time attendance updates
       const channel = supabase
-        .channel('attendance-updates')
+        .channel(`attendance-updates-${id}`)
         .on(
           'postgres_changes',
           {
@@ -195,7 +243,16 @@ const EventDetail = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [user, id]);
+  }, [user, id, fetchEvent, fetchAttendance]);
+
+  useEffect(() => {
+    if (!user || !id) return;
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      void fetchAttendance({ silent: true });
+    }, POLL_INTERVAL_MS);
+    return () => window.clearInterval(intervalId);
+  }, [user, id, fetchAttendance]);
 
   useEffect(() => {
     if (!shouldWarnOnLeave) {
@@ -290,48 +347,6 @@ const EventDetail = () => {
     if (stopped) {
       navigate('/dashboard');
     }
-  };
-
-  const fetchEvent = async () => {
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: sanitizeError(error),
-      });
-      setLoading(false);
-      return;
-    }
-
-    if (data) {
-      setEvent(data);
-    }
-    setLoading(false);
-  };
-
-  const fetchAttendance = async () => {
-    const { data, error } = await supabase
-      .from('attendance_records')
-      .select('*')
-      .eq('event_id', id)
-      .order('recorded_at', { ascending: false });
-
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: sanitizeError(error),
-      });
-      return;
-    }
-
-    if (data) setAttendance(data as AttendanceRecord[]);
   };
 
   const toggleRevealName = (recordId: string) => {
@@ -451,6 +466,7 @@ const EventDetail = () => {
       setManualExcused(false);
       setShowAddForm(false);
       setSuggestions([]);
+      await fetchAttendance({ silent: true });
     }
   };
 
