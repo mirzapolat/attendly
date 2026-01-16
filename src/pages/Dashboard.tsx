@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, type DragEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Calendar, BarChart3, Settings, LogOut, QrCode, FolderOpen, Search, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Plus, Calendar, BarChart3, Settings, LogOut, QrCode, FolderOpen, Search, ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react';
 import EventCard from '@/components/EventCard';
 import { sanitizeError } from '@/utils/errorHandler';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -29,6 +29,63 @@ interface Season {
 
 const EVENTS_PER_PAGE = 5;
 const SEASONS_PER_PAGE = 5;
+const DASHBOARD_HINTS = [
+  {
+    id: 'drag-drop',
+    title: 'Drag and drop',
+    description: 'Drag an event onto a season card to link it quickly.',
+  },
+  {
+    id: 'seasons',
+    title: 'Seasons',
+    description: 'Group events into seasons to compare attendance over time.',
+  },
+  {
+    id: 'accent',
+    title: 'Accent color',
+    description: 'Change the accent color in account settings to match your organization.',
+  },
+  {
+    id: 'password',
+    title: 'Password hygiene',
+    description: 'Rotate your password regularly for better security.',
+  },
+  {
+    id: 'moderation-links',
+    title: 'Moderation links',
+    description: 'Delegate attendance checks without sharing full admin access.',
+  },
+  {
+    id: 'excuse-links',
+    title: 'Excuse links',
+    description: 'Let members mark themselves excused without manual entry.',
+  },
+  {
+    id: 'rotating-qr',
+    title: 'Rotating QR',
+    description: 'Enable rotating QR codes to reduce forwarding.',
+  },
+  {
+    id: 'fingerprinting',
+    title: 'Device fingerprinting',
+    description: 'Limit multiple submissions from the same device.',
+  },
+  {
+    id: 'location-checks',
+    title: 'Location checks',
+    description: 'Add location checks to confirm on-site attendance.',
+  },
+  {
+    id: 'exports',
+    title: 'Exports',
+    description: 'Export attendance lists and matrices for reports.',
+  },
+  {
+    id: 'privacy',
+    title: 'Privacy',
+    description: 'Use attendee detail toggles when presenting on shared screens.',
+  },
+];
 
 const Dashboard = () => {
   usePageTitle('Dashboard - Attendly');
@@ -56,6 +113,8 @@ const Dashboard = () => {
   const [seasonSearch, setSeasonSearch] = useState('');
   const [eventPage, setEventPage] = useState(1);
   const [seasonPage, setSeasonPage] = useState(1);
+  const [dragOverSeasonId, setDragOverSeasonId] = useState<string | null>(null);
+  const [dismissedHints, setDismissedHints] = useState<string[]>([]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -142,6 +201,88 @@ const Dashboard = () => {
     } finally {
       setSeasonCreating(false);
     }
+  };
+
+  const shuffledHints = useMemo(() => {
+    const copy = [...DASHBOARD_HINTS];
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }, []);
+
+  const visibleHints = useMemo(
+    () => shuffledHints.filter((hint) => !dismissedHints.includes(hint.id)).slice(0, 3),
+    [dismissedHints, shuffledHints]
+  );
+
+  const handleDismissHint = (hintId: string) => {
+    setDismissedHints((prev) => (prev.includes(hintId) ? prev : [...prev, hintId]));
+  };
+
+  const assignEventToSeason = async (eventId: string, seasonId: string) => {
+    const targetEvent = events.find((item) => item.id === eventId);
+    if (!targetEvent) {
+      return;
+    }
+    if (targetEvent.season_id === seasonId) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({ season_id: seasonId })
+        .eq('id', eventId);
+
+      if (error) throw error;
+
+      const seasonName = seasons.find((season) => season.id === seasonId)?.name;
+      toast({
+        title: 'Added to season',
+        description: seasonName ? `Event added to ${seasonName}` : 'Event added to season',
+      });
+      await fetchData();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update event',
+      });
+    }
+  };
+
+  const getDraggedEventId = (dataTransfer: DataTransfer): string | null => {
+    const payload = dataTransfer.getData('application/x-attendly-event');
+    if (payload) {
+      try {
+        const parsed = JSON.parse(payload) as { id?: string };
+        if (parsed?.id) {
+          return parsed.id;
+        }
+      } catch {
+        // Ignore parse errors and fall back to text/plain.
+      }
+    }
+    const fallback = dataTransfer.getData('text/plain');
+    return fallback || null;
+  };
+
+  const handleSeasonDragOver = (dragEvent: DragEvent<HTMLDivElement>, seasonId: string) => {
+    dragEvent.preventDefault();
+    dragEvent.dataTransfer.dropEffect = 'move';
+    setDragOverSeasonId(seasonId);
+  };
+
+  const handleSeasonDrop = async (dragEvent: DragEvent<HTMLDivElement>, seasonId: string) => {
+    dragEvent.preventDefault();
+    setDragOverSeasonId(null);
+    const eventId = getDraggedEventId(dragEvent.dataTransfer);
+    if (!eventId) {
+      return;
+    }
+    await assignEventToSeason(eventId, seasonId);
   };
 
   const handleDeleteSeason = async (seasonId: string) => {
@@ -411,7 +552,17 @@ const Dashboard = () => {
                 <>
                   <div className="grid gap-3">
                     {paginatedSeasons.map((season) => (
-                      <Card key={season.id} className="bg-gradient-card hover:border-primary/50 transition-colors">
+                      <Card
+                        key={season.id}
+                        className={`bg-gradient-card hover:border-primary/50 transition-colors ${
+                          dragOverSeasonId === season.id ? 'ring-2 ring-primary/60 bg-primary/5' : ''
+                        }`}
+                        onDragOver={(event) => handleSeasonDragOver(event, season.id)}
+                        onDragLeave={() =>
+                          setDragOverSeasonId((current) => (current === season.id ? null : current))
+                        }
+                        onDrop={(event) => handleSeasonDrop(event, season.id)}
+                      >
                         <CardContent className="py-4 flex items-center gap-3">
                           <Link to={`/seasons/${season.id}`} className="flex items-center gap-3 flex-1 min-w-0">
                             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -470,6 +621,39 @@ const Dashboard = () => {
           )}
         </div>
       </main>
+
+      {visibleHints.length > 0 && (
+        <section className="mt-8 border-t border-border bg-muted/20 py-8">
+          <div className="container mx-auto px-6">
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <h2 className="text-lg font-semibold">Helpful hints</h2>
+              <span className="text-xs text-muted-foreground">
+                Dismiss tips you already know.
+              </span>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {visibleHints.map((hint) => (
+                <div
+                  key={hint.id}
+                  className="relative rounded-lg border border-border bg-muted/60 p-4 text-sm text-foreground"
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-2 top-2 h-7 w-7"
+                    onClick={() => handleDismissHint(hint.id)}
+                    aria-label={`Dismiss hint: ${hint.title}`}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                  <p className="font-medium mb-1">{hint.title}</p>
+                  <p className="text-muted-foreground">{hint.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 };

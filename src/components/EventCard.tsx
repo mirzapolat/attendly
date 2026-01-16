@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useRef, type DragEvent, type KeyboardEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { MoreVertical, Trash2, FolderPlus, FolderMinus } from 'lucide-react';
+import { MoreVertical, Trash2, FolderPlus, FolderMinus, Folder } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -45,9 +45,11 @@ interface EventCardProps {
 }
 
 const EventCard = ({ event, seasons, onEventDeleted, onEventUpdated }: EventCardProps) => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const draggingRef = useRef(false);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -110,25 +112,68 @@ const EventCard = ({ event, seasons, onEventDeleted, onEventUpdated }: EventCard
 
   const currentSeason = seasons.find((s) => s.id === event.season_id);
 
+  const handleDragStart = (dragEvent: DragEvent<HTMLDivElement>) => {
+    draggingRef.current = true;
+    dragEvent.dataTransfer.setData('application/x-attendly-event', JSON.stringify({ id: event.id }));
+    dragEvent.dataTransfer.setData('text/plain', event.id);
+    dragEvent.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    draggingRef.current = false;
+  };
+
+  const handleCardClick = () => {
+    if (draggingRef.current) {
+      return;
+    }
+    navigate(`/events/${event.id}`);
+  };
+
+  const handleCardKeyDown = (eventKey: KeyboardEvent<HTMLDivElement>) => {
+    if (eventKey.key === 'Enter' || eventKey.key === ' ') {
+      eventKey.preventDefault();
+      handleCardClick();
+    }
+  };
+
   return (
     <>
-      <Card className="bg-gradient-card hover:border-primary/50 transition-colors">
+      <Card
+        className="bg-gradient-card hover:border-primary/50 transition-colors cursor-pointer active:cursor-grabbing select-none"
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onClick={handleCardClick}
+        onKeyDown={handleCardKeyDown}
+        role="button"
+        tabIndex={0}
+      >
         <CardContent className="py-4 flex items-center justify-between">
-          <Link to={`/events/${event.id}`} className="flex items-center gap-4 flex-1">
+          <div className="flex items-center gap-4 flex-1">
             <div
               className={`w-3 h-3 rounded-full shrink-0 ${event.is_active ? 'bg-success animate-pulse' : 'bg-muted-foreground'}`}
             />
             <div>
               <p className="font-medium">{event.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {format(new Date(event.event_date), 'PPP')}
-              </p>
-              {currentSeason && (
-                <p className="text-xs text-primary">{currentSeason.name}</p>
-              )}
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {format(new Date(event.event_date), 'PPP')}
+                </span>
+                {currentSeason && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
+                    <Folder className="w-3 h-3" />
+                    {currentSeason.name}
+                  </span>
+                )}
+              </div>
             </div>
-          </Link>
-          <div className="flex items-center gap-2">
+          </div>
+          <div
+            className="flex items-center gap-2"
+            onClick={(eventClick) => eventClick.stopPropagation()}
+            onPointerDown={(eventClick) => eventClick.stopPropagation()}
+          >
             {event.is_active && (
               <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full">
                 Active
@@ -136,13 +181,22 @@ const EventCard = ({ event, seasons, onEventDeleted, onEventUpdated }: EventCard
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(eventClick) => eventClick.stopPropagation()}
+                >
                   <MoreVertical className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {event.season_id ? (
-                  <DropdownMenuItem onClick={() => handleSeasonChange(null)}>
+                  <DropdownMenuItem
+                    onClick={(eventClick) => {
+                      eventClick.stopPropagation();
+                      handleSeasonChange(null);
+                    }}
+                  >
                     <FolderMinus className="w-4 h-4 mr-2" />
                     Remove from season
                   </DropdownMenuItem>
@@ -152,7 +206,10 @@ const EventCard = ({ event, seasons, onEventDeleted, onEventUpdated }: EventCard
                       {seasons.map((season) => (
                         <DropdownMenuItem
                           key={season.id}
-                          onClick={() => handleSeasonChange(season.id)}
+                          onClick={(eventClick) => {
+                            eventClick.stopPropagation();
+                            handleSeasonChange(season.id);
+                          }}
                         >
                           <FolderPlus className="w-4 h-4 mr-2" />
                           Add to {season.name}
@@ -164,7 +221,10 @@ const EventCard = ({ event, seasons, onEventDeleted, onEventUpdated }: EventCard
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
-                  onClick={() => setShowDeleteDialog(true)}
+                  onClick={(eventClick) => {
+                    eventClick.stopPropagation();
+                    setShowDeleteDialog(true);
+                  }}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete event

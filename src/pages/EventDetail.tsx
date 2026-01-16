@@ -634,7 +634,7 @@ const EventDetail = () => {
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        <div className="grid xl:grid-cols-2 gap-8">
+        <div className="grid lg:grid-cols-2 gap-8">
           {/* QR Code Section */}
           <div>
             <Card className="bg-gradient-card">
@@ -709,11 +709,7 @@ const EventDetail = () => {
             </Card>
 
             {/* Stats - clickable filters */}
-            <div
-              className={`grid grid-cols-2 gap-4 mt-4 ${
-                suspiciousCount > 0 ? 'md:grid-cols-4' : 'md:grid-cols-3'
-              }`}
-            >
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <Card 
                 className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-primary/50 ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
                 onClick={() => setStatusFilter('all')}
@@ -744,18 +740,16 @@ const EventDetail = () => {
                   <p className="text-xs text-muted-foreground">Verified</p>
                 </CardContent>
               </Card>
-              {suspiciousCount > 0 && (
-                <Card 
-                  className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-warning/50 ${statusFilter === 'suspicious' ? 'ring-2 ring-warning' : ''}`}
-                  onClick={() => setStatusFilter('suspicious')}
-                >
-                  <CardContent className="py-4 text-center">
-                    <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-warning" />
-                    <p className="text-2xl font-bold">{suspiciousCount}</p>
-                    <p className="text-xs text-muted-foreground">Suspicious</p>
-                  </CardContent>
-                </Card>
-              )}
+              <Card 
+                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-warning/50 ${statusFilter === 'suspicious' ? 'ring-2 ring-warning' : ''}`}
+                onClick={() => setStatusFilter('suspicious')}
+              >
+                <CardContent className="py-4 text-center">
+                  <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-warning" />
+                  <p className="text-2xl font-bold">{suspiciousCount}</p>
+                  <p className="text-xs text-muted-foreground">Suspicious</p>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
@@ -789,16 +783,7 @@ const EventDetail = () => {
                   className="gap-2"
                 >
                   {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  {showAllDetails ? 'Hide' : 'Show'}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchAttendance()}
-                  className="gap-2"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Refresh
+                  {showAllDetails ? 'Hide' : 'Details'}
                 </Button>
               </div>
             </div>

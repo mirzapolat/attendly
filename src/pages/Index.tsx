@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
     QrCode, Shield, BarChart3, Users, MapPin, Clock,
-    Fingerprint, Download, UserCheck, Zap, ArrowRight, Sparkles
+    Fingerprint, Download, UserCheck, Zap, ArrowRight, Sparkles, UserMinus
 } from 'lucide-react';
 import { usePageTitle } from '@/hooks/usePageTitle';
 
@@ -160,6 +160,30 @@ const Index = () => {
                                 <h3 className="text-lg font-semibold mb-2">Moderator Access</h3>
                                 <p className="text-muted-foreground text-sm leading-relaxed">
                                     Share secure links with helpers. They can display QR codes and manage attendance without admin access.
+                                </p>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-gradient-card group hover:border-primary/50 transition-all duration-300">
+                            <CardContent className="p-6">
+                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+                                    <UserMinus className="w-6 h-6 text-primary" />
+                                </div>
+                                <h3 className="text-lg font-semibold mb-2">Excuse Links</h3>
+                                <p className="text-muted-foreground text-sm leading-relaxed">
+                                    Let attendees mark themselves excused with a secure link. No manual tracking needed.
+                                </p>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-gradient-card group hover:border-primary/50 transition-all duration-300">
+                            <CardContent className="p-6">
+                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+                                    <UserCheck className="w-6 h-6 text-primary" />
+                                </div>
+                                <h3 className="text-lg font-semibold mb-2">Name Conflict Resolution</h3>
+                                <p className="text-muted-foreground text-sm leading-relaxed">
+                                    Catch duplicates and resolve matching names before they pollute your reports.
                                 </p>
                             </CardContent>
                         </Card>

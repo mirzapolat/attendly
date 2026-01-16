@@ -132,31 +132,45 @@ const Attend = () => {
     setTimeRemaining(FORM_TIME_LIMIT_MS);
     setEventThemeColor(null);
 
-    initializeFingerprint();
-    startAttendanceSession();
+    let cancelled = false;
+    const initialize = async () => {
+      const deviceFingerprint = await initializeFingerprint();
+      if (cancelled) return;
+      await startAttendanceSession(deviceFingerprint);
+    };
+    initialize();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id, token]);
 
-  const initializeFingerprint = async () => {
+  const initializeFingerprint = async (): Promise<string> => {
     try {
       const fp = await FingerprintJS.load();
       const result = await fp.get();
       setFingerprint(result.visitorId);
+      return result.visitorId;
     } catch (error) {
       // Generate a fallback fingerprint
-      setFingerprint(`fallback-${Date.now()}-${Math.random().toString(36)}`);
+      const fallback = `fallback-${Date.now()}-${Math.random().toString(36)}`;
+      setFingerprint(fallback);
+      return fallback;
     }
   };
 
-  const startAttendanceSession = async () => {
+  const startAttendanceSession = async (deviceFingerprint?: string) => {
     if (!id) return;
 
     const { data, error } = await supabase.functions.invoke('attendance-start', {
-      body: { eventId: id, token },
+      body: { eventId: id, token, deviceFingerprint },
     });
 
     if (error || !data?.authorized || !data?.event) {
       const reason = data?.reason;
-      if (reason === 'inactive' || reason === 'not_found') {
+      if (reason === 'already_submitted') {
+        setSubmitState('already-submitted');
+      } else if (reason === 'inactive' || reason === 'not_found') {
         setSubmitState('inactive');
       } else if (reason === 'expired') {
         setSubmitState('expired');

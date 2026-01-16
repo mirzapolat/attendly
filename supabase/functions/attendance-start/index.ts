@@ -17,6 +17,7 @@ const TOKEN_GRACE_MS = 10 * 1000;
 type AttendanceStartRequest = {
   eventId?: string;
   token?: string | null;
+  deviceFingerprint?: string;
 };
 
 const getTokenAgeMs = (token: string, now: number): number | null => {
@@ -52,7 +53,7 @@ serve(async (req) => {
   }
 
   try {
-    const { eventId, token } =
+    const { eventId, token, deviceFingerprint } =
       (await req.json().catch(() => ({}))) as AttendanceStartRequest;
 
     if (!eventId) {
@@ -114,6 +115,35 @@ serve(async (req) => {
 
     if (!event.is_active) {
       return respond({ authorized: false, reason: "inactive" });
+    }
+
+    const normalizedFingerprint = deviceFingerprint?.trim() ?? "";
+    if (event.device_fingerprint_enabled) {
+      if (!normalizedFingerprint) {
+        return respond({ authorized: false, reason: "missing_fingerprint" });
+      }
+
+      const { data: existing, error: existingError } = await admin
+        .from("attendance_records")
+        .select("id")
+        .eq("event_id", event.id)
+        .eq("device_fingerprint", normalizedFingerprint)
+        .maybeSingle();
+
+      if (existingError) {
+        console.error("attendance-start fingerprint error", existingError);
+        return respond(
+          {
+            authorized: false,
+            reason: isSchemaError(existingError) ? "missing_migrations" : "server_error",
+          },
+          500,
+        );
+      }
+
+      if (existing) {
+        return respond({ authorized: false, reason: "already_submitted" });
+      }
     }
 
     const now = Date.now();
