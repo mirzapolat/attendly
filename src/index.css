@@ -137,16 +137,20 @@
   }
 
   .landing-minimal {
-    --lp-bg: #f6f2ea;
-    --lp-ink: #1f1b16;
-    --lp-muted: #6e655b;
-    --lp-border: #e4ddd2;
-    --lp-card: #fffdf7;
-    --lp-accent: #0b7a75;
-    --lp-accent-soft: #d7f1ee;
-    --lp-accent-fade: #f1dfc7;
-    --gradient-primary: linear-gradient(135deg, #0b7a75 0%, #075e5a 100%);
-    --shadow-glow: 0 18px 40px rgba(11, 122, 117, 0.2);
+    --primary: 160 84% 39%;
+    --accent: 160 84% 39%;
+    --ring: 160 84% 39%;
+    --success: 160 84% 39%;
+    --gradient-primary: linear-gradient(135deg, hsl(160 84% 39%) 0%, hsl(160 84% 29%) 100%);
+    --shadow-glow: 0 18px 40px hsl(160 84% 39% / 0.2);
+    --lp-bg: hsl(var(--background));
+    --lp-ink: hsl(var(--foreground));
+    --lp-muted: hsl(var(--muted-foreground));
+    --lp-border: hsl(var(--border));
+    --lp-card: hsl(var(--card));
+    --lp-accent: hsl(var(--primary));
+    --lp-accent-soft: hsl(var(--primary) / 0.15);
+    --lp-accent-fade: hsl(var(--primary) / 0.08);
     --lp-shadow: 0 20px 50px rgba(31, 27, 22, 0.12);
   }
 }
