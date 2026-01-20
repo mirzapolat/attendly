@@ -101,7 +101,6 @@ export type Database = {
       }
       events: {
         Row: {
-          admin_id: string
           created_at: string | null
           current_qr_token: string | null
           description: string | null
@@ -122,9 +121,9 @@ export type Database = {
           rotating_qr_enabled: boolean | null
           season_id: string | null
           updated_at: string | null
+          workspace_id: string
         }
         Insert: {
-          admin_id: string
           created_at?: string | null
           current_qr_token?: string | null
           description?: string | null
@@ -145,9 +144,9 @@ export type Database = {
           rotating_qr_enabled?: boolean | null
           season_id?: string | null
           updated_at?: string | null
+          workspace_id: string
         }
         Update: {
-          admin_id?: string
           created_at?: string | null
           current_qr_token?: string | null
           description?: string | null
@@ -168,20 +167,21 @@ export type Database = {
           rotating_qr_enabled?: boolean | null
           season_id?: string | null
           updated_at?: string | null
+          workspace_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "events_admin_id_fkey"
-            columns: ["admin_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "events_season_id_fkey"
             columns: ["season_id"]
             isOneToOne: false
             referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -289,37 +289,208 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_invites: {
+        Row: {
+          created_at: string | null
+          id: string
+          invited_by: string | null
+          invited_email: string
+          responded_at: string | null
+          status: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          invited_by?: string | null
+          invited_email: string
+          responded_at?: string | null
+          status?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          invited_by?: string | null
+          invited_email?: string
+          responded_at?: string | null
+          status?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_invites_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_invites_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_notifications: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          id: string
+          message: string
+          read_at: string | null
+          recipient_id: string
+          type: string
+          workspace_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          read_at?: string | null
+          recipient_id: string
+          type: string
+          workspace_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          read_at?: string | null
+          recipient_id?: string
+          type?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_notifications_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_notifications_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_members: {
+        Row: {
+          created_at: string | null
+          profile_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          profile_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          profile_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_members_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_members_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspaces: {
+        Row: {
+          brand_color: string | null
+          brand_logo_url: string | null
+          created_at: string | null
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          brand_color?: string | null
+          brand_logo_url?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          brand_color?: string | null
+          brand_logo_url?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspaces_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seasons: {
         Row: {
-          admin_id: string
           created_at: string | null
           description: string | null
           id: string
           name: string
           updated_at: string | null
+          workspace_id: string
         }
         Insert: {
-          admin_id: string
           created_at?: string | null
           description?: string | null
           id?: string
           name: string
           updated_at?: string | null
+          workspace_id: string
         }
         Update: {
-          admin_id?: string
           created_at?: string | null
           description?: string | null
           id?: string
           name?: string
           updated_at?: string | null
+          workspace_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "seasons_admin_id_fkey"
-            columns: ["admin_id"]
+            foreignKeyName: "seasons_workspace_id_fkey"
+            columns: ["workspace_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]

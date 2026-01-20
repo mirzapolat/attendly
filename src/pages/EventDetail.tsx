@@ -539,7 +539,7 @@ const EventDetail = () => {
         <div className="text-center">
           <p className="text-muted-foreground mb-4">Event not found</p>
           <Link to="/dashboard" onClick={handleDashboardClick}>
-            <Button>Back to Dashboard</Button>
+            <Button>Back to Events</Button>
           </Link>
         </div>
       </div>
@@ -601,7 +601,7 @@ const EventDetail = () => {
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Dashboard
+            Events
           </Link>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => setShowModeration(true)} title="Moderation settings">

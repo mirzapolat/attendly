@@ -80,7 +80,7 @@ serve(async (req) => {
       .select(
         [
           "id",
-          "admin_id",
+          "workspace_id",
           "name",
           "event_date",
           "location_name",
@@ -181,10 +181,10 @@ serve(async (req) => {
       );
     }
 
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("theme_color")
-      .eq("id", event.admin_id)
+    const { data: workspace } = await admin
+      .from("workspaces")
+      .select("brand_color")
+      .eq("id", event.workspace_id)
       .maybeSingle();
 
     return respond({
@@ -193,7 +193,7 @@ serve(async (req) => {
       sessionExpiresAt: session.expires_at,
       event: {
         id: event.id,
-        admin_id: event.admin_id,
+        workspace_id: event.workspace_id,
         name: event.name,
         event_date: event.event_date,
         location_name: event.location_name,
@@ -204,7 +204,7 @@ serve(async (req) => {
         rotating_qr_enabled: event.rotating_qr_enabled,
         device_fingerprint_enabled: event.device_fingerprint_enabled,
         location_check_enabled: event.location_check_enabled,
-        theme_color: profile?.theme_color ?? "default",
+        theme_color: workspace?.brand_color ?? "default",
       },
     });
   } catch (error) {

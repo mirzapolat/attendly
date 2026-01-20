@@ -14,7 +14,7 @@ import { sanitizeError } from '@/utils/errorHandler';
 
 interface Event {
   id: string;
-  admin_id: string;
+  workspace_id: string;
   name: string;
   event_date: string;
   location_name: string;

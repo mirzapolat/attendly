@@ -98,7 +98,7 @@ serve(async (req) => {
 
     const { data: event, error: eventError } = await admin
       .from("events")
-      .select("id, name, event_date, admin_id")
+      .select("id, name, event_date, workspace_id")
       .eq("id", eventId)
       .maybeSingle();
 
@@ -117,10 +117,10 @@ serve(async (req) => {
       return respond({ authorized: false, reason: "event_missing" });
     }
 
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("theme_color")
-      .eq("id", event.admin_id)
+    const { data: workspace } = await admin
+      .from("workspaces")
+      .select("brand_color")
+      .eq("id", event.workspace_id)
       .maybeSingle();
 
     return respond({
@@ -129,7 +129,7 @@ serve(async (req) => {
         id: event.id,
         name: event.name,
         event_date: event.event_date,
-        theme_color: profile?.theme_color ?? "default",
+        theme_color: workspace?.brand_color ?? "default",
       },
     });
   } catch (error) {

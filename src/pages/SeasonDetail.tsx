@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useWorkspace } from '@/hooks/useWorkspace';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,7 @@ interface MemberStats {
 const SeasonDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
+  const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -90,17 +92,41 @@ const SeasonDetail = () => {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (user && id) {
+    if (!authLoading && user && !workspaceLoading && !currentWorkspace) {
+      navigate('/workspaces');
+    }
+  }, [authLoading, user, workspaceLoading, currentWorkspace, navigate]);
+
+  useEffect(() => {
+    if (user && id && currentWorkspace) {
       fetchData();
     }
-  }, [user, id]);
+  }, [user, id, currentWorkspace]);
 
   const fetchData = async () => {
     try {
+      if (!currentWorkspace) {
+        throw new Error('Workspace not selected');
+      }
+
       const [seasonRes, eventsRes, allEventsRes] = await Promise.all([
-        supabase.from('seasons').select('*').eq('id', id).eq('admin_id', user!.id).maybeSingle(),
-        supabase.from('events').select('*').eq('season_id', id).eq('admin_id', user!.id).order('event_date', { ascending: true }),
-        supabase.from('events').select('*').eq('admin_id', user!.id).order('event_date', { ascending: true }),
+        supabase
+          .from('seasons')
+          .select('*')
+          .eq('id', id)
+          .eq('workspace_id', currentWorkspace.id)
+          .maybeSingle(),
+        supabase
+          .from('events')
+          .select('*')
+          .eq('season_id', id)
+          .eq('workspace_id', currentWorkspace.id)
+          .order('event_date', { ascending: true }),
+        supabase
+          .from('events')
+          .select('*')
+          .eq('workspace_id', currentWorkspace.id)
+          .order('event_date', { ascending: true }),
       ]);
 
       const fetchError = seasonRes.error || eventsRes.error || allEventsRes.error;
@@ -514,7 +540,7 @@ const SeasonDetail = () => {
     toast({ title: 'Exported', description: 'Member list exported successfully' });
   };
 
-  if (authLoading || loading) {
+  if (authLoading || workspaceLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse-subtle">Loading...</div>
@@ -527,8 +553,8 @@ const SeasonDetail = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground mb-4">Season not found</p>
-          <Link to="/dashboard">
-            <Button>Back to Dashboard</Button>
+          <Link to="/seasons">
+            <Button>Back to Seasons</Button>
           </Link>
         </div>
       </div>
@@ -539,9 +565,9 @@ const SeasonDetail = () => {
     <div className="min-h-screen bg-gradient-subtle">
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/dashboard" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/seasons" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" />
-            Dashboard
+            Seasons
           </Link>
           <div className="flex items-center gap-2">
             <Button

@@ -42,9 +42,18 @@ interface EventCardProps {
   seasons: Season[];
   onEventDeleted: () => void;
   onEventUpdated: () => void;
+  onDragStart?: (eventId: string) => void;
+  onDragEnd?: () => void;
 }
 
-const EventCard = ({ event, seasons, onEventDeleted, onEventUpdated }: EventCardProps) => {
+const EventCard = ({
+  event,
+  seasons,
+  onEventDeleted,
+  onEventUpdated,
+  onDragStart,
+  onDragEnd,
+}: EventCardProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -111,16 +120,19 @@ const EventCard = ({ event, seasons, onEventDeleted, onEventUpdated }: EventCard
   };
 
   const currentSeason = seasons.find((s) => s.id === event.season_id);
+  const quickSeasons = seasons.slice(0, 3);
 
   const handleDragStart = (dragEvent: DragEvent<HTMLDivElement>) => {
     draggingRef.current = true;
     dragEvent.dataTransfer.setData('application/x-attendly-event', JSON.stringify({ id: event.id }));
     dragEvent.dataTransfer.setData('text/plain', event.id);
     dragEvent.dataTransfer.effectAllowed = 'move';
+    onDragStart?.(event.id);
   };
 
   const handleDragEnd = () => {
     draggingRef.current = false;
+    onDragEnd?.();
   };
 
   const handleCardClick = () => {
@@ -201,9 +213,9 @@ const EventCard = ({ event, seasons, onEventDeleted, onEventUpdated }: EventCard
                     Remove from season
                   </DropdownMenuItem>
                 ) : (
-                  seasons.length > 0 && (
+                  quickSeasons.length > 0 && (
                     <>
-                      {seasons.map((season) => (
+                      {quickSeasons.map((season) => (
                         <DropdownMenuItem
                           key={season.id}
                           onClick={(eventClick) => {
@@ -218,6 +230,9 @@ const EventCard = ({ event, seasons, onEventDeleted, onEventUpdated }: EventCard
                     </>
                   )
                 )}
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                  Tip: Drag events onto a season to organize quickly.
+                </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"

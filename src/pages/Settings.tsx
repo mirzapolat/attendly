@@ -7,10 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Settings as SettingsIcon, User, Trash2, Save, Palette, Check } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, User, Trash2, Save } from 'lucide-react';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
-import { useThemeColor, themeColors } from '@/hooks/useThemeColor';
 
 const profileSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -26,8 +25,6 @@ const Settings = () => {
   const { user, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { themeColor, setThemeColor } = useThemeColor();
-
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -123,7 +120,7 @@ const Settings = () => {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete your account? This will permanently delete all your events, seasons, and attendance data. This action cannot be undone.')) {
+    if (!confirm('Are you sure you want to delete your account? This will permanently delete your owned workspaces, events, seasons, and attendance data. This action cannot be undone.')) {
       return;
     }
 
@@ -165,7 +162,7 @@ const Settings = () => {
         <div className="container mx-auto px-6 h-16 flex items-center">
           <Link to="/dashboard" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" />
-            Dashboard
+            Back
           </Link>
         </div>
       </header>
@@ -175,47 +172,6 @@ const Settings = () => {
           <SettingsIcon className="w-6 h-6" />
           Settings
         </h1>
-
-        {/* Theme Color */}
-        <Card className="bg-gradient-card mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Palette className="w-5 h-5" />
-              Theme Color
-            </CardTitle>
-            <CardDescription>
-              Choose your preferred accent color
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-4 pl-2">
-              {themeColors.map((color) => (
-                <button
-                  key={color.id}
-                  onClick={() => setThemeColor(color.id)}
-                  className="group relative flex flex-col items-center gap-2"
-                  title={color.name}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-full transition-all ${
-                      themeColor === color.id 
-                        ? 'ring-2 ring-offset-2 ring-offset-background ring-foreground scale-110' 
-                        : 'hover:scale-105'
-                    }`}
-                    style={{ backgroundColor: color.hex ?? `hsl(${color.hue ?? 160}, 84%, 39%)` }}
-                  >
-                    {themeColor === color.id && (
-                      <Check className="w-5 h-5 text-white absolute inset-0 m-auto" />
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground block text-center">
-                    {color.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Profile */}
         <Card className="bg-gradient-card mb-6">
@@ -309,7 +265,7 @@ const Settings = () => {
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
               Once you delete your account, there is no going back. All your events, 
-              seasons, and attendance records will be permanently removed.
+              owned workspaces, events, seasons, and attendance records will be permanently removed.
             </p>
             <Button 
               variant="destructive" 

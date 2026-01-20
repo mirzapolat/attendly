@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useWorkspace } from '@/hooks/useWorkspace';
 
 type ThemeColor = {
   id: string;
@@ -116,45 +116,30 @@ export const applyThemeColor = (colorId: string) => {
 };
 
 export const ThemeColorProvider = ({ children }: { children: ReactNode }) => {
-  const { user } = useAuth();
+  const { currentWorkspace, refresh } = useWorkspace();
   const [themeColor, setThemeColorState] = useState('default');
 
   useEffect(() => {
-    if (user) {
-      fetchThemeColor();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (!user && themeColor !== 'default') {
+    if (currentWorkspace?.brand_color) {
+      setThemeColorState(currentWorkspace.brand_color);
+    } else {
       setThemeColorState('default');
     }
-  }, [user, themeColor]);
+  }, [currentWorkspace?.brand_color, currentWorkspace?.id]);
 
   useEffect(() => {
     applyThemeColor(themeColor);
   }, [themeColor]);
 
-  const fetchThemeColor = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('theme_color')
-      .eq('id', user!.id)
-      .maybeSingle();
-
-    if (data?.theme_color) {
-      setThemeColorState(data.theme_color);
-    }
-  };
-
   const setThemeColor = async (colorId: string) => {
     setThemeColorState(colorId);
     
-    if (user) {
+    if (currentWorkspace) {
       await supabase
-        .from('profiles')
-        .update({ theme_color: colorId })
-        .eq('id', user.id);
+        .from('workspaces')
+        .update({ brand_color: colorId })
+        .eq('id', currentWorkspace.id);
+      await refresh();
     }
   };
 

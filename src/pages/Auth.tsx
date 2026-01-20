@@ -34,7 +34,7 @@ const Auth = () => {
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      navigate('/workspaces');
     }
   }, [user, navigate]);
 

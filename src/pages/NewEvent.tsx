@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useWorkspace } from '@/hooks/useWorkspace';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ interface Season {
 
 const NewEvent = () => {
   const { user, loading: authLoading } = useAuth();
+  const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -54,13 +56,23 @@ const NewEvent = () => {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (user) {
+    if (!authLoading && user && !workspaceLoading && !currentWorkspace) {
+      navigate('/workspaces');
+    }
+  }, [authLoading, user, workspaceLoading, currentWorkspace, navigate]);
+
+  useEffect(() => {
+    if (currentWorkspace) {
       fetchSeasons();
     }
-  }, [user]);
+  }, [currentWorkspace]);
 
   const fetchSeasons = async () => {
-    const { data } = await supabase.from('seasons').select('*');
+    if (!currentWorkspace) return;
+    const { data } = await supabase
+      .from('seasons')
+      .select('*')
+      .eq('workspace_id', currentWorkspace.id);
     if (data) setSeasons(data);
   };
 
@@ -142,8 +154,11 @@ const NewEvent = () => {
     setLoading(true);
 
     try {
+      if (!currentWorkspace) {
+        throw new Error('Workspace not selected');
+      }
       const { data, error } = await supabase.from('events').insert({
-        admin_id: user!.id,
+        workspace_id: currentWorkspace.id,
         name,
         description: description || null,
         event_date: new Date(eventDate).toISOString(),
@@ -176,7 +191,7 @@ const NewEvent = () => {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || workspaceLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse-subtle">Loading...</div>
@@ -190,7 +205,7 @@ const NewEvent = () => {
         <div className="container mx-auto px-6 h-16 flex items-center">
           <Link to="/dashboard" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
+            Back to Events
           </Link>
         </div>
       </header>
