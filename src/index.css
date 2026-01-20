@@ -219,6 +219,15 @@
     opacity: 0.7;
     animation: confetti-fall 2400ms ease-out forwards;
   }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes fadeIn {

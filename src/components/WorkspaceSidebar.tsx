@@ -60,7 +60,7 @@ const WorkspaceSidebar = () => {
           </p>
         </div>
       </div>
-      <nav className="flex md:flex-col gap-1 px-6 md:px-3 pb-6 overflow-x-auto">
+      <nav className="flex md:flex-col gap-1 px-6 md:px-3 pb-6 overflow-x-auto scrollbar-none">
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
