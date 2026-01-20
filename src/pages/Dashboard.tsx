@@ -83,6 +83,7 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
+  const [attendanceCounts, setAttendanceCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [eventSearch, setEventSearch] = useState('');
   const [eventPage, setEventPage] = useState(1);
@@ -132,7 +133,27 @@ const Dashboard = () => {
         throw fetchError;
       }
 
-      if (eventsRes.data) setEvents(eventsRes.data);
+      if (eventsRes.data) {
+        setEvents(eventsRes.data);
+        const eventIds = eventsRes.data.map((event) => event.id);
+        if (eventIds.length === 0) {
+          setAttendanceCounts({});
+        } else {
+          const { data: attendanceData, error: attendanceError } = await supabase
+            .from('attendance_records')
+            .select('event_id, status')
+            .in('event_id', eventIds);
+          if (attendanceError) {
+            throw attendanceError;
+          }
+          const counts: Record<string, number> = {};
+          (attendanceData ?? []).forEach((record) => {
+            if (record.status === 'excused') return;
+            counts[record.event_id] = (counts[record.event_id] ?? 0) + 1;
+          });
+          setAttendanceCounts(counts);
+        }
+      }
       if (seasonsRes.data) setSeasons(seasonsRes.data);
     } catch (error) {
       toast({
@@ -297,6 +318,7 @@ const Dashboard = () => {
               <EventCard
                 key={event.id}
                 event={event}
+                attendeesCount={attendanceCounts[event.id] ?? 0}
                 seasons={seasons}
                 onEventDeleted={fetchData}
                 onEventUpdated={fetchData}

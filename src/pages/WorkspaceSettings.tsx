@@ -219,13 +219,29 @@ const WorkspaceSettings = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="workspaceLogo">Brand logo (URL)</Label>
-                <Input
-                  id="workspaceLogo"
-                  value={logoUrl}
-                  onChange={(event) => setLogoUrl(event.target.value)}
-                  placeholder="https://"
-                  disabled={!isOwner}
-                />
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 shrink-0 rounded-xl border border-border bg-muted/40 flex items-center justify-center overflow-hidden">
+                    {logoUrl.trim() ? (
+                      <img
+                        src={logoUrl.trim()}
+                        alt="Logo preview"
+                        className="h-full w-full object-cover"
+                        onError={(event) => {
+                          (event.currentTarget as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Preview</span>
+                    )}
+                  </div>
+                  <Input
+                    id="workspaceLogo"
+                    value={logoUrl}
+                    onChange={(event) => setLogoUrl(event.target.value)}
+                    placeholder="https://"
+                    disabled={!isOwner}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Brand color</Label>

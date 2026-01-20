@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X, Settings, FileText, AlertTriangle, Wand2 } from 'lucide-react';
+import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X, Settings, FileText, AlertTriangle, Wand2, DoorOpen, MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { sanitizeError } from '@/utils/errorHandler';
@@ -141,6 +141,8 @@ const SeasonDetail = () => {
   const [removeEventSearch, setRemoveEventSearch] = useState('');
   const [addEventSearch, setAddEventSearch] = useState('');
   const [seasonSettingsOpen, setSeasonSettingsOpen] = useState(false);
+  const [draggedEventId, setDraggedEventId] = useState<string | null>(null);
+  const [removeDropActive, setRemoveDropActive] = useState(false);
   const [seasonName, setSeasonName] = useState('');
   const [seasonDescription, setSeasonDescription] = useState('');
   const [seasonSaving, setSeasonSaving] = useState(false);
@@ -748,7 +750,7 @@ const SeasonDetail = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-6 pt-8 pb-24">
         <div className="mb-8">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <BarChart3 className="w-6 h-6" />
@@ -942,13 +944,51 @@ const SeasonDetail = () => {
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Events in this Season</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setManageEventsOpen(true)}
-            >
-              Manage Events
-            </Button>
+            <div className="flex items-center gap-2">
+              <div
+                className={`flex h-11 w-11 items-center justify-center rounded-md border transition-all duration-150 ${
+                  draggedEventId
+                    ? removeDropActive
+                      ? 'border-destructive bg-destructive/10 text-destructive animate-pulse'
+                      : 'border-border text-muted-foreground hover:border-destructive hover:text-destructive hover:bg-destructive/5'
+                    : 'border-transparent text-transparent invisible pointer-events-none'
+                }`}
+                title="Drag an event here to remove it from the season"
+                role="button"
+                aria-label="Remove event from season"
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  if (draggedEventId) {
+                    setRemoveDropActive(true);
+                  }
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  if (draggedEventId) {
+                    setRemoveDropActive(true);
+                  }
+                }}
+                onDragLeave={() => setRemoveDropActive(false)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const droppedId = draggedEventId ?? event.dataTransfer.getData('text/plain');
+                  setRemoveDropActive(false);
+                  setDraggedEventId(null);
+                  if (droppedId) {
+                    handleRemoveEventFromSeason(droppedId);
+                  }
+                }}
+              >
+                <DoorOpen className={`h-5 w-5 ${draggedEventId ? 'animate-wiggle' : ''}`} />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setManageEventsOpen(true)}
+              >
+                Manage Events
+              </Button>
+            </div>
           </div>
           
           <div className="relative mb-4">
@@ -968,29 +1008,63 @@ const SeasonDetail = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-3">
-              {filteredSeasonEvents.map((event) => {
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {filteredSeasonEvents.map((seasonEvent) => {
                 const eventEmails = new Set(
                   attendance
-                    .filter(a => a.event_id === event.id && isActualAttendance(a))
+                    .filter(a => a.event_id === seasonEvent.id && isActualAttendance(a))
                     .map(a => a.attendee_email)
                 );
                 return (
-                  <Card key={event.id} className="bg-gradient-card">
-                    <CardContent className="py-3 flex items-center justify-between">
-                      <Link to={`/events/${event.id}`} className="flex-1">
+                  <Card
+                    key={seasonEvent.id}
+                    className="bg-gradient-card hover:shadow-md transition-shadow"
+                    draggable
+                    onDragStart={(dragEvent) => {
+                      setDraggedEventId(seasonEvent.id);
+                      dragEvent.dataTransfer.setData('text/plain', seasonEvent.id);
+                      dragEvent.dataTransfer.effectAllowed = 'move';
+                    }}
+                    onDragEnd={() => {
+                      setDraggedEventId(null);
+                      setRemoveDropActive(false);
+                    }}
+                  >
+                    <CardContent className="p-4 flex flex-col gap-4 relative">
+                      <div className="absolute right-3 top-3">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => handleRemoveEventFromSeason(seasonEvent.id)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              Remove from season
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled
+                              className="text-xs text-muted-foreground focus:bg-transparent"
+                            >
+                              Tip: Drag the card onto the door to remove it.
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <Link to={`/events/${seasonEvent.id}`} className="flex-1">
                         <div>
-                          <p className="font-medium hover:text-primary transition-colors">{event.name}</p>
+                          <p className="font-medium hover:text-primary transition-colors">{seasonEvent.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {format(new Date(event.event_date), 'PPP')}
+                            {format(new Date(seasonEvent.event_date), 'PPP')}
                           </p>
                         </div>
                       </Link>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="font-semibold">{eventEmails.size}</p>
-                          <p className="text-sm text-muted-foreground">attendees</p>
-                        </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Attendees</span>
+                        <span className="font-semibold">{eventEmails.size}</span>
                       </div>
                     </CardContent>
                   </Card>

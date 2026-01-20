@@ -9,6 +9,7 @@ import { ThemeColorProvider } from "@/hooks/useThemeColor";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Home from "./pages/Home";
 import Workspaces from "./pages/Workspaces";
 import Seasons from "./pages/Seasons";
 import Members from "./pages/Members";
@@ -38,6 +39,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/workspaces" element={<Workspaces />} />
+                <Route path="/home" element={<Home />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/seasons" element={<Seasons />} />
                 <Route path="/members" element={<Members />} />

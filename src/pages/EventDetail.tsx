@@ -105,6 +105,7 @@ const EventDetail = () => {
   const [manualExcused, setManualExcused] = useState(false);
   const [suggestions, setSuggestions] = useState<KnownAttendee[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [copyingStaticLink, setCopyingStaticLink] = useState(false);
   
   // Settings modals
   const [showSettings, setShowSettings] = useState(false);
@@ -530,6 +531,26 @@ const EventDetail = () => {
   };
 
   const qrUrl = `${window.location.origin}/attend/${id}?token=${qrToken}`;
+  const staticQrUrl = `${window.location.origin}/attend/${id}?token=static`;
+
+  const handleCopyStaticLink = async () => {
+    setCopyingStaticLink(true);
+    try {
+      await navigator.clipboard.writeText(staticQrUrl);
+      toast({
+        title: 'Link copied',
+        description: 'Static QR link copied to clipboard.',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Copy failed',
+        description: 'Unable to copy the link. Please try again.',
+      });
+    } finally {
+      setCopyingStaticLink(false);
+    }
+  };
 
   if (authLoading || loading) {
     return (
@@ -691,7 +712,18 @@ const EventDetail = () => {
                       Attendees scan this code to mark attendance
                     </p>
                     {!event.rotating_qr_enabled && (
-                      <div className="mt-4">
+                      <div className="mt-4 flex items-center justify-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCopyStaticLink}
+                          disabled={copyingStaticLink}
+                          className="gap-2"
+                        >
+                          <Copy className="h-4 w-4" />
+                          {copyingStaticLink ? 'Copying...' : 'Copy link'}
+                        </Button>
                         <QRCodeExport
                           url={qrUrl}
                           eventName={event.name}
@@ -766,7 +798,10 @@ const EventDetail = () => {
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <Users className="w-5 h-5" />
-                Attendance ({attendance.length})
+                Attendance
+                <span className="inline-flex items-center rounded-full bg-muted/70 px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                  {attendance.length}
+                </span>
               </h2>
               <div className="flex gap-2 flex-wrap">
                 <AttendeeActions

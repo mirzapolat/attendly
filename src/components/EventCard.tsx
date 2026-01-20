@@ -39,6 +39,7 @@ interface Season {
 
 interface EventCardProps {
   event: Event;
+  attendeesCount?: number;
   seasons: Season[];
   onEventDeleted: () => void;
   onEventUpdated: () => void;
@@ -48,6 +49,7 @@ interface EventCardProps {
 
 const EventCard = ({
   event,
+  attendeesCount,
   seasons,
   onEventDeleted,
   onEventUpdated,
@@ -193,6 +195,11 @@ const EventCard = ({
             onClick={(eventClick) => eventClick.stopPropagation()}
             onPointerDown={(eventClick) => eventClick.stopPropagation()}
           >
+            {typeof attendeesCount === 'number' && (
+              <span className="text-xs rounded-full bg-muted/60 text-muted-foreground px-2 py-1">
+                {attendeesCount} attended
+              </span>
+            )}
             {event.is_active && (
               <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full">
                 Active

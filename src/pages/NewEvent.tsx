@@ -11,14 +11,39 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, MapPin, Calendar, Save, Shield, QrCode, Fingerprint, MapPinned } from 'lucide-react';
+import { ArrowLeft, Calendar, Save, Shield, QrCode, Fingerprint, MapPinned } from 'lucide-react';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
+import LocationPicker from '@/components/LocationPicker';
 
 interface Season {
   id: string;
   name: string;
 }
+
+const MIN_RADIUS_METERS = 1;
+const MAX_RADIUS_METERS = 1_000_000;
+
+const radiusToSlider = (radius: number) => {
+  const clamped = Math.min(MAX_RADIUS_METERS, Math.max(MIN_RADIUS_METERS, radius || MIN_RADIUS_METERS));
+  return Math.log10(clamped);
+};
+
+const sliderToRadius = (value: number) => Math.round(10 ** value);
+
+const formatRadius = (radius: number) => {
+  const formatter = new Intl.NumberFormat(undefined, {
+    minimumSignificantDigits: 2,
+    maximumSignificantDigits: 2,
+  });
+  if (radius >= 1000) {
+    return `${formatter.format(radius / 1000)}km`;
+  }
+  if (radius < 10) {
+    return `${Math.round(radius)}m`;
+  }
+  return `${formatter.format(radius)}m`;
+};
 
 const NewEvent = () => {
   const { user, loading: authLoading } = useAuth();
@@ -28,21 +53,21 @@ const NewEvent = () => {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [showDescription, setShowDescription] = useState(false);
   const [eventDate, setEventDate] = useState(() => {
     // Default to current date/time
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     return now.toISOString().slice(0, 16);
   });
-  const [locationName, setLocationName] = useState('Location');
-  const [locationLat, setLocationLat] = useState<number | ''>('');
-  const [locationLng, setLocationLng] = useState<number | ''>('');
-  const [radiusMeters, setRadiusMeters] = useState(500);
+  const [locationName, setLocationName] = useState('');
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLng, setLocationLng] = useState<number | null>(null);
+  const [radiusMeters, setRadiusMeters] = useState(200);
   const [seasonId, setSeasonId] = useState<string>('none');
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [gettingLocation, setGettingLocation] = useState(false);
 
   // Security features
   const [rotatingQrEnabled, setRotatingQrEnabled] = useState(true);
@@ -76,29 +101,6 @@ const NewEvent = () => {
     if (data) setSeasons(data);
   };
 
-  const getCurrentLocation = () => {
-    setGettingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocationLat(position.coords.latitude);
-        setLocationLng(position.coords.longitude);
-        setGettingLocation(false);
-        toast({
-          title: 'Location set',
-          description: 'Your current location has been set as the event location.',
-        });
-      },
-      (error) => {
-        setGettingLocation(false);
-        toast({
-          variant: 'destructive',
-          title: 'Location error',
-          description: 'Could not get your location. Please enter coordinates manually.',
-        });
-      }
-    );
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -114,7 +116,7 @@ const NewEvent = () => {
           locationName: z.string().min(2, 'Location name is required when location check is enabled'),
           locationLat: z.number().min(-90).max(90),
           locationLng: z.number().min(-180).max(180),
-          radiusMeters: z.number().min(50).max(5000),
+          radiusMeters: z.number().min(MIN_RADIUS_METERS).max(MAX_RADIUS_METERS),
         })
       : z.object({
           locationName: z.string().optional(),
@@ -163,8 +165,8 @@ const NewEvent = () => {
         description: description || null,
         event_date: new Date(eventDate).toISOString(),
         location_name: locationName || 'No location',
-        location_lat: typeof locationLat === 'number' ? locationLat : 0,
-        location_lng: typeof locationLng === 'number' ? locationLng : 0,
+        location_lat: locationLat ?? 0,
+        location_lng: locationLng ?? 0,
         location_radius_meters: radiusMeters,
         season_id: seasonId !== 'none' ? seasonId : null,
         rotating_qr_enabled: rotatingQrEnabled,
@@ -234,18 +236,31 @@ const NewEvent = () => {
                   className={errors.name ? 'border-destructive' : ''}
                 />
                 {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+                {!showDescription && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDescription(true)}
+                    className="h-auto p-0 text-xs font-normal text-muted-foreground hover:text-foreground"
+                  >
+                    Add description
+                  </Button>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description (Optional)</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Brief description of the event..."
-                  rows={3}
-                />
-              </div>
+              {showDescription && (
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description (Optional)</Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Brief description of the event..."
+                    rows={3}
+                  />
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="eventDate">Date & Time</Label>
@@ -276,103 +291,7 @@ const NewEvent = () => {
                 </Select>
               </div>
 
-              {/* Location Section with toggle at top */}
-              <div className="border border-border rounded-lg p-4 space-y-4">
-                {/* Location Check Toggle - Now at top */}
-                <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
-                  <div className="flex items-center gap-3">
-                    <MapPinned className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">Location Check</p>
-                      <p className="text-xs text-muted-foreground">
-                        {locationCheckEnabled
-                          ? 'Location is required and will be verified'
-                          : 'Location is optional'}
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={locationCheckEnabled}
-                    onCheckedChange={setLocationCheckEnabled}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    Event Location {!locationCheckEnabled && <span className="text-muted-foreground text-xs">(Optional)</span>}
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={getCurrentLocation}
-                    disabled={gettingLocation}
-                  >
-                    {gettingLocation ? 'Getting...' : 'Use Current Location'}
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="locationName">Location Name</Label>
-                  <Input
-                    id="locationName"
-                    value={locationName}
-                    onChange={(e) => setLocationName(e.target.value)}
-                    placeholder="Conference Room A"
-                    className={errors.locationName ? 'border-destructive' : ''}
-                  />
-                  {errors.locationName && <p className="text-sm text-destructive">{errors.locationName}</p>}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="lat">Latitude</Label>
-                    <Input
-                      id="lat"
-                      type="number"
-                      step="any"
-                      value={locationLat}
-                      onChange={(e) => setLocationLat(e.target.value ? parseFloat(e.target.value) : '')}
-                      placeholder="40.7128"
-                      className={errors.locationLat ? 'border-destructive' : ''}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lng">Longitude</Label>
-                    <Input
-                      id="lng"
-                      type="number"
-                      step="any"
-                      value={locationLng}
-                      onChange={(e) => setLocationLng(e.target.value ? parseFloat(e.target.value) : '')}
-                      placeholder="-74.0060"
-                      className={errors.locationLng ? 'border-destructive' : ''}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="radius">Allowed Radius (meters): {radiusMeters}m</Label>
-                  <Input
-                    id="radius"
-                    type="range"
-                    min="50"
-                    max="2000"
-                    step="50"
-                    value={radiusMeters}
-                    onChange={(e) => setRadiusMeters(parseInt(e.target.value))}
-                    className="w-full"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {locationCheckEnabled
-                      ? 'Attendees must be within this distance from the event location.'
-                      : 'This will be used if location check is enabled later.'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Security Features (without location check, which is now above) */}
+              {/* Security Features */}
               <div className="border border-border rounded-lg p-4 space-y-4">
                 <Label className="flex items-center gap-2 text-base font-medium">
                   <Shield className="w-4 h-4" />
@@ -410,6 +329,59 @@ const NewEvent = () => {
                       onCheckedChange={setDeviceFingerprintEnabled}
                     />
                   </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <MapPinned className="w-5 h-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-sm">Location Check</p>
+                        <p className="text-xs text-muted-foreground">
+                          {locationCheckEnabled
+                            ? 'Location is required and will be verified'
+                            : 'Location is optional'}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={locationCheckEnabled}
+                      onCheckedChange={setLocationCheckEnabled}
+                    />
+                  </div>
+
+                  {locationCheckEnabled && (
+                    <div className="rounded-lg border border-border/60 bg-secondary/20 p-4 space-y-4">
+                      <LocationPicker
+                        locationName={locationName}
+                        locationLat={locationLat}
+                        locationLng={locationLng}
+                        onLocationNameChange={setLocationName}
+                        onLocationLatChange={(value) => setLocationLat(value)}
+                        onLocationLngChange={(value) => setLocationLng(value)}
+                        errors={{
+                          locationName: errors.locationName,
+                          locationLat: errors.locationLat,
+                          locationLng: errors.locationLng,
+                        }}
+                      />
+
+                      <div className="space-y-2">
+                      <Label htmlFor="radius">Allowed Radius: {formatRadius(radiusMeters)}</Label>
+                      <Input
+                        id="radius"
+                        type="range"
+                        min="0"
+                        max="6"
+                        step="0.01"
+                        value={radiusToSlider(radiusMeters)}
+                        onChange={(e) => setRadiusMeters(sliderToRadius(parseFloat(e.target.value)))}
+                        className="w-full"
+                      />
+                        <p className="text-xs text-muted-foreground">
+                          Attendees must be within this distance from the event location.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { CalendarDays, Layers, Settings, Users } from 'lucide-react';
+import { CalendarDays, Home, Layers, Settings, Users } from 'lucide-react';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { themeColors } from '@/hooks/useThemeColor';
 
 const navItems = [
+  { to: '/home', label: 'Home', icon: Home },
   { to: '/dashboard', label: 'Events', icon: CalendarDays },
   { to: '/seasons', label: 'Seasons', icon: Layers },
   { to: '/members', label: 'Members', icon: Users },

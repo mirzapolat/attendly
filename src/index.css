@@ -208,6 +208,10 @@
     animation: pulseSub 2s ease-in-out infinite;
   }
 
+  .animate-wiggle {
+    animation: wiggle 0.7s ease-in-out infinite;
+  }
+
   .confetti-piece {
     position: absolute;
     top: -12px;
@@ -268,5 +272,14 @@
   100% {
     transform: translate3d(var(--confetti-drift, 0px), 100vh, 0) rotate(180deg);
     opacity: 0;
+  }
+}
+
+@keyframes wiggle {
+  0%, 100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(6deg);
   }
 }
