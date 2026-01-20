@@ -982,7 +982,7 @@ const SeasonDetail = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-6 md:grid-cols-2 overflow-hidden">
+          <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-3">
               <Label className="text-sm font-medium">Remove from Season</Label>
               <div className="relative">
