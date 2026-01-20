@@ -163,6 +163,7 @@ serve(async (req) => {
           "location_lat",
           "location_lng",
           "location_radius_meters",
+          "workspace_id",
           "is_active",
           "current_qr_token",
           "qr_token_expires_at",
@@ -244,7 +245,17 @@ serve(async (req) => {
       }
     }
 
-    return respond({ authorized: true, event: nextEvent, attendance });
+    const { data: workspace } = await admin
+      .from("workspaces")
+      .select("brand_logo_url")
+      .eq("id", nextEvent.workspace_id)
+      .maybeSingle();
+
+    return respond({
+      authorized: true,
+      event: { ...nextEvent, brand_logo_url: workspace?.brand_logo_url ?? null },
+      attendance,
+    });
   } catch (error) {
     console.error("moderator-state error", error);
     const message = error instanceof Error ? error.message : String(error);

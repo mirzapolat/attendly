@@ -183,7 +183,7 @@ serve(async (req) => {
 
     const { data: workspace } = await admin
       .from("workspaces")
-      .select("brand_color")
+      .select("brand_color, brand_logo_url")
       .eq("id", event.workspace_id)
       .maybeSingle();
 
@@ -205,6 +205,7 @@ serve(async (req) => {
         device_fingerprint_enabled: event.device_fingerprint_enabled,
         location_check_enabled: event.location_check_enabled,
         theme_color: workspace?.brand_color ?? "default",
+        brand_logo_url: workspace?.brand_logo_url ?? null,
       },
     });
   } catch (error) {

@@ -67,7 +67,7 @@ serve(async (req) => {
 
     const { data: link, error: linkError } = await admin
       .from("excuse_links")
-      .select("id, is_active, event_id, expires_at")
+      .select("id, is_active, event_id, expires_at, label")
       .eq("event_id", eventId)
       .eq("token", token)
       .maybeSingle();
@@ -119,7 +119,7 @@ serve(async (req) => {
 
     const { data: workspace } = await admin
       .from("workspaces")
-      .select("brand_color")
+      .select("brand_color, brand_logo_url")
       .eq("id", event.workspace_id)
       .maybeSingle();
 
@@ -130,6 +130,8 @@ serve(async (req) => {
         name: event.name,
         event_date: event.event_date,
         theme_color: workspace?.brand_color ?? "default",
+        brand_logo_url: workspace?.brand_logo_url ?? null,
+        link_label: link?.label ?? null,
       },
     });
   } catch (error) {

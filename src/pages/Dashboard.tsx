@@ -25,7 +25,7 @@ interface Season {
   name: string;
 }
 
-const EVENTS_PER_PAGE = 6;
+const EVENTS_PER_PAGE = 10;
 const DASHBOARD_HINTS = [
   {
     id: 'seasons',

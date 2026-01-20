@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { applyThemeColor, useThemeColor } from '@/hooks/useThemeColor';
-import { CheckCircle, XCircle, MapPin, Loader2, QrCode, AlertTriangle, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, MapPin, Loader2, QrCode, AlertTriangle, Clock, Calendar } from 'lucide-react';
+import { format } from 'date-fns';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
@@ -26,6 +27,7 @@ interface Event {
   device_fingerprint_enabled: boolean;
   location_check_enabled: boolean;
   theme_color?: string | null;
+  brand_logo_url?: string | null;
 }
 
 const attendeeSchema = z.object({
@@ -464,16 +466,41 @@ const Attend = () => {
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
       <Card className="max-w-md w-full bg-gradient-card">
         <CardHeader className="text-center">
-          <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-            <QrCode className="w-7 h-7 text-primary-foreground" />
-          </div>
-          <CardTitle>{event?.name}</CardTitle>
-          {event?.location_check_enabled && (
-            <CardDescription className="flex items-center justify-center gap-1">
-              <MapPin className="w-4 h-4" />
-              {event?.location_name}
-            </CardDescription>
+          {event?.brand_logo_url ? (
+            <div className="w-12 h-12 rounded-xl overflow-hidden border border-border bg-background mx-auto mb-4">
+              <img
+                src={event.brand_logo_url}
+                alt={`${event.name} workspace logo`}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          ) : (
+            <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mx-auto mb-4">
+              <QrCode className="w-7 h-7 text-primary-foreground" />
+            </div>
           )}
+          <CardTitle>{event?.name}</CardTitle>
+          <CardDescription className="flex flex-col items-center gap-1">
+            {event?.event_date && (
+              <span className="flex flex-wrap items-center justify-center gap-3">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-4 h-4" />
+                  {format(new Date(event.event_date), 'PPP')}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  {format(new Date(event.event_date), 'HH:mm')}
+                </span>
+              </span>
+            )}
+            {event?.location_check_enabled && (
+              <span className="flex items-center gap-1">
+                <MapPin className="w-4 h-4" />
+                {event.location_name}
+              </span>
+            )}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {/* Time remaining indicator */}

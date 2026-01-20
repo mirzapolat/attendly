@@ -9,9 +9,11 @@ interface QRCodeExportProps {
   url: string;
   eventName: string;
   eventDate: string;
+  brandLogoUrl?: string | null;
+  label?: string;
 }
 
-const QRCodeExport = ({ url, eventName, eventDate }: QRCodeExportProps) => {
+const QRCodeExport = ({ url, eventName, eventDate, brandLogoUrl, label = 'Download QR' }: QRCodeExportProps) => {
   const { toast } = useToast();
 
   const downloadQRCode = useCallback(async () => {
@@ -74,20 +76,60 @@ const QRCodeExport = ({ url, eventName, eventDate }: QRCodeExportProps) => {
       const qrImage = new Image();
       qrImage.onload = () => {
         ctx.drawImage(qrImage, padding, labelHeight, qrSize, qrSize);
+        let finished = false;
 
-        // Convert to JPG and download
-        const jpgUrl = canvas.toDataURL('image/jpeg', 0.95);
-        const link = document.createElement('a');
-        link.download = `${eventName.replace(/[^a-z0-9]/gi, '_')}_QR.jpg`;
-        link.href = jpgUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const finalizeDownload = () => {
+          if (finished) return;
+          finished = true;
+          try {
+            const jpgUrl = canvas.toDataURL('image/jpeg', 0.95);
+            const link = document.createElement('a');
+            link.download = `${eventName.replace(/[^a-z0-9]/gi, '_')}_QR.jpg`;
+            link.href = jpgUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
 
-        toast({
-          title: 'Downloaded',
-          description: 'QR code saved with event label',
-        });
+            toast({
+              title: 'Downloaded',
+              description: 'QR code saved with event label',
+            });
+          } catch (error) {
+            console.error('QR export error:', error);
+            toast({
+              title: 'Error',
+              description: 'Failed to generate QR code',
+              variant: 'destructive',
+            });
+          }
+        };
+
+        if (!brandLogoUrl) {
+          finalizeDownload();
+          return;
+        }
+
+        const logoImage = new Image();
+        logoImage.crossOrigin = 'anonymous';
+        logoImage.onload = () => {
+          const logoSize = Math.round(qrSize * 0.22);
+          const logoX = padding + (qrSize - logoSize) / 2;
+          const logoY = labelHeight + (qrSize - logoSize) / 2;
+          const logoPadding = Math.max(4, Math.round(logoSize * 0.12));
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(
+            logoX - logoPadding,
+            logoY - logoPadding,
+            logoSize + logoPadding * 2,
+            logoSize + logoPadding * 2
+          );
+          ctx.drawImage(logoImage, logoX, logoY, logoSize, logoSize);
+          finalizeDownload();
+        };
+        logoImage.onerror = () => {
+          finalizeDownload();
+        };
+        logoImage.src = brandLogoUrl;
       };
 
       qrImage.onerror = () => {
@@ -107,12 +149,12 @@ const QRCodeExport = ({ url, eventName, eventDate }: QRCodeExportProps) => {
         variant: 'destructive',
       });
     }
-  }, [url, eventName, eventDate, toast]);
+  }, [url, eventName, eventDate, brandLogoUrl, toast]);
 
   return (
     <Button variant="outline" size="sm" onClick={downloadQRCode} className="gap-2">
       <Download className="w-4 h-4" />
-      Download QR
+      {label}
     </Button>
   );
 };

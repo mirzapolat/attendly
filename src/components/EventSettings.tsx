@@ -7,8 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Settings, MapPin, Save, Shield, QrCode, Fingerprint, MapPinned, X, Download } from 'lucide-react';
+import { Settings, MapPin, Save, Shield, QrCode, Fingerprint, MapPinned, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import QRCodeExport from '@/components/QRCodeExport';
 
 interface EventSettingsProps {
   event: {
@@ -25,6 +26,7 @@ interface EventSettingsProps {
     location_check_enabled: boolean;
     is_active: boolean;
     current_qr_token: string | null;
+    brand_logo_url?: string | null;
   };
   onClose: () => void;
   onUpdate: (updates: Partial<EventSettingsProps['event']>) => void;
@@ -136,29 +138,6 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
     } finally {
       setSaving(false);
     }
-  };
-
-  const downloadQRCode = () => {
-    const svg = document.getElementById('static-qr-code');
-    if (!svg) return;
-
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const img = new Image();
-    
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx?.drawImage(img, 0, 0);
-      
-      const a = document.createElement('a');
-      a.download = `${event.name.replace(/\s+/g, '-')}-qr-code.jpg`;
-      a.href = canvas.toDataURL('image/jpeg', 0.9);
-      a.click();
-    };
-    
-    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
   const staticQrUrl = `${window.location.origin}/attend/${event.id}?token=static`;
@@ -346,10 +325,13 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                   <div className="p-4 border border-border rounded-lg">
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-sm font-medium">Static QR Code</p>
-                      <Button variant="outline" size="sm" onClick={downloadQRCode}>
-                        <Download className="w-4 h-4" />
-                        Download JPG
-                      </Button>
+                      <QRCodeExport
+                        url={staticQrUrl}
+                        eventName={event.name}
+                        eventDate={event.event_date}
+                        brandLogoUrl={event.brand_logo_url ?? null}
+                        label="Download JPG"
+                      />
                     </div>
                     <div className="flex justify-center">
                       <div className="p-4 bg-background rounded-lg">
@@ -359,6 +341,11 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                           size={200}
                           level="M"
                           includeMargin
+                          imageSettings={
+                            event.brand_logo_url
+                              ? { src: event.brand_logo_url, height: 40, width: 40, excavate: true }
+                              : undefined
+                          }
                         />
                       </div>
                     </div>

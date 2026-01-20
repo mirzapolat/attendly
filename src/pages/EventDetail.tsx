@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo, type CSSProperties, type MouseEvent } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useWorkspace } from '@/hooks/useWorkspace';
 import { supabase } from '@/integrations/supabase/client';
 import { getRuntimeEnv } from '@/lib/runtimeEnv';
 import { Button } from '@/components/ui/button';
@@ -80,6 +81,7 @@ const maskEmail = (email: string): string => {
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user, session, loading: authLoading } = useAuth();
+  const { currentWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -129,6 +131,10 @@ const EventDetail = () => {
 
   const justCreated = Boolean((location.state as { justCreated?: boolean } | null)?.justCreated);
   const shouldWarnOnLeave = Boolean(event?.is_active && event?.rotating_qr_enabled);
+  const brandLogoUrl = currentWorkspace?.brand_logo_url ?? null;
+  const qrLogoSettings = brandLogoUrl
+    ? { src: brandLogoUrl, height: 56, width: 56, excavate: true }
+    : undefined;
 
   const fetchEvent = useCallback(async () => {
     if (!id) return;
@@ -570,7 +576,7 @@ const EventDetail = () => {
       )}
       {showSettings && event && (
         <EventSettings
-          event={event}
+          event={{ ...event, brand_logo_url: brandLogoUrl }}
           onClose={() => setShowSettings(false)}
           onUpdate={handleEventUpdate}
         />
@@ -649,7 +655,7 @@ const EventDetail = () => {
                 <CardDescription className="flex items-center gap-4 flex-wrap">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    {format(new Date(event.event_date), 'PPP p')}
+                    {format(new Date(event.event_date), 'PPP HH:mm')}
                   </span>
                   {event.location_check_enabled && (
                     <span className="flex items-center gap-1">
@@ -668,6 +674,7 @@ const EventDetail = () => {
                         size={280}
                         level="M"
                         includeMargin
+                        imageSettings={qrLogoSettings}
                       />
                     </div>
                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -689,6 +696,7 @@ const EventDetail = () => {
                           url={qrUrl}
                           eventName={event.name}
                           eventDate={event.event_date}
+                          brandLogoUrl={brandLogoUrl}
                         />
                       </div>
                     )}

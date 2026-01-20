@@ -31,6 +31,7 @@ interface Event {
   moderation_enabled: boolean;
   moderator_show_full_name: boolean;
   moderator_show_email: boolean;
+  brand_logo_url?: string | null;
 }
 
 interface AttendanceRecord {
@@ -473,6 +474,9 @@ const ModeratorView = () => {
 
   const verifiedCount = attendance.filter(a => a.status === 'verified' || a.status === 'cleared').length;
   const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
+  const qrLogoSettings = event?.brand_logo_url
+    ? { src: event.brand_logo_url, height: 56, width: 56, excavate: true }
+    : undefined;
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -511,7 +515,13 @@ const ModeratorView = () => {
                 {event.is_active ? (
                   <div className="text-center">
                     <div className="inline-block p-4 bg-background rounded-2xl shadow-lg mb-4">
-                      <QRCodeSVG value={qrUrl} size={280} level="M" includeMargin />
+                      <QRCodeSVG
+                        value={qrUrl}
+                        size={280}
+                        level="M"
+                        includeMargin
+                        imageSettings={qrLogoSettings}
+                      />
                     </div>
                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                       {event.rotating_qr_enabled ? (

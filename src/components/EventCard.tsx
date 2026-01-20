@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { MoreVertical, Trash2, FolderPlus, FolderMinus, Folder } from 'lucide-react';
+import { MoreVertical, Trash2, FolderPlus, FolderMinus, Folder, Calendar, Clock } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -169,8 +169,15 @@ const EventCard = ({
             <div>
               <p className="font-medium">{event.name}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  {format(new Date(event.event_date), 'PPP')}
+                <span className="text-sm text-muted-foreground inline-flex items-center gap-3">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {format(new Date(event.event_date), 'PPP')}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    {format(new Date(event.event_date), 'HH:mm')}
+                  </span>
                 </span>
                 {currentSeason && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">

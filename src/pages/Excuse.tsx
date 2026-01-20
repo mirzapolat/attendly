@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { applyThemeColor, useThemeColor } from '@/hooks/useThemeColor';
-import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
@@ -16,6 +16,8 @@ interface EventInfo {
   name: string;
   event_date: string;
   theme_color?: string | null;
+  brand_logo_url?: string | null;
+  link_label?: string | null;
 }
 
 const excuseSchema = z.object({
@@ -153,14 +155,38 @@ const Excuse = () => {
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center px-4 py-10">
       <Card className="w-full max-w-xl bg-gradient-card">
         <CardHeader>
-          <CardTitle>Excused Attendance</CardTitle>
-          {event ? (
-            <CardDescription>
-              {event.name} • {format(new Date(event.event_date), 'PPP p')}
-            </CardDescription>
-          ) : (
-            <CardDescription>Submit your excuse for this event</CardDescription>
-          )}
+          <div className="flex items-start gap-3">
+            {event?.brand_logo_url && (
+              <div className="w-12 h-12 rounded-xl overflow-hidden border border-border bg-background shrink-0">
+                <img
+                  src={event.brand_logo_url}
+                  alt={`${event.name} workspace logo`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            )}
+            <div className="space-y-1">
+              <CardTitle>{event?.link_label?.trim() || 'Excused Attendance'}</CardTitle>
+              {event ? (
+                <CardDescription>
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <span>{event.name}</span>
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {format(new Date(event.event_date), 'PPP')}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <Clock className="w-3.5 h-3.5" />
+                      {format(new Date(event.event_date), 'HH:mm')}
+                    </span>
+                  </span>
+                </CardDescription>
+              ) : (
+                <CardDescription>Submit your excuse for this event</CardDescription>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {submitState === 'loading' && (
