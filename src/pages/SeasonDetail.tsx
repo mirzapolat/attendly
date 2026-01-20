@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X, Settings, FileText, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X, Settings, FileText, AlertTriangle, Wand2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { sanitizeError } from '@/utils/errorHandler';
@@ -570,6 +570,12 @@ const SeasonDetail = () => {
             Seasons
           </Link>
           <div className="flex items-center gap-2">
+            <Link to={`/seasons/${season.id}/sanitize`}>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Wand2 className="w-4 h-4" />
+                Sanitize data
+              </Button>
+            </Link>
             <Button
               onClick={() => setConflictsOpen(true)}
               variant="outline"

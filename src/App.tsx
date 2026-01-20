@@ -18,6 +18,7 @@ import EventDetail from "./pages/EventDetail";
 import Attend from "./pages/Attend";
 import Excuse from "./pages/Excuse";
 import SeasonDetail from "./pages/SeasonDetail";
+import SeasonSanitize from "./pages/SeasonSanitize";
 import Settings from "./pages/Settings";
 import ModeratorView from "./pages/ModeratorView";
 import NotFound from "./pages/NotFound";
@@ -46,6 +47,7 @@ const App = () => (
                 <Route path="/attend/:id" element={<Attend />} />
                 <Route path="/excuse/:eventId/:token" element={<Excuse />} />
                 <Route path="/seasons/:id" element={<SeasonDetail />} />
+                <Route path="/seasons/:id/sanitize" element={<SeasonSanitize />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/moderate/:eventId/:token" element={<ModeratorView />} />
                 <Route path="*" element={<NotFound />} />
