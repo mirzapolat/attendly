@@ -93,7 +93,7 @@ const Workspaces = () => {
 
   const handleSelectWorkspace = (workspaceId: string) => {
     selectWorkspace(workspaceId);
-    navigate('/dashboard');
+    navigate('/home');
   };
 
   const handleCreateWorkspace = async (event: React.FormEvent) => {
@@ -154,7 +154,7 @@ const Workspaces = () => {
     setBrandColor(themeColors[0]?.id ?? 'default');
     setDialogOpen(false);
     setCreating(false);
-    navigate('/dashboard');
+    navigate('/home');
   };
 
   const hasWorkspaces = ownedWorkspaces.length + joinedWorkspaces.length > 0;
