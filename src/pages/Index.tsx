@@ -6,11 +6,12 @@ import {
     ArrowRight,
     BarChart3,
     Calendar,
-    Download,
-    Fingerprint,
     Github,
+    Layers,
+    Mail,
     MapPin,
     Menu,
+    Palette,
     QrCode,
     Shield,
     Sparkles,
@@ -24,6 +25,26 @@ import { usePageTitle } from '@/hooks/usePageTitle';
 
 const FEATURE_CARDS = [
     {
+        title: 'Workspaces',
+        description: 'Organize teams, members, and seasons under one workspace.',
+        icon: Layers,
+    },
+    {
+        title: 'Custom branding',
+        description: 'Set a logo, name, and accent color per workspace.',
+        icon: Palette,
+    },
+    {
+        title: 'Email typo detection',
+        description: 'Spot similar emails and merge typos before analytics drift.',
+        icon: Mail,
+    },
+    {
+        title: 'Name conflict resolution',
+        description: 'Resolve duplicate names tied to the same email.',
+        icon: UserCheck,
+    },
+    {
         title: 'Rotating QR codes',
         description: 'Codes refresh every few seconds to prevent forwarding.',
         icon: QrCode,
@@ -32,11 +53,6 @@ const FEATURE_CARDS = [
         title: 'Location checks',
         description: 'Confirm on-site attendance with a venue radius.',
         icon: MapPin,
-    },
-    {
-        title: 'Device fingerprinting',
-        description: 'Stop repeat submissions from the same device.',
-        icon: Fingerprint,
     },
     {
         title: 'Moderator links',
@@ -49,19 +65,9 @@ const FEATURE_CARDS = [
         icon: UserMinus,
     },
     {
-        title: 'Name conflict resolution',
-        description: 'Catch duplicates before they affect reporting.',
-        icon: UserCheck,
-    },
-    {
         title: 'Season analytics',
         description: 'Compare attendance trends across event series.',
         icon: BarChart3,
-    },
-    {
-        title: 'Exports',
-        description: 'Download attendance lists and matrices instantly.',
-        icon: Download,
     },
 ];
 
@@ -169,8 +175,8 @@ const Index = () => {
                                 <span className="text-[color:var(--lp-accent)]">without extra effort.</span>
                             </h1>
                             <p className="mt-6 text-lg text-[color:var(--lp-muted)] max-w-xl animate-fade-in" style={{ animationDelay: '140ms' }}>
-                                Run events with rotating QR codes, location checks, and device fingerprinting.
-                                See clean attendance data, resolve conflicts early, and share moderation safely.
+                                Organize teams in branded workspaces, run secure check-ins, and keep analytics clean.
+                                Catch email typos and name conflicts early while sharing moderation safely.
                             </p>
                             <div className="mt-8 flex flex-wrap gap-3 animate-slide-up" style={{ animationDelay: '200ms' }}>
                                 <Link to="/auth?mode=signup">
@@ -187,9 +193,9 @@ const Index = () => {
                             </div>
                             <div className="mt-10 grid gap-3 sm:grid-cols-3 text-sm text-[color:var(--lp-muted)]">
                                 {[
-                                    'QR rotates every 3 seconds',
-                                    'Location verified check-ins',
-                                    'Multi-submit protection',
+                                    'Workspace-level branding',
+                                    'Email typo detection',
+                                    'Name conflict resolution',
                                 ].map((item) => (
                                     <div key={item} className="rounded-2xl border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] px-4 py-3">
                                         {item}
@@ -326,10 +332,10 @@ const Index = () => {
                                 <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--lp-muted)]">Data hygiene</p>
                                 <h2 className="mt-3 text-2xl md:text-3xl font-semibold">Clean data from the start</h2>
                                 <p className="mt-4 text-[color:var(--lp-muted)]">
-                                    Name conflict resolution, device checks, and location validation keep your reports reliable.
+                                    Email typo detection and name conflict resolution keep your reports reliable.
                                 </p>
                                 <div className="mt-6 flex flex-wrap gap-2 text-xs">
-                                    {['Conflict review', 'Fingerprint alerts', 'Geo verification'].map((item) => (
+                                    {['Email typo detection', 'Name conflicts', 'Geo verification'].map((item) => (
                                         <span key={item} className="rounded-full border border-[color:var(--lp-border)] bg-[color:var(--lp-bg)] px-3 py-1">
                                             {item}
                                         </span>
