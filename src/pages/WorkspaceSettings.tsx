@@ -20,6 +20,9 @@ const WorkspaceSettings = () => {
   const [brandColor, setBrandColor] = useState('default');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [clearingEvents, setClearingEvents] = useState(false);
+  const [clearingSeasons, setClearingSeasons] = useState(false);
+  const [removingMembers, setRemovingMembers] = useState(false);
 
   useEffect(() => {
     if (currentWorkspace) {
@@ -99,6 +102,97 @@ const WorkspaceSettings = () => {
     });
   };
 
+  const handleDeleteAllEvents = async () => {
+    if (!currentWorkspace || !isOwner) return;
+
+    if (!confirm('Delete all events in this workspace? This will remove attendance records too.')) {
+      return;
+    }
+
+    setClearingEvents(true);
+    const { error } = await supabase
+      .from('events')
+      .delete()
+      .eq('workspace_id', currentWorkspace.id);
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Delete failed',
+        description: error.message,
+      });
+      setClearingEvents(false);
+      return;
+    }
+
+    setClearingEvents(false);
+    toast({
+      title: 'Events deleted',
+      description: 'All events in this workspace have been removed.',
+    });
+  };
+
+  const handleDeleteAllSeasons = async () => {
+    if (!currentWorkspace || !isOwner) return;
+
+    if (!confirm('Delete all seasons in this workspace? Events will become unassigned.')) {
+      return;
+    }
+
+    setClearingSeasons(true);
+    const { error } = await supabase
+      .from('seasons')
+      .delete()
+      .eq('workspace_id', currentWorkspace.id);
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Delete failed',
+        description: error.message,
+      });
+      setClearingSeasons(false);
+      return;
+    }
+
+    setClearingSeasons(false);
+    toast({
+      title: 'Seasons deleted',
+      description: 'All seasons in this workspace have been removed.',
+    });
+  };
+
+  const handleRemoveAllMembers = async () => {
+    if (!currentWorkspace || !isOwner) return;
+
+    if (!confirm('Remove all members from this workspace? The owner will remain.')) {
+      return;
+    }
+
+    setRemovingMembers(true);
+    const { error } = await supabase
+      .from('workspace_members')
+      .delete()
+      .eq('workspace_id', currentWorkspace.id)
+      .neq('profile_id', currentWorkspace.owner_id);
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Remove failed',
+        description: error.message,
+      });
+      setRemovingMembers(false);
+      return;
+    }
+
+    setRemovingMembers(false);
+    toast({
+      title: 'Members removed',
+      description: 'All members have been removed from this workspace.',
+    });
+  };
+
   return (
     <WorkspaceLayout title="Workspace settings">
       <div className="max-w-3xl">
@@ -166,22 +260,59 @@ const WorkspaceSettings = () => {
         </Card>
 
         {isOwner && (
-          <Card className="border-destructive/40 bg-destructive/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-destructive">
-                <Trash2 className="w-5 h-5" />
-                Delete workspace
-              </CardTitle>
-              <CardDescription>
-                This will permanently remove the workspace, events, seasons, and attendance data.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-                {deleting ? 'Deleting...' : 'Delete workspace'}
-              </Button>
-            </CardContent>
-          </Card>
+          <>
+            <Card className="border-destructive/40 bg-destructive/5 mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                  <Trash2 className="w-5 h-5" />
+                  Workspace cleanup
+                </CardTitle>
+                <CardDescription>
+                  Remove data or members without deleting the workspace.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleDeleteAllEvents}
+                  disabled={clearingEvents}
+                >
+                  {clearingEvents ? 'Deleting events...' : 'Delete all events'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleDeleteAllSeasons}
+                  disabled={clearingSeasons}
+                >
+                  {clearingSeasons ? 'Deleting seasons...' : 'Delete all seasons'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleRemoveAllMembers}
+                  disabled={removingMembers}
+                >
+                  {removingMembers ? 'Removing members...' : 'Remove all members'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-destructive/40 bg-destructive/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                  <Trash2 className="w-5 h-5" />
+                  Delete workspace
+                </CardTitle>
+                <CardDescription>
+                  This will permanently remove the workspace, events, seasons, and attendance data.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                  {deleting ? 'Deleting...' : 'Delete workspace'}
+                </Button>
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
     </WorkspaceLayout>

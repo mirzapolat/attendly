@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, LogOut, QrCode, Settings } from 'lucide-react';
+import { ArrowLeftRight, Bell, LogOut, QrCode, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -244,8 +244,16 @@ const WorkspaceHeader = ({
             <span className="font-semibold text-lg leading-tight">{headerTitle}</span>
             {showChangeWorkspace && (
               <Link to="/workspaces">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="hidden sm:inline-flex">
                   Change Workspace
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="sm:hidden"
+                  aria-label="Change workspace"
+                >
+                  <ArrowLeftRight className="w-4 h-4" />
                 </Button>
               </Link>
             )}

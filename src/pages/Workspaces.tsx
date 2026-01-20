@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import WorkspaceHeader from '@/components/WorkspaceHeader';
-import { themeColors } from '@/hooks/useThemeColor';
+import { applyThemeColor, themeColors, useThemeColor } from '@/hooks/useThemeColor';
 
 const Workspaces = () => {
   usePageTitle('Workspaces - Attendly');
@@ -20,6 +20,7 @@ const Workspaces = () => {
   const { ownedWorkspaces, joinedWorkspaces, selectWorkspace, refresh, loading } = useWorkspace();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { themeColor } = useThemeColor();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
@@ -33,6 +34,11 @@ const Workspaces = () => {
       navigate('/auth');
     }
   }, [authLoading, user, navigate]);
+
+  useEffect(() => {
+    applyThemeColor('default');
+    return () => applyThemeColor(themeColor);
+  }, [themeColor]);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 639px)');

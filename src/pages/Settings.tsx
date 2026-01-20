@@ -162,7 +162,7 @@ const Settings = () => {
         <div className="container mx-auto px-6 h-16 flex items-center">
           <Link to="/dashboard" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" />
-            Back
+            <span className="hidden sm:inline">Back</span>
           </Link>
         </div>
       </header>
@@ -170,7 +170,7 @@ const Settings = () => {
       <main className="container mx-auto px-6 py-8 max-w-2xl">
         <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
           <SettingsIcon className="w-6 h-6" />
-          Settings
+          Account Settings
         </h1>
 
         {/* Profile */}

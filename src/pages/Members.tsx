@@ -17,6 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { format } from 'date-fns';
 
 interface MemberProfile {
   id: string;
@@ -29,12 +30,19 @@ interface WorkspaceMember {
   profiles: MemberProfile | null;
 }
 
+interface PendingInvite {
+  id: string;
+  invited_email: string;
+  created_at: string | null;
+}
+
 const Members = () => {
   usePageTitle('Members - Attendly');
   const { currentWorkspace, isOwner, refresh } = useWorkspace();
   const { user } = useAuth();
   const { toast } = useToast();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
@@ -51,23 +59,34 @@ const Members = () => {
     if (!currentWorkspace) return;
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from('workspace_members')
-      .select('profile_id, profiles ( id, full_name, email )')
-      .eq('workspace_id', currentWorkspace.id)
-      .order('created_at', { ascending: true });
+    const [membersRes, invitesRes] = await Promise.all([
+      supabase
+        .from('workspace_members')
+        .select('profile_id, profiles ( id, full_name, email )')
+        .eq('workspace_id', currentWorkspace.id)
+        .order('created_at', { ascending: true }),
+      isOwner
+        ? supabase
+            .from('workspace_invites')
+            .select('id, invited_email, created_at')
+            .eq('workspace_id', currentWorkspace.id)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+    ]);
 
-    if (error) {
+    if (membersRes.error || invitesRes.error) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message,
+        description: membersRes.error?.message ?? invitesRes.error?.message ?? 'Failed to load members.',
       });
       setLoading(false);
       return;
     }
 
-    setMembers((data ?? []) as WorkspaceMember[]);
+    setMembers((membersRes.data ?? []) as WorkspaceMember[]);
+    setPendingInvites((invitesRes.data ?? []) as PendingInvite[]);
     setLoading(false);
   };
 
@@ -112,6 +131,7 @@ const Members = () => {
 
     setInviteEmail('');
     setInviting(false);
+    fetchMembers();
     toast({
       title: 'Invite sent',
       description: 'The member will see a notification in their workspace menu.',
@@ -168,6 +188,35 @@ const Members = () => {
     toast({
       title: 'Workspace left',
       description: 'You have left the workspace.',
+    });
+  };
+
+  const handleRevokeInvite = async (inviteId: string) => {
+    if (!currentWorkspace || !isOwner) return;
+
+    if (!confirm('Revoke this invite?')) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from('workspace_invites')
+      .update({ status: 'revoked', responded_at: new Date().toISOString() })
+      .eq('id', inviteId)
+      .eq('workspace_id', currentWorkspace.id);
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Revoke failed',
+        description: error.message,
+      });
+      return;
+    }
+
+    fetchMembers();
+    toast({
+      title: 'Invite revoked',
+      description: 'The invitation has been revoked.',
     });
   };
 
@@ -353,6 +402,37 @@ const Members = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {isOwner && !loading && pendingInvites.length > 0 && (
+        <div className="mt-8 space-y-3">
+          <div>
+            <h2 className="text-xl font-semibold">Pending invites</h2>
+            <p className="text-sm text-muted-foreground">
+              These members haven&apos;t accepted their invitations yet.
+            </p>
+          </div>
+          <div className="grid gap-3">
+            {pendingInvites.map((invite) => (
+              <div
+                key={invite.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{invite.invited_email}</p>
+                  {invite.created_at && (
+                    <p className="text-xs text-muted-foreground">
+                      Invited {format(new Date(invite.created_at), 'PPP')}
+                    </p>
+                  )}
+                </div>
+                <Button variant="outline" size="sm" onClick={() => handleRevokeInvite(invite.id)}>
+                  Revoke
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </WorkspaceLayout>

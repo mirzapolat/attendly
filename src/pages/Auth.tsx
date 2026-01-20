@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,7 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { signIn, signUp, user } = useAuth();
@@ -122,6 +124,51 @@ const Auth = () => {
     }
   };
 
+  const handleForgotPassword = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      toast({
+        variant: 'destructive',
+        title: 'Email required',
+        description: 'Enter your email above so we can send a reset link.',
+      });
+      return;
+    }
+
+    try {
+      signInSchema.pick({ email: true }).parse({ email: trimmedEmail });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid email',
+          description: 'Please enter a valid email address first.',
+        });
+        return;
+      }
+    }
+
+    setResetting(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+      redirectTo: `${window.location.origin}/settings`,
+    });
+    setResetting(false);
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Reset failed',
+        description: error.message,
+      });
+      return;
+    }
+
+    toast({
+      title: 'Check your email',
+      description: 'We sent a password reset link to your inbox.',
+    });
+  };
+
   if (mode === 'signin') {
     usePageTitle('Sign In to Attendly');
   } else {
@@ -198,6 +245,18 @@ const Auth = () => {
                 <p className="text-sm text-destructive">{errors.password}</p>
               )}
             </div>
+            {mode === 'signin' && (
+              <div className="flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-sm text-primary hover:underline font-medium"
+                  disabled={resetting}
+                >
+                  {resetting ? 'Sending reset link…' : 'Forgot password?'}
+                </button>
+              </div>
+            )}
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? 'Please wait...' : mode === 'signin' ? 'Sign In' : 'Create Account'}

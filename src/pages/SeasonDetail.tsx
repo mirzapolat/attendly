@@ -50,6 +50,69 @@ interface MemberStats {
   excusedEventIds: Set<string>;
 }
 
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+const normalizeLocalPart = (localPart: string) =>
+  localPart.replace(/\./g, '').replace(/\s+/g, '').toLowerCase();
+
+const normalizeDomain = (domain: string) =>
+  domain.replace(/\s+/g, '').toLowerCase();
+
+const splitDomain = (domain: string) => {
+  const parts = domain.split('.').filter(Boolean);
+  if (parts.length <= 1) {
+    return { base: domain, tld: '' };
+  }
+  const tld = parts.pop() ?? '';
+  return { base: parts.join('.'), tld };
+};
+
+const longestCommonSubstring = (a: string, b: string) => {
+  if (!a || !b) return 0;
+  const rows = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+  let longest = 0;
+  for (let i = 1; i <= a.length; i += 1) {
+    for (let j = 1; j <= b.length; j += 1) {
+      if (a[i - 1] === b[j - 1]) {
+        rows[i][j] = rows[i - 1][j - 1] + 1;
+        if (rows[i][j] > longest) {
+          longest = rows[i][j];
+        }
+      }
+    }
+  }
+  return longest;
+};
+
+const levenshteinDistance = (a: string, b: string) => {
+  if (a === b) return 0;
+  if (!a || !b) return Math.max(a.length, b.length);
+
+  const matrix: number[][] = Array.from({ length: a.length + 1 }, () =>
+    Array.from({ length: b.length + 1 }, () => 0),
+  );
+
+  for (let i = 0; i <= a.length; i += 1) {
+    matrix[i][0] = i;
+  }
+  for (let j = 0; j <= b.length; j += 1) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= a.length; i += 1) {
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost,
+      );
+    }
+  }
+
+  return matrix[a.length][b.length];
+};
+
 const SeasonDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
@@ -269,6 +332,76 @@ const SeasonDetail = () => {
 
     return conflicts;
   }, [attendance]);
+
+  const hasEmailSuggestions = useMemo(() => {
+    const emailSet = new Set<string>();
+    attendance.forEach((record) => {
+      const normalized = normalizeEmail(record.attendee_email || '');
+      if (normalized) {
+        emailSet.add(normalized);
+      }
+    });
+
+    const entries = Array.from(emailSet)
+      .map((email) => {
+        const [localPart, domainPart] = email.split('@');
+        if (!localPart || !domainPart) return null;
+        const local = normalizeLocalPart(localPart);
+        const domain = normalizeDomain(domainPart);
+        const { base: domainBase, tld } = splitDomain(domain);
+        if (!local || !domain) return null;
+        return { email, local, domain, domainBase, tld };
+      })
+      .filter(
+        (
+          entry,
+        ): entry is { email: string; local: string; domain: string; domainBase: string; tld: string } =>
+          Boolean(entry),
+      );
+
+    const DOMAIN_MAX_DISTANCE = 2;
+
+    for (let i = 0; i < entries.length; i += 1) {
+      for (let j = i + 1; j < entries.length; j += 1) {
+        const a = entries[i];
+        const b = entries[j];
+        const domainDistance = levenshteinDistance(a.domain, b.domain);
+        const localMaxDistance = Math.min(
+          3,
+          Math.max(1, Math.floor(Math.max(a.local.length, b.local.length) / 4)),
+        );
+        const localDistance = levenshteinDistance(a.local, b.local);
+        if (localDistance === 0 && domainDistance === 0) continue;
+
+        const minLocalLength = Math.min(a.local.length, b.local.length);
+        const longestCommon = longestCommonSubstring(a.local, b.local);
+        const hasLocalOverlap =
+          (minLocalLength >= 4 && longestCommon >= Math.min(5, minLocalLength)) ||
+          (a.local.includes(b.local) && b.local.length >= 4) ||
+          (b.local.includes(a.local) && a.local.length >= 4);
+
+        const isDomainTypo = domainDistance <= DOMAIN_MAX_DISTANCE;
+        const isLocalTypo = localDistance <= localMaxDistance;
+        const isTldVariant =
+          a.local === b.local &&
+          a.domainBase &&
+          b.domainBase &&
+          a.domainBase === b.domainBase &&
+          a.tld &&
+          b.tld &&
+          a.tld !== b.tld;
+
+        if (!isLocalTypo && !hasLocalOverlap && !isTldVariant) continue;
+        if (!isDomainTypo && !hasLocalOverlap && !isTldVariant) continue;
+
+        return true;
+      }
+    }
+
+    return false;
+  }, [attendance]);
+
+  const shouldFlashSanitize = nameConflicts.length > 0 || hasEmailSuggestions;
 
   useEffect(() => {
     setConflictSelections((prev) => {
@@ -567,31 +700,24 @@ const SeasonDetail = () => {
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/seasons" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" />
-            Seasons
+            <span className="hidden sm:inline">Seasons</span>
           </Link>
           <div className="flex items-center gap-2">
             <Link to={`/seasons/${season.id}/sanitize`}>
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className={`gap-2 hover:border-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 ${
+                  shouldFlashSanitize
+                    ? 'border-emerald-400 text-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-200 animate-pulse'
+                    : 'border-border text-foreground bg-background'
+                }`}
+                style={shouldFlashSanitize ? { animationDuration: '3s' } : undefined}
+              >
                 <Wand2 className="w-4 h-4" />
                 Sanitize data
               </Button>
             </Link>
-            <Button
-              onClick={() => setConflictsOpen(true)}
-              variant="outline"
-              size="sm"
-              className={`gap-2 ${
-                nameConflicts.length > 0
-                  ? 'border-warning text-warning bg-warning/10 ring-2 ring-warning/40 animate-pulse hover:text-warning hover:bg-warning/15 hover:ring-warning/70'
-                  : ''
-              }`}
-              disabled={nameConflicts.length === 0}
-            >
-              {nameConflicts.length > 0 && <AlertTriangle className="w-4 h-4 animate-pulse" />}
-              {nameConflicts.length > 0
-                ? `Resolve Names (${nameConflicts.length})`
-                : 'No Name Conflicts'}
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
@@ -634,7 +760,7 @@ const SeasonDetail = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-gradient-card">
             <CardContent className="py-4">
               <div className="flex items-center gap-3">
@@ -697,9 +823,6 @@ const SeasonDetail = () => {
             <CardContent className="py-12 text-center">
               <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">No events in this season yet</p>
-              <Link to="/events/new">
-                <Button>Create an Event</Button>
-              </Link>
             </CardContent>
           </Card>
         ) : (
@@ -711,7 +834,7 @@ const SeasonDetail = () => {
                 <CardDescription>Unique attendees per event</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-64">
+                <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={eventAttendanceData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -777,7 +900,7 @@ const SeasonDetail = () => {
                     {memberSearch ? 'No members found' : 'No attendance records yet'}
                   </p>
                 ) : (
-                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
                     {filteredMemberStats.map((member, index) => (
                       <div 
                         key={member.email} 

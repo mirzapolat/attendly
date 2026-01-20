@@ -607,7 +607,7 @@ const EventDetail = () => {
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Events
+            <span className="hidden sm:inline">Events</span>
           </Link>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => setShowModeration(true)} title="Moderation settings">
