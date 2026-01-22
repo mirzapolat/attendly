@@ -28,6 +28,7 @@ interface Event {
   is_active: boolean;
   current_qr_token: string | null;
   rotating_qr_enabled: boolean;
+  rotating_qr_interval_seconds?: number | null;
   moderation_enabled: boolean;
   moderator_show_full_name: boolean;
   moderator_show_email: boolean;
@@ -226,9 +227,10 @@ const ModeratorView = () => {
     }
 
     if (event?.is_active && event?.rotating_qr_enabled) {
-      setTimeLeft(3);
+      const rotationSeconds = Math.min(60, Math.max(2, Number(event.rotating_qr_interval_seconds ?? 3)));
+      setTimeLeft(rotationSeconds);
       countdownIntervalRef.current = window.setInterval(() => {
-        setTimeLeft((prev) => (prev > 1 ? prev - 1 : 3));
+        setTimeLeft((prev) => (prev > 1 ? prev - 1 : rotationSeconds));
       }, 1000);
     }
 

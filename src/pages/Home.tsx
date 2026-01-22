@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, Clock, Layers, Plus, Settings, Users, UserPlus } from 'lucide-react';
+import { CalendarDays, Clock, Layers, Lightbulb, Plus, RefreshCcw, Settings, Users, UserPlus, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import WorkspaceLayout from '@/components/WorkspaceLayout';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,54 @@ type SeasonSummary = {
   created_at: string;
 };
 
+const HOME_HINTS = [
+  {
+    id: 'seasons',
+    title: 'Seasons',
+    description: 'Group events into seasons to compare attendance over time.',
+  },
+  {
+    id: 'accent',
+    title: 'Workspace branding',
+    description: 'Update the workspace color and logo in workspace settings.',
+  },
+  {
+    id: 'moderation-links',
+    title: 'Moderation links',
+    description: 'Delegate attendance checks without sharing full admin access.',
+  },
+  {
+    id: 'excuse-links',
+    title: 'Excuse links',
+    description: 'Let members mark themselves excused without manual entry.',
+  },
+  {
+    id: 'rotating-qr',
+    title: 'Rotating QR',
+    description: 'Enable rotating QR codes to reduce forwarding.',
+  },
+  {
+    id: 'fingerprinting',
+    title: 'Device fingerprinting',
+    description: 'Limit multiple submissions from the same device.',
+  },
+  {
+    id: 'location-checks',
+    title: 'Location checks',
+    description: 'Add location checks to confirm on-site attendance.',
+  },
+  {
+    id: 'exports',
+    title: 'Exports',
+    description: 'Export attendance lists and matrices for reports.',
+  },
+  {
+    id: 'privacy',
+    title: 'Privacy',
+    description: 'Use attendee detail toggles when presenting on shared screens.',
+  },
+];
+
 const Home = () => {
   usePageTitle('Home - Attendly');
   const { currentWorkspace } = useWorkspace();
@@ -33,6 +81,8 @@ const Home = () => {
   const [seasons, setSeasons] = useState<SeasonSummary[]>([]);
   const [memberCount, setMemberCount] = useState(0);
   const [seasonCount, setSeasonCount] = useState(0);
+  const [dismissedHints, setDismissedHints] = useState<string[]>([]);
+  const [hintSeed, setHintSeed] = useState(0);
 
   useEffect(() => {
     if (currentWorkspace) {
@@ -107,6 +157,19 @@ const Home = () => {
     { label: 'Seasons', value: totalSeasons, icon: Layers },
     { label: 'Members', value: memberCount, icon: Users },
   ];
+
+  const visibleHints = useMemo(() => {
+    const pool = HOME_HINTS.filter((hint) => !dismissedHints.includes(hint.id));
+    if (pool.length <= 3) {
+      return pool;
+    }
+    const seeded = [...pool].sort(() => Math.random() - 0.5);
+    return seeded.slice(0, 3);
+  }, [dismissedHints, hintSeed]);
+
+  const handleDismissHint = (hintId: string) => {
+    setDismissedHints((prev) => [...prev, hintId]);
+  };
 
   return (
     <WorkspaceLayout title="Home">
@@ -245,6 +308,46 @@ const Home = () => {
             )}
           </CardContent>
         </Card>
+
+        {visibleHints.length > 0 && (
+          <section className="border-t border-border pt-6">
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Lightbulb className="w-4 h-4 text-primary" />
+                Useful hints
+              </h2>
+              <button
+                type="button"
+                onClick={() => setHintSeed((seed) => seed + 1)}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <RefreshCcw className="w-3.5 h-3.5" />
+                More hints
+              </button>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {visibleHints.map((hint) => (
+                <div
+                  key={hint.id}
+                  className="relative rounded-lg border border-border bg-muted/60 p-4 text-sm text-foreground"
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-2 top-2 h-7 w-7"
+                    onClick={() => handleDismissHint(hint.id)}
+                    aria-label={`Dismiss hint: ${hint.title}`}
+                    title={`Dismiss hint: ${hint.title}`}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                  <p className="font-medium mb-1">{hint.title}</p>
+                  <p className="text-muted-foreground">{hint.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </WorkspaceLayout>
   );

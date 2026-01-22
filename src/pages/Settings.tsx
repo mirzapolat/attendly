@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Settings as SettingsIcon, User, Trash2, Save } from 'lucide-react';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
+import { useConfirm } from '@/hooks/useConfirm';
 
 const profileSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -25,6 +26,7 @@ const Settings = () => {
   const { user, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -120,9 +122,14 @@ const Settings = () => {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete your account? This will permanently delete your owned workspaces, events, seasons, and attendance data. This action cannot be undone.')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Delete account?',
+      description:
+        'This will permanently delete your owned workspaces, events, seasons, and attendance data. This action cannot be undone.',
+      confirmText: 'Delete account',
+      variant: 'destructive',
+    });
+    if (!confirmed) return;
 
     setDeleting(true);
 

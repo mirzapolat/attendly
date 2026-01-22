@@ -248,6 +248,7 @@ const Workspaces = () => {
                 variant={viewMode === 'grid' ? 'default' : 'ghost'}
                 size="icon"
                 onClick={() => setViewMode('grid')}
+                title="Grid view"
               >
                 <LayoutGrid className="w-4 h-4" />
               </Button>
@@ -256,6 +257,7 @@ const Workspaces = () => {
                 variant={viewMode === 'list' ? 'default' : 'ghost'}
                 size="icon"
                 onClick={() => setViewMode('list')}
+                title="List view"
               >
                 <List className="w-4 h-4" />
               </Button>

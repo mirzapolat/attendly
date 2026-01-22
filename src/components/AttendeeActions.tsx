@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Upload, FileText, UserPlus } from 'lucide-react';
+import { ArrowUpDown, Download, Upload, FileText, UserPlus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -303,10 +303,6 @@ const AttendeeActions = ({
   return (
     <>
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={exportToCsv} className="gap-2">
-          <Download className="w-4 h-4" />
-          Export
-        </Button>
         <input
           ref={fileInputRef}
           type="file"
@@ -316,15 +312,24 @@ const AttendeeActions = ({
         />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Upload className="w-4 h-4" />
-              Import
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              aria-label="Export or import"
+              title="Import or export"
+            >
+              <ArrowUpDown className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={exportToCsv} className="gap-2">
+              <Upload className="w-4 h-4" />
+              Export CSV
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => fileInputRef.current?.click()} className="gap-2">
-              <FileText className="w-4 h-4" />
-              CSV File
+              <Download className="w-4 h-4" />
+              Import CSV
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setManualImportOpen(true)} className="gap-2">
               <UserPlus className="w-4 h-4" />

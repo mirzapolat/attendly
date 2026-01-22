@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { WorkspaceProvider } from "@/hooks/useWorkspace";
 import { ThemeColorProvider } from "@/hooks/useThemeColor";
+import { ConfirmDialogProvider } from "@/hooks/useConfirm";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -31,31 +32,33 @@ const App = () => (
     <AuthProvider>
       <WorkspaceProvider>
         <ThemeColorProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/workspaces" element={<Workspaces />} />
-                <Route path="/home" element={<Home />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/seasons" element={<Seasons />} />
-                <Route path="/members" element={<Members />} />
-                <Route path="/workspace-settings" element={<WorkspaceSettings />} />
-                <Route path="/events/new" element={<NewEvent />} />
-                <Route path="/events/:id" element={<EventDetail />} />
-                <Route path="/attend/:id" element={<Attend />} />
-                <Route path="/excuse/:eventId/:token" element={<Excuse />} />
-                <Route path="/seasons/:id" element={<SeasonDetail />} />
-                <Route path="/seasons/:id/sanitize" element={<SeasonSanitize />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/moderate/:eventId/:token" element={<ModeratorView />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
+          <ConfirmDialogProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/workspaces" element={<Workspaces />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/seasons" element={<Seasons />} />
+                  <Route path="/members" element={<Members />} />
+                  <Route path="/workspace-settings" element={<WorkspaceSettings />} />
+                  <Route path="/events/new" element={<NewEvent />} />
+                  <Route path="/events/:id" element={<EventDetail />} />
+                  <Route path="/attend/:id" element={<Attend />} />
+                  <Route path="/excuse/:eventId/:token" element={<Excuse />} />
+                  <Route path="/seasons/:id" element={<SeasonDetail />} />
+                  <Route path="/seasons/:id/sanitize" element={<SeasonSanitize />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/moderate/:eventId/:token" element={<ModeratorView />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </ConfirmDialogProvider>
         </ThemeColorProvider>
       </WorkspaceProvider>
     </AuthProvider>

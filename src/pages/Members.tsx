@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Crown, MoreHorizontal, Search, UserPlus } from 'lucide-react';
+import { Crown, Search, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,13 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { themeColors } from '@/hooks/useThemeColor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface MemberProfile {
   id: string;
@@ -28,6 +23,7 @@ interface MemberProfile {
 interface WorkspaceMember {
   profile_id: string;
   profiles: MemberProfile | null;
+  created_at?: string | null;
 }
 
 interface PendingInvite {
@@ -41,6 +37,7 @@ const Members = () => {
   const { currentWorkspace, isOwner, refresh } = useWorkspace();
   const { user } = useAuth();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +45,7 @@ const Members = () => {
   const [inviting, setInviting] = useState(false);
   const [transferringId, setTransferringId] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
+  const showActions = isOwner;
 
   useEffect(() => {
     if (currentWorkspace) {
@@ -62,7 +60,7 @@ const Members = () => {
     const [membersRes, invitesRes] = await Promise.all([
       supabase
         .from('workspace_members')
-        .select('profile_id, profiles ( id, full_name, email )')
+        .select('profile_id, created_at, profiles ( id, full_name, email )')
         .eq('workspace_id', currentWorkspace.id)
         .order('created_at', { ascending: true }),
       isOwner
@@ -141,9 +139,13 @@ const Members = () => {
   const handleRemoveMember = async (profileId: string) => {
     if (!currentWorkspace) return;
 
-    if (!confirm('Remove this member from the workspace?')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Remove member?',
+      description: 'They will lose access to this workspace.',
+      confirmText: 'Remove member',
+      variant: 'destructive',
+    });
+    if (!confirmed) return;
 
     const { error } = await supabase.rpc('remove_workspace_member', {
       p_workspace_id: currentWorkspace.id,
@@ -165,9 +167,13 @@ const Members = () => {
   const handleLeaveWorkspace = async () => {
     if (!currentWorkspace || !user) return;
 
-    if (!confirm('Leave this workspace?')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Leave workspace?',
+      description: 'You will lose access to this workspace.',
+      confirmText: 'Leave workspace',
+      variant: 'destructive',
+    });
+    if (!confirmed) return;
 
     const { error } = await supabase
       .from('workspace_members')
@@ -194,9 +200,13 @@ const Members = () => {
   const handleRevokeInvite = async (inviteId: string) => {
     if (!currentWorkspace || !isOwner) return;
 
-    if (!confirm('Revoke this invite?')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Revoke invite?',
+      description: 'The invited user will no longer be able to join with this invite.',
+      confirmText: 'Revoke invite',
+      variant: 'destructive',
+    });
+    if (!confirmed) return;
 
     const { error } = await supabase
       .from('workspace_invites')
@@ -223,9 +233,13 @@ const Members = () => {
   const handleTransferOwnershipToMember = async (profileId: string) => {
     if (!currentWorkspace || !isOwner) return;
 
-    if (!confirm('Transfer workspace ownership? You will remain a member.')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Transfer ownership?',
+      description: 'You will remain a member.',
+      confirmText: 'Transfer ownership',
+      variant: 'destructive',
+    });
+    if (!confirmed) return;
 
     setTransferringId(profileId);
     const { error } = await supabase
@@ -342,66 +356,99 @@ const Members = () => {
           {memberSearch ? 'No members match your search.' : 'No members found.'}
         </div>
       ) : (
-        <div className="grid gap-3">
-          {filteredMembers.map((member) => {
-            const isWorkspaceOwner = member.profile_id === currentWorkspace?.owner_id;
-            const isSelf = member.profile_id === user?.id;
+        <div className="overflow-x-auto">
+          <div className="min-w-[640px] rounded-lg border border-border overflow-hidden">
+            <div className="bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-l-4 border-transparent">
+              <div
+                className={`grid gap-3 items-center ${
+                  showActions
+                    ? 'grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_minmax(0,1fr)_160px]'
+                    : 'grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_minmax(0,1fr)]'
+                }`}
+              >
+                <span>Name</span>
+                <span>Email</span>
+                <span>Member since</span>
+                {showActions && <span className="justify-self-end">Actions</span>}
+              </div>
+            </div>
+            <div className="divide-y divide-border">
+              {filteredMembers.map((member) => {
+                const isWorkspaceOwner = member.profile_id === currentWorkspace?.owner_id;
+                const isSelf = member.profile_id === user?.id;
+            const highlightOwner = isWorkspaceOwner && isSelf;
             const highlightSelf = isSelf && !isWorkspaceOwner;
             return (
               <div
                 key={member.profile_id}
-                className={`flex items-center justify-between gap-3 rounded-lg px-4 py-3 ${
-                  isWorkspaceOwner
-                    ? 'border-2 border-amber-300/80 bg-amber-50/40'
+                className="px-4 py-3 border-l-4 border-transparent"
+                style={
+                  highlightOwner
+                    ? { borderLeftColor: '#f59e0b', backgroundColor: '#f59e0b1A' }
                     : highlightSelf
-                      ? 'border-2'
-                      : 'border border-border'
-                }`}
-                style={highlightSelf ? { borderColor: brandColor } : undefined}
+                      ? { borderLeftColor: brandColor, backgroundColor: `${brandColor}1A` }
+                      : undefined
+                }
               >
-                <div className="min-w-0">
-                  <p className="font-medium truncate">
-                    {member.profiles?.full_name ?? 'Unknown'}
-                    {isWorkspaceOwner && (
-                      <span className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700">
-                        <Crown className="h-3.5 w-3.5" />
-                        Owner
-                      </span>
-                    )}
-                    {isSelf && !isWorkspaceOwner && (
-                      <span className="ml-2 text-xs text-muted-foreground">You</span>
-                    )}
-                  </p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {member.profiles?.email ?? 'No email'}
-                  </p>
-                </div>
-                {isOwner && !isWorkspaceOwner && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="Member actions">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => handleRemoveMember(member.profile_id)}
-                        disabled={isWorkspaceOwner}
-                      >
-                        Remove from workspace
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleTransferOwnershipToMember(member.profile_id)}
-                        disabled={isWorkspaceOwner || transferringId === member.profile_id}
-                      >
-                        {transferringId === member.profile_id ? 'Transferring...' : 'Transfer ownership'}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
-            );
-          })}
+                    <div
+                      className={`grid gap-3 items-center ${
+                        showActions
+                          ? 'grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_minmax(0,1fr)_160px]'
+                          : 'grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_minmax(0,1fr)]'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">
+                          {member.profiles?.full_name ?? 'Unknown'}
+                          {isWorkspaceOwner && (
+                            <span className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700">
+                              <Crown className="h-3.5 w-3.5" />
+                              Owner
+                            </span>
+                          )}
+                          {isSelf && !isWorkspaceOwner && (
+                            <span className="ml-2 text-xs text-muted-foreground">You</span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-sm text-muted-foreground truncate">
+                        {member.profiles?.email ?? 'No email'}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {member.created_at ? format(new Date(member.created_at), 'PPP') : '—'}
+                      </div>
+                      {showActions && (
+                        <div className="flex justify-end gap-2">
+                          {isOwner && !isWorkspaceOwner ? (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRemoveMember(member.profile_id)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                Remove
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleTransferOwnershipToMember(member.profile_id)}
+                                disabled={transferringId === member.profile_id}
+                              >
+                                {transferringId === member.profile_id ? 'Transferring...' : 'Transfer'}
+                              </Button>
+                            </>
+                          ) : (
+                            <div className="h-8" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 

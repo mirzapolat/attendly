@@ -215,7 +215,7 @@ const ModerationSettings = ({
               <Shield className="w-5 h-5 text-primary" />
               <h2 className="text-lg font-semibold">Moderation Settings</h2>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose}>
+            <Button variant="ghost" size="icon" onClick={onClose} title="Close">
               <X className="w-4 h-4" />
             </Button>
           </div>
@@ -292,7 +292,7 @@ const ModerationSettings = ({
                     value={newLinkLabel}
                     onChange={(e) => setNewLinkLabel(e.target.value)}
                   />
-                  <Button onClick={createLink} size="icon">
+                  <Button onClick={createLink} size="icon" title="Create link">
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>

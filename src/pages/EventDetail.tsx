@@ -9,10 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { useConfirm } from '@/hooks/useConfirm';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, Play, Square, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2, Search, UserMinus
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2, Search, UserMinus, List, ListCollapse
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EventSettings from '@/components/EventSettings';
@@ -35,6 +36,7 @@ interface Event {
   current_qr_token: string | null;
   qr_token_expires_at: string | null;
   rotating_qr_enabled: boolean;
+  rotating_qr_interval_seconds?: number | null;
   device_fingerprint_enabled: boolean;
   location_check_enabled: boolean;
   moderation_enabled: boolean;
@@ -60,6 +62,11 @@ interface KnownAttendee {
 }
 
 const POLL_INTERVAL_MS = 1100;
+const RESUME_WINDOW_MS = 15000;
+const RESUME_KEY_PREFIX = 'attendly:resume-event:';
+const ROTATION_GRACE_MS = 7000;
+const ROTATION_MIN_SECONDS = 2;
+const ROTATION_MAX_SECONDS = 60;
 
 // Helper to mask last name (keep first name visible)
 const maskName = (fullName: string): string => {
@@ -85,6 +92,7 @@ const EventDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -116,6 +124,7 @@ const EventDetail = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious'>('all');
   const [showConfetti, setShowConfetti] = useState(false);
+  const [compactView, setCompactView] = useState(false);
 
   const confettiPieces = useMemo(() => {
     const colors = ['#16a34a', '#22c55e', '#14b8a6', '#f59e0b', '#84cc16'];
@@ -136,6 +145,10 @@ const EventDetail = () => {
   const qrLogoSettings = brandLogoUrl
     ? { src: brandLogoUrl, height: 56, width: 56, excavate: true }
     : undefined;
+  const rotationSeconds = Math.min(
+    ROTATION_MAX_SECONDS,
+    Math.max(ROTATION_MIN_SECONDS, Number(event?.rotating_qr_interval_seconds ?? 3)),
+  );
 
   const fetchEvent = useCallback(async () => {
     if (!id) return;
@@ -222,6 +235,12 @@ const EventDetail = () => {
         return;
       }
 
+      try {
+        sessionStorage.setItem(`${RESUME_KEY_PREFIX}${id}`, String(Date.now()));
+      } catch {
+        // Ignore storage failures; resume is best-effort.
+      }
+
       const runtimeEnv = getRuntimeEnv();
       const supabaseUrl = runtimeEnv.VITE_SUPABASE_URL ?? import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey =
@@ -290,12 +309,13 @@ const EventDetail = () => {
     }
 
     clickEvent.preventDefault();
-    const confirmed = window.confirm(
-      'Leaving this page will stop the event and pause rotating QR codes. Do you want to proceed?'
-    );
-    if (!confirmed) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Leave event page?',
+      description: 'Leaving will stop the event and pause rotating QR codes.',
+      confirmText: 'Leave page',
+      variant: 'destructive',
+    });
+    if (!confirmed) return;
     const stopped = await stopEventForExit();
     if (stopped) {
       navigate('/dashboard');
@@ -434,8 +454,7 @@ const EventDetail = () => {
     if (!event?.is_active || !event?.rotating_qr_enabled) return;
 
     const newToken = generateToken();
-    // 10 second validity: 3s display + 7s grace period for scan time
-    const expiresAt = new Date(Date.now() + 10000).toISOString();
+    const expiresAt = new Date(Date.now() + rotationSeconds * 1000 + ROTATION_GRACE_MS).toISOString();
 
     await supabase
       .from('events')
@@ -446,18 +465,18 @@ const EventDetail = () => {
       .eq('id', id);
 
     setQrToken(newToken);
-    setTimeLeft(3);
-  }, [id, event?.is_active, event?.rotating_qr_enabled, generateToken]);
+    setTimeLeft(rotationSeconds);
+  }, [id, event?.is_active, event?.rotating_qr_enabled, generateToken, rotationSeconds]);
 
   useEffect(() => {
     if (event?.is_active && event?.rotating_qr_enabled) {
       updateQRCode();
       intervalRef.current = window.setInterval(() => {
         updateQRCode();
-      }, 3000);
+      }, rotationSeconds * 1000);
 
       const countdownInterval = window.setInterval(() => {
-        setTimeLeft((prev) => (prev > 1 ? prev - 1 : 3));
+        setTimeLeft((prev) => (prev > 1 ? prev - 1 : rotationSeconds));
       }, 1000);
 
       return () => {
@@ -468,7 +487,127 @@ const EventDetail = () => {
       // Static QR - set once
       setQrToken('static');
     }
-  }, [event?.is_active, event?.rotating_qr_enabled, updateQRCode]);
+  }, [event?.is_active, event?.rotating_qr_enabled, updateQRCode, rotationSeconds]);
+
+  useEffect(() => {
+    if (!event || !id) return;
+    const resumeKey = `${RESUME_KEY_PREFIX}${id}`;
+
+    if (event.is_active) {
+      try {
+        sessionStorage.removeItem(resumeKey);
+      } catch {
+        // Ignore storage failures.
+      }
+      return;
+    }
+
+    if (!event.rotating_qr_enabled) {
+      try {
+        sessionStorage.removeItem(resumeKey);
+      } catch {
+        // Ignore storage failures.
+      }
+      return;
+    }
+
+    let resumeAt: number | null = null;
+    try {
+      const raw = sessionStorage.getItem(resumeKey);
+      if (!raw) return;
+      resumeAt = Number(raw);
+    } catch {
+      return;
+    }
+
+    let isReload = false;
+    try {
+      const [entry] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+      isReload = entry?.type === 'reload';
+    } catch {
+      isReload = false;
+    }
+
+    if (!isReload) {
+      try {
+        const legacyNavigation = (performance as Performance & { navigation?: { type?: number } })
+          .navigation;
+        isReload = legacyNavigation?.type === 1;
+      } catch {
+        isReload = false;
+      }
+    }
+
+    if (!isReload) {
+      try {
+        sessionStorage.removeItem(resumeKey);
+      } catch {
+        // Ignore storage failures.
+      }
+      return;
+    }
+
+    if (!resumeAt || Number.isNaN(resumeAt)) {
+      try {
+        sessionStorage.removeItem(resumeKey);
+      } catch {
+        // Ignore storage failures.
+      }
+      return;
+    }
+
+    if (Date.now() - resumeAt > RESUME_WINDOW_MS) {
+      try {
+        sessionStorage.removeItem(resumeKey);
+      } catch {
+        // Ignore storage failures.
+      }
+      return;
+    }
+
+    try {
+      sessionStorage.removeItem(resumeKey);
+    } catch {
+      // Ignore storage failures.
+    }
+
+    const resumeEvent = async () => {
+      const newToken = generateToken();
+      const expiresAt = new Date(Date.now() + rotationSeconds * 1000 + ROTATION_GRACE_MS).toISOString();
+      const { error } = await supabase
+        .from('events')
+        .update({
+          is_active: true,
+          current_qr_token: newToken,
+          qr_token_expires_at: expiresAt,
+        })
+        .eq('id', id);
+
+      if (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: sanitizeError(error),
+        });
+        return;
+      }
+
+      setEvent((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_active: true,
+              current_qr_token: newToken,
+              qr_token_expires_at: expiresAt,
+            }
+          : prev
+      );
+      setQrToken(newToken);
+      setTimeLeft(rotationSeconds);
+    };
+
+    void resumeEvent();
+  }, [event, id, generateToken, toast, rotationSeconds]);
 
   const handleEventUpdate = (updates: Partial<Event>) => {
     setEvent((prev) => prev ? { ...prev, ...updates } : null);
@@ -476,13 +615,16 @@ const EventDetail = () => {
 
   const toggleActive = async () => {
     const newStatus = !event?.is_active;
+    const expiresAt = newStatus
+      ? new Date(Date.now() + rotationSeconds * 1000 + ROTATION_GRACE_MS).toISOString()
+      : null;
     
     const { error } = await supabase
       .from('events')
       .update({ 
         is_active: newStatus,
         current_qr_token: newStatus ? generateToken() : null,
-        qr_token_expires_at: newStatus ? new Date(Date.now() + 10000).toISOString() : null,
+        qr_token_expires_at: expiresAt,
       })
       .eq('id', id);
 
@@ -804,12 +946,6 @@ const EventDetail = () => {
                 </span>
               </h2>
               <div className="flex gap-2 flex-wrap">
-                <AttendeeActions
-                  eventId={id!}
-                  eventName={event.name}
-                  attendance={attendance}
-                  onImportComplete={fetchAttendance}
-                />
                 <Button
                   variant="outline"
                   size="sm"
@@ -827,6 +963,23 @@ const EventDetail = () => {
                 >
                   {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   {showAllDetails ? 'Hide' : 'Details'}
+                </Button>
+                <AttendeeActions
+                  eventId={id!}
+                  eventName={event.name}
+                  attendance={attendance}
+                  onImportComplete={fetchAttendance}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCompactView((prev) => !prev)}
+                  className="gap-2"
+                  aria-pressed={compactView}
+                  title={compactView ? 'Switch to normal view' : 'Switch to compact view'}
+                >
+                  {compactView ? <List className="w-4 h-4" /> : <ListCollapse className="w-4 h-4" />}
+                  <span className="sr-only">{compactView ? 'Normal view' : 'Compact view'}</span>
                 </Button>
               </div>
             </div>
@@ -940,13 +1093,13 @@ const EventDetail = () => {
               }
 
               return (
-                <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                <div className={`max-h-[600px] overflow-y-auto ${compactView ? 'space-y-1' : 'space-y-2'}`}>
                   {filteredAttendance.map((record) => (
                   <Card key={record.id} className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}>
-                    <CardContent className="py-3">
-                      <div className="flex items-start justify-between gap-4">
+                    <CardContent className={compactView ? 'py-2' : 'py-3'}>
+                      <div className="flex items-center justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className={`flex items-center gap-2 ${compactView ? 'mb-0.5' : 'mb-1'}`}>
                             <p 
                               className={`font-medium truncate ${!showAllDetails && !revealedNames.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
                               onClick={() => !showAllDetails && toggleRevealName(record.id)}
@@ -973,24 +1126,28 @@ const EventDetail = () => {
                               {record.status}
                             </Badge>
                           </div>
-                          <p 
-                            className={`text-sm text-muted-foreground truncate ${!showAllDetails && !revealedEmails.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
-                            onClick={() => !showAllDetails && toggleRevealEmail(record.id)}
-                            title={!showAllDetails && !revealedEmails.has(record.id) ? 'Click to reveal' : undefined}
-                          >
-                            {showAllDetails || revealedEmails.has(record.id) 
-                              ? record.attendee_email 
-                              : maskEmail(record.attendee_email)}
-                          </p>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                            <span>{format(new Date(record.recorded_at), 'p')}</span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {record.location_provided ? 'Location verified' : 'No location'}
-                            </span>
-                          </div>
+                          {!compactView && (
+                            <>
+                              <p 
+                                className={`text-sm text-muted-foreground truncate ${!showAllDetails && !revealedEmails.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
+                                onClick={() => !showAllDetails && toggleRevealEmail(record.id)}
+                                title={!showAllDetails && !revealedEmails.has(record.id) ? 'Click to reveal' : undefined}
+                              >
+                                {showAllDetails || revealedEmails.has(record.id) 
+                                  ? record.attendee_email 
+                                  : maskEmail(record.attendee_email)}
+                              </p>
+                              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                                <span>{format(new Date(record.recorded_at), 'p')}</span>
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" />
+                                  {record.location_provided ? 'Location verified' : 'No location'}
+                                </span>
+                              </div>
+                            </>
+                          )}
                           {record.suspicious_reason && (
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className={`flex items-center gap-2 ${compactView ? 'mt-0.5' : 'mt-1'}`}>
                               <p className="text-xs text-warning flex items-center gap-1">
                                 <AlertTriangle className="w-3 h-3" />
                                 {record.suspicious_reason}

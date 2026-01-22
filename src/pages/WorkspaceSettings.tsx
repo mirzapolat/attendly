@@ -5,6 +5,7 @@ import { useWorkspace } from '@/hooks/useWorkspace';
 import { useToast } from '@/hooks/use-toast';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { themeColors } from '@/hooks/useThemeColor';
+import { useConfirm } from '@/hooks/useConfirm';
 import WorkspaceLayout from '@/components/WorkspaceLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,6 +16,7 @@ const WorkspaceSettings = () => {
   usePageTitle('Workspace Settings - Attendly');
   const { currentWorkspace, isOwner, refresh } = useWorkspace();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [brandColor, setBrandColor] = useState('default');
@@ -77,9 +79,13 @@ const WorkspaceSettings = () => {
   const handleDelete = async () => {
     if (!currentWorkspace || !isOwner) return;
 
-    if (!confirm('Delete this workspace? This will remove all events and seasons.')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Delete workspace?',
+      description: 'This will remove all events and seasons in this workspace.',
+      confirmText: 'Delete workspace',
+      variant: 'destructive',
+    });
+    if (!confirmed) return;
 
     setDeleting(true);
     const { error } = await supabase.from('workspaces').delete().eq('id', currentWorkspace.id);
@@ -105,9 +111,13 @@ const WorkspaceSettings = () => {
   const handleDeleteAllEvents = async () => {
     if (!currentWorkspace || !isOwner) return;
 
-    if (!confirm('Delete all events in this workspace? This will remove attendance records too.')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Delete all events?',
+      description: 'This will remove attendance records too.',
+      confirmText: 'Delete events',
+      variant: 'destructive',
+    });
+    if (!confirmed) return;
 
     setClearingEvents(true);
     const { error } = await supabase
@@ -135,9 +145,13 @@ const WorkspaceSettings = () => {
   const handleDeleteAllSeasons = async () => {
     if (!currentWorkspace || !isOwner) return;
 
-    if (!confirm('Delete all seasons in this workspace? Events will become unassigned.')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Delete all seasons?',
+      description: 'Events will become unassigned.',
+      confirmText: 'Delete seasons',
+      variant: 'destructive',
+    });
+    if (!confirmed) return;
 
     setClearingSeasons(true);
     const { error } = await supabase
@@ -165,9 +179,13 @@ const WorkspaceSettings = () => {
   const handleRemoveAllMembers = async () => {
     if (!currentWorkspace || !isOwner) return;
 
-    if (!confirm('Remove all members from this workspace? The owner will remain.')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Remove all members?',
+      description: 'The owner will remain.',
+      confirmText: 'Remove members',
+      variant: 'destructive',
+    });
+    if (!confirmed) return;
 
     setRemovingMembers(true);
     const { error } = await supabase

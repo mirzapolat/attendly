@@ -122,7 +122,9 @@ serve(async (req) => {
 
     const trimmedName = attendeeName.trim();
     const trimmedEmail = attendeeEmail.trim().toLowerCase();
-    let fingerprintToStore = deviceFingerprint?.trim() ?? "";
+    const normalizedFingerprint = deviceFingerprint?.trim() ?? "";
+    let fingerprintToStore = normalizedFingerprint;
+    const fingerprintRaw = normalizedFingerprint || null;
 
     if (event.device_fingerprint_enabled && !fingerprintToStore) {
       return new Response(
@@ -131,7 +133,7 @@ serve(async (req) => {
       );
     }
 
-    if (!fingerprintToStore) {
+    if (!event.device_fingerprint_enabled) {
       fingerprintToStore = `no-fp-${crypto.randomUUID()}`;
     }
 
@@ -162,6 +164,7 @@ serve(async (req) => {
       attendee_name: trimmedName,
       attendee_email: trimmedEmail,
       device_fingerprint: fingerprintToStore,
+      device_fingerprint_raw: fingerprintRaw,
       location_lat: event.location_check_enabled ? location?.lat ?? null : null,
       location_lng: event.location_check_enabled ? location?.lng ?? null : null,
       location_provided: event.location_check_enabled ? !!location : false,

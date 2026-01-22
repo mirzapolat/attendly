@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,8 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Settings, Save, Shield, QrCode, Fingerprint, MapPinned, X, Copy } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import { useWorkspace } from '@/hooks/useWorkspace';
+import { Settings, Save, Shield, QrCode, Fingerprint, MapPinned, X, Copy, Timer } from 'lucide-react';
 import QRCodeExport from '@/components/QRCodeExport';
 import LocationPicker from '@/components/LocationPicker';
 
@@ -23,6 +23,7 @@ interface EventSettingsProps {
     location_lng: number;
     location_radius_meters: number;
     rotating_qr_enabled: boolean;
+    rotating_qr_interval_seconds?: number | null;
     device_fingerprint_enabled: boolean;
     location_check_enabled: boolean;
     is_active: boolean;
@@ -35,6 +36,8 @@ interface EventSettingsProps {
 
 const MIN_RADIUS_METERS = 1;
 const MAX_RADIUS_METERS = 1_000_000;
+const ROTATION_MIN_SECONDS = 2;
+const ROTATION_MAX_SECONDS = 60;
 
 const radiusToSlider = (radius: number) => {
   const clamped = Math.min(MAX_RADIUS_METERS, Math.max(MIN_RADIUS_METERS, radius || MIN_RADIUS_METERS));
@@ -59,6 +62,7 @@ const formatRadius = (radius: number) => {
 
 const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
   const { toast } = useToast();
+  const { currentWorkspace } = useWorkspace();
   const [saving, setSaving] = useState(false);
   const [copyingLink, setCopyingLink] = useState(false);
 
@@ -76,9 +80,21 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
 
   // Security features (now local state until save)
   const [rotatingQrEnabled, setRotatingQrEnabled] = useState(event.rotating_qr_enabled);
+  const [rotatingQrSeconds, setRotatingQrSeconds] = useState(
+    Math.min(
+      ROTATION_MAX_SECONDS,
+      Math.max(ROTATION_MIN_SECONDS, Number(event.rotating_qr_interval_seconds ?? 3)),
+    ),
+  );
+  const [showRotationSettings, setShowRotationSettings] = useState(false);
   const [deviceFingerprintEnabled, setDeviceFingerprintEnabled] = useState(event.device_fingerprint_enabled);
   const [locationCheckEnabled, setLocationCheckEnabled] = useState(event.location_check_enabled);
 
+  useEffect(() => {
+    if (!rotatingQrEnabled) {
+      setShowRotationSettings(false);
+    }
+  }, [rotatingQrEnabled]);
 
   // Check if location is properly set
   const hasValidLocation = locationName && locationName !== 'No location' && 
@@ -115,6 +131,10 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
         location_lng: locationLng,
         location_radius_meters: radiusMeters,
         rotating_qr_enabled: rotatingQrEnabled,
+        rotating_qr_interval_seconds: Math.min(
+          ROTATION_MAX_SECONDS,
+          Math.max(ROTATION_MIN_SECONDS, Math.round(rotatingQrSeconds)),
+        ),
         device_fingerprint_enabled: deviceFingerprintEnabled,
         location_check_enabled: locationCheckEnabled,
       };
@@ -163,6 +183,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
   };
 
   const staticQrUrl = `${window.location.origin}/attend/${event.id}?token=static`;
+  const exportLogoUrl = event.brand_logo_url ?? currentWorkspace?.brand_logo_url ?? null;
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto py-8">
@@ -180,6 +201,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
             size="icon"
             onClick={onClose}
             className="absolute right-4 top-4"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </Button>
@@ -254,20 +276,57 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                       <p className="font-medium text-sm">Rotating QR Codes</p>
                       <p className="text-xs text-muted-foreground">
                         {rotatingQrEnabled
-                          ? 'QR code changes every 3 seconds'
+                          ? `QR code changes every ${rotatingQrSeconds}s`
                           : 'Static QR code (can be downloaded)'}
                       </p>
                     </div>
                   </div>
-                  <Switch
-                    checked={rotatingQrEnabled}
-                    onCheckedChange={setRotatingQrEnabled}
-                  />
+                  <div className="flex items-center gap-3">
+                    {rotatingQrEnabled && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowRotationSettings((prev) => !prev)}
+                        title="Adjust rotation interval"
+                      >
+                        <Timer className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Switch
+                      checked={rotatingQrEnabled}
+                      onCheckedChange={setRotatingQrEnabled}
+                    />
+                  </div>
+                </div>
+                <div
+                  className={`overflow-hidden transition-all duration-200 ${showRotationSettings ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}
+                >
+                  <div className="pt-2 text-xs text-muted-foreground transition-transform duration-200">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Timer className="h-3.5 w-3.5" />
+                        <span>Rotate every</span>
+                      </div>
+                      <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                        {rotatingQrSeconds}s
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={ROTATION_MIN_SECONDS}
+                      max={ROTATION_MAX_SECONDS}
+                      step={1}
+                      value={rotatingQrSeconds}
+                      onChange={(event) => setRotatingQrSeconds(Number(event.target.value))}
+                      className="mt-2 w-full accent-primary"
+                    />
+                  </div>
                 </div>
 
                 {!rotatingQrEnabled && (
                   <div className="p-4 border border-border rounded-lg">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between">
                       <p className="text-sm font-medium">Static QR Code</p>
                       <div className="flex items-center gap-2">
                         <Button
@@ -285,24 +344,8 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                           url={staticQrUrl}
                           eventName={event.name}
                           eventDate={event.event_date}
-                          brandLogoUrl={event.brand_logo_url ?? null}
+                          brandLogoUrl={exportLogoUrl}
                           label="Download JPG"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-center">
-                      <div className="p-4 bg-background rounded-lg">
-                        <QRCodeSVG
-                          id="static-qr-code"
-                          value={staticQrUrl}
-                          size={200}
-                          level="M"
-                          includeMargin
-                          imageSettings={
-                            event.brand_logo_url
-                              ? { src: event.brand_logo_url, height: 40, width: 40, excavate: true }
-                              : undefined
-                          }
                         />
                       </div>
                     </div>

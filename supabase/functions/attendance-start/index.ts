@@ -12,7 +12,9 @@ const jsonHeaders = {
 };
 
 const FORM_TIME_LIMIT_MS = 2 * 60 * 1000;
-const TOKEN_GRACE_MS = 10 * 1000;
+const TOKEN_GRACE_MS = 7 * 1000;
+const ROTATION_MIN_SECONDS = 2;
+const ROTATION_MAX_SECONDS = 60;
 
 type AttendanceStartRequest = {
   eventId?: string;
@@ -27,10 +29,10 @@ const getTokenAgeMs = (token: string, now: number): number | null => {
   return now - timestamp;
 };
 
-const isTokenWithinGrace = (token: string, now: number): boolean => {
+const isTokenWithinGrace = (token: string, now: number, intervalMs: number): boolean => {
   const age = getTokenAgeMs(token, now);
   if (age === null || age < 0) return false;
-  return age <= TOKEN_GRACE_MS;
+  return age <= intervalMs + TOKEN_GRACE_MS;
 };
 
 const respond = (payload: Record<string, unknown>, status = 200) =>
@@ -89,6 +91,7 @@ serve(async (req) => {
           "location_radius_meters",
           "is_active",
           "rotating_qr_enabled",
+          "rotating_qr_interval_seconds",
           "device_fingerprint_enabled",
           "location_check_enabled",
           "current_qr_token",
@@ -149,8 +152,13 @@ serve(async (req) => {
     const now = Date.now();
     const providedToken = token ?? null;
 
+    const rotationSeconds = Math.min(
+      ROTATION_MAX_SECONDS,
+      Math.max(ROTATION_MIN_SECONDS, Number(event.rotating_qr_interval_seconds ?? 3)),
+    );
+
     if (event.rotating_qr_enabled) {
-      if (!providedToken || !isTokenWithinGrace(providedToken, now)) {
+      if (!providedToken || !isTokenWithinGrace(providedToken, now, rotationSeconds * 1000)) {
         return respond({ authorized: false, reason: "expired" });
       }
     } else {
@@ -202,6 +210,7 @@ serve(async (req) => {
         location_radius_meters: event.location_radius_meters,
         is_active: event.is_active,
         rotating_qr_enabled: event.rotating_qr_enabled,
+        rotating_qr_interval_seconds: event.rotating_qr_interval_seconds ?? 3,
         device_fingerprint_enabled: event.device_fingerprint_enabled,
         location_check_enabled: event.location_check_enabled,
         theme_color: workspace?.brand_color ?? "default",

@@ -252,6 +252,7 @@ const WorkspaceHeader = ({
                   size="icon"
                   className="sm:hidden"
                   aria-label="Change workspace"
+                  title="Change workspace"
                 >
                   <ArrowLeftRight className="w-4 h-4" />
                 </Button>
@@ -262,7 +263,7 @@ const WorkspaceHeader = ({
         <div className="flex items-center gap-2">
           <DropdownMenu onOpenChange={handleNotificationsOpen}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
+              <Button variant="ghost" size="icon" className="relative" title="Notifications">
                 <Bell className="w-5 h-5" />
                 {pendingInvites.length + acceptedInvites.length + workspaceNotifications.length > 0 && (
                   <span className="absolute -top-1 -right-1 h-4 min-w-[1rem] rounded-full bg-primary text-primary-foreground text-[10px] px-1 flex items-center justify-center">
@@ -330,11 +331,11 @@ const WorkspaceHeader = ({
             </DropdownMenuContent>
           </DropdownMenu>
           <Link to="/settings">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" title="Settings">
               <Settings className="w-5 h-5" />
             </Button>
           </Link>
-          <Button variant="ghost" size="icon" onClick={handleSignOut}>
+          <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign out">
             <LogOut className="w-5 h-5" />
           </Button>
         </div>

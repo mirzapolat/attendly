@@ -34,6 +34,8 @@ interface AttendanceRecord {
   attendee_email: string;
   attendee_name: string;
   status: AttendanceStatus;
+  device_fingerprint?: string | null;
+  device_fingerprint_raw?: string | null;
 }
 
 interface EmailSuggestion {
@@ -43,6 +45,7 @@ interface EmailSuggestion {
   countA: number;
   countB: number;
   distance: number;
+  signals: ('similarity' | 'fingerprint')[];
 }
 
 interface NameConflict {
@@ -65,6 +68,18 @@ const splitDomain = (domain: string) => {
   }
   const tld = parts.pop() ?? '';
   return { base: parts.join('.'), tld };
+};
+
+const isReliableFingerprint = (value?: string | null) => {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return !(
+    trimmed.startsWith('no-fp-') ||
+    trimmed.startsWith('manual-') ||
+    trimmed.startsWith('fallback-') ||
+    trimmed.startsWith('import-')
+  );
 };
 
 const longestCommonSubstring = (a: string, b: string) => {
@@ -201,7 +216,7 @@ const SeasonSanitize = () => {
 
       const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance_records')
-        .select('id, event_id, attendee_email, attendee_name, status')
+        .select('id, event_id, attendee_email, attendee_name, status, device_fingerprint, device_fingerprint_raw')
         .in('event_id', eventIds);
 
       if (attendanceError) {
@@ -262,9 +277,57 @@ const SeasonSanitize = () => {
           Boolean(entry),
       );
 
-    const suggestions: EmailSuggestion[] = [];
+    const suggestionMap = new Map<string, EmailSuggestion>();
     const MAX_SUGGESTIONS = 24;
     const DOMAIN_MAX_DISTANCE = 2;
+
+    const addSuggestion = (
+      emailA: string,
+      emailB: string,
+      distance: number,
+      signal: 'similarity' | 'fingerprint',
+    ) => {
+      const id = getSuggestionKey(emailA, emailB);
+      const existing = suggestionMap.get(id);
+      if (existing) {
+        if (!existing.signals.includes(signal)) {
+          existing.signals.push(signal);
+        }
+        existing.distance = Math.min(existing.distance, distance);
+        return;
+      }
+      suggestionMap.set(id, {
+        id,
+        emailA,
+        emailB,
+        countA: emailCountLookup.get(emailA) ?? 0,
+        countB: emailCountLookup.get(emailB) ?? 0,
+        distance,
+        signals: [signal],
+      });
+    };
+
+    const fingerprintMap = new Map<string, Set<string>>();
+    attendance.forEach((record) => {
+      const fingerprint = record.device_fingerprint_raw ?? record.device_fingerprint ?? '';
+      if (!isReliableFingerprint(fingerprint)) return;
+      const email = normalizeEmail(record.attendee_email || '');
+      if (!email) return;
+      if (!fingerprintMap.has(fingerprint)) {
+        fingerprintMap.set(fingerprint, new Set());
+      }
+      fingerprintMap.get(fingerprint)!.add(email);
+    });
+
+    fingerprintMap.forEach((emailsSet) => {
+      const emails = Array.from(emailsSet);
+      if (emails.length < 2) return;
+      for (let i = 0; i < emails.length; i += 1) {
+        for (let j = i + 1; j < emails.length; j += 1) {
+          addSuggestion(emails[i], emails[j], 0, 'fingerprint');
+        }
+      }
+    });
 
     for (let i = 0; i < entries.length; i += 1) {
       for (let j = i + 1; j < entries.length; j += 1) {
@@ -299,28 +362,22 @@ const SeasonSanitize = () => {
         if (!isLocalTypo && !hasLocalOverlap && !isTldVariant) continue;
         if (!isDomainTypo && !hasLocalOverlap && !isTldVariant) continue;
 
-        suggestions.push({
-          id: getSuggestionKey(a.email, b.email),
-          emailA: a.email,
-          emailB: b.email,
-          countA: emailCountLookup.get(a.email) ?? 0,
-          countB: emailCountLookup.get(b.email) ?? 0,
-          distance: isTldVariant ? localDistance : localDistance + Math.min(domainDistance, 3),
-        });
-
-        if (suggestions.length >= MAX_SUGGESTIONS) {
-          break;
-        }
-      }
-      if (suggestions.length >= MAX_SUGGESTIONS) {
-        break;
+        const distance = isTldVariant ? localDistance : localDistance + Math.min(domainDistance, 3);
+        addSuggestion(a.email, b.email, distance, 'similarity');
       }
     }
 
-    return suggestions.sort(
-      (a, b) => a.distance - b.distance || (b.countA + b.countB) - (a.countA + a.countB),
-    );
-  }, [emailStats, emailCountLookup]);
+    return Array.from(suggestionMap.values())
+      .sort((a, b) => {
+        const aFingerprint = a.signals.includes('fingerprint');
+        const bFingerprint = b.signals.includes('fingerprint');
+        if (aFingerprint !== bFingerprint) {
+          return aFingerprint ? -1 : 1;
+        }
+        return a.distance - b.distance || (b.countA + b.countB) - (a.countA + a.countB);
+      })
+      .slice(0, MAX_SUGGESTIONS);
+  }, [emailStats, emailCountLookup, attendance]);
 
   const visibleSuggestions = useMemo(
     () => emailSuggestions.filter((suggestion) => !dismissedSuggestions[suggestion.id]),
@@ -644,7 +701,12 @@ const SeasonSanitize = () => {
                             <div className="space-y-1">
                               <p className="text-sm font-medium">Possible typo detected</p>
                               <p className="text-xs text-muted-foreground">
-                                Distance {suggestion.distance} • {suggestion.countA + suggestion.countB} records
+                                {suggestion.signals.includes('fingerprint')
+                                  ? suggestion.signals.includes('similarity')
+                                    ? 'Fingerprint match + similar emails'
+                                    : 'Fingerprint match'
+                                  : `Distance ${suggestion.distance}`}{' '}
+                                • {suggestion.countA + suggestion.countB} records
                               </p>
                             </div>
                             <div className="flex items-center gap-2">

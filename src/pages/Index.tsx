@@ -155,6 +155,7 @@ const Index = () => {
                             className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]"
                             onClick={() => setMenuOpen(true)}
                             aria-label="Open menu"
+                            title="Open menu"
                         >
                             <Menu className="h-5 w-5" />
                         </Button>
@@ -392,6 +393,7 @@ const Index = () => {
                                     className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]"
                                     onClick={() => setMenuOpen(false)}
                                     aria-label="Close menu"
+                                    title="Close menu"
                                 >
                                     <X className="h-5 w-5" />
                                 </Button>

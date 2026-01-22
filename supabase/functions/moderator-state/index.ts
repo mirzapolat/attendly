@@ -17,8 +17,9 @@ type ModeratorStateRequest = {
   includeAttendance?: boolean;
 };
 
-const TOKEN_VALIDITY_MS = 15000;
-const ROTATION_INTERVAL_MS = 3000;
+const TOKEN_GRACE_MS = 7 * 1000;
+const ROTATION_MIN_SECONDS = 2;
+const ROTATION_MAX_SECONDS = 60;
 
 const respond = (payload: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(payload), { status, headers: jsonHeaders });
@@ -41,12 +42,12 @@ const tokenPreview = (token?: string | null): string | null => {
 
 const generateToken = () => `${crypto.randomUUID()}_${Date.now()}`;
 
-const shouldRotateToken = (token: string | null, now: number): boolean => {
+const shouldRotateToken = (token: string | null, now: number, intervalMs: number): boolean => {
   if (!token) return true;
   const parts = token.split("_");
   const timestamp = Number.parseInt(parts[parts.length - 1] ?? "", 10);
   if (Number.isNaN(timestamp)) return true;
-  return now - timestamp >= ROTATION_INTERVAL_MS;
+  return now - timestamp >= intervalMs;
 };
 
 const isLinkExpired = (expiresAt: string | null, now: number): boolean => {
@@ -168,6 +169,7 @@ serve(async (req) => {
           "current_qr_token",
           "qr_token_expires_at",
           "rotating_qr_enabled",
+          "rotating_qr_interval_seconds",
           "moderation_enabled",
           "moderator_show_full_name",
           "moderator_show_email",
@@ -192,13 +194,24 @@ serve(async (req) => {
       return respond({ authorized: false, reason: "moderation_disabled" });
     }
 
+    const rotationSeconds = Math.min(
+      ROTATION_MAX_SECONDS,
+      Math.max(ROTATION_MIN_SECONDS, Number(event.rotating_qr_interval_seconds ?? 3)),
+    );
+    const rotationIntervalMs = rotationSeconds * 1000;
+    const tokenValidityMs = rotationIntervalMs + TOKEN_GRACE_MS;
+
     let nextEvent = event;
-    if (event.is_active && event.rotating_qr_enabled && shouldRotateToken(event.current_qr_token, now)) {
+    if (
+      event.is_active &&
+      event.rotating_qr_enabled &&
+      shouldRotateToken(event.current_qr_token, now, rotationIntervalMs)
+    ) {
       const { data: rotatedEvent, error: rotateError } = await admin
         .from("events")
         .update({
           current_qr_token: generateToken(),
-          qr_token_expires_at: new Date(now + TOKEN_VALIDITY_MS).toISOString(),
+          qr_token_expires_at: new Date(now + tokenValidityMs).toISOString(),
         })
         .eq("id", eventId)
         .select("*")

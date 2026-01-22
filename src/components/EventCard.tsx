@@ -4,13 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -22,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { MoreVertical, Trash2, FolderPlus, FolderMinus, Folder, Calendar, Clock } from 'lucide-react';
+import { Trash2, FolderPlus, FolderMinus, Folder, Calendar, Clock, X } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -59,6 +52,7 @@ const EventCard = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showSeasonPicker, setShowSeasonPicker] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const draggingRef = useRef(false);
 
@@ -122,7 +116,6 @@ const EventCard = ({
   };
 
   const currentSeason = seasons.find((s) => s.id === event.season_id);
-  const quickSeasons = seasons.slice(0, 3);
 
   const handleDragStart = (dragEvent: DragEvent<HTMLDivElement>) => {
     draggingRef.current = true;
@@ -163,31 +156,27 @@ const EventCard = ({
         role="button"
         tabIndex={0}
       >
-        <CardContent className="py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4 flex-1">
+        <CardContent className="py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
             <div
               className={`w-3 h-3 rounded-full shrink-0 ${event.is_active ? 'bg-success animate-pulse' : 'bg-muted-foreground'}`}
             />
-            <div>
-              <p className="font-medium">{event.name}</p>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="text-sm text-muted-foreground inline-flex items-center gap-3">
-                  <span className="inline-flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {format(new Date(event.event_date), 'PPP')}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5" />
-                    {format(new Date(event.event_date), 'HH:mm')}
-                  </span>
+            <div className="grid w-full gap-x-4 gap-y-1 sm:grid-cols-[minmax(10rem,1.2fr)_auto_auto_auto] sm:items-center">
+              <p className="font-medium truncate">{event.name}</p>
+              <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" />
+                {format(new Date(event.event_date), 'PPP')}
+              </span>
+              <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                {format(new Date(event.event_date), 'HH:mm')}
+              </span>
+              {currentSeason && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium w-fit">
+                  <Folder className="w-3 h-3" />
+                  {currentSeason.name}
                 </span>
-                {currentSeason && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
-                    <Folder className="w-3 h-3" />
-                    {currentSeason.name}
-                  </span>
-                )}
-              </div>
+              )}
             </div>
           </div>
           <div
@@ -205,64 +194,96 @@ const EventCard = ({
                 Active
               </span>
             )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={(eventClick) => eventClick.stopPropagation()}
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowSeasonPicker(true)}
+                title={event.season_id ? 'Change season' : 'Assign to season'}
+              >
                 {event.season_id ? (
-                  <DropdownMenuItem
-                    onClick={(eventClick) => {
-                      eventClick.stopPropagation();
-                      handleSeasonChange(null);
-                    }}
-                  >
-                    <FolderMinus className="w-4 h-4 mr-2" />
-                    Remove from season
-                  </DropdownMenuItem>
+                  <FolderMinus className="w-4 h-4" />
                 ) : (
-                  quickSeasons.length > 0 && (
-                    <>
-                      {quickSeasons.map((season) => (
-                        <DropdownMenuItem
-                          key={season.id}
-                          onClick={(eventClick) => {
-                            eventClick.stopPropagation();
-                            handleSeasonChange(season.id);
-                          }}
-                        >
-                          <FolderPlus className="w-4 h-4 mr-2" />
-                          Add to {season.name}
-                        </DropdownMenuItem>
-                      ))}
-                    </>
-                  )
+                  <FolderPlus className="w-4 h-4" />
                 )}
-                <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                  Tip: Drag events onto a season to organize quickly.
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={(eventClick) => {
-                    eventClick.stopPropagation();
-                    setShowDeleteDialog(true);
-                  }}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete event
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setShowDeleteDialog(true)}
+                title="Delete event"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
           </div>
         </CardContent>
       </Card>
+
+      {showSeasonPicker && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm p-4"
+          onClick={() => setShowSeasonPicker(false)}
+        >
+          <div
+            className="w-full max-w-3xl rounded-2xl border border-border bg-background shadow-lg p-6"
+            onClick={(eventClick) => eventClick.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">
+                  Assign event
+                </p>
+                <h3 className="text-lg font-semibold">Choose a season</h3>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowSeasonPicker(false)} title="Close">
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            {seasons.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                No seasons available. Create one to organize events.
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {event.season_id && (
+                  <button
+                    type="button"
+                    className="rounded-xl border border-dashed border-destructive/40 bg-destructive/5 px-4 py-3 text-left transition-colors hover:border-destructive/60"
+                    onClick={() => {
+                      handleSeasonChange(null);
+                      setShowSeasonPicker(false);
+                    }}
+                  >
+                    <p className="font-medium text-destructive">Remove from season</p>
+                    <p className="text-xs text-muted-foreground">Set as unassigned</p>
+                  </button>
+                )}
+                {seasons.map((season) => (
+                  <button
+                    key={season.id}
+                    type="button"
+                    className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                      season.id === event.season_id
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border bg-muted/40 hover:border-primary/40'
+                    }`}
+                    onClick={() => {
+                      handleSeasonChange(season.id);
+                      setShowSeasonPicker(false);
+                    }}
+                  >
+                    <p className="font-medium">{season.name}</p>
+                    <p className="text-xs text-muted-foreground">Assign to this season</p>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="mt-4 text-xs text-muted-foreground">
+              Tip: Drag events onto a season to organize quickly.
+            </div>
+          </div>
+        </div>
+      )}
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, ChevronLeft, ChevronRight, FolderOpen, Lightbulb, Plus, RefreshCcw, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Calendar, FolderOpen, Plus, Search, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import EventCard from '@/components/EventCard';
 import { sanitizeError } from '@/utils/errorHandler';
@@ -18,61 +19,13 @@ interface Event {
   event_date: string;
   is_active: boolean;
   season_id: string | null;
+  created_at: string;
 }
 
 interface Season {
   id: string;
   name: string;
 }
-
-const EVENTS_PER_PAGE = 10;
-const DASHBOARD_HINTS = [
-  {
-    id: 'seasons',
-    title: 'Seasons',
-    description: 'Group events into seasons to compare attendance over time.',
-  },
-  {
-    id: 'accent',
-    title: 'Workspace branding',
-    description: 'Update the workspace color and logo in workspace settings.',
-  },
-  {
-    id: 'moderation-links',
-    title: 'Moderation links',
-    description: 'Delegate attendance checks without sharing full admin access.',
-  },
-  {
-    id: 'excuse-links',
-    title: 'Excuse links',
-    description: 'Let members mark themselves excused without manual entry.',
-  },
-  {
-    id: 'rotating-qr',
-    title: 'Rotating QR',
-    description: 'Enable rotating QR codes to reduce forwarding.',
-  },
-  {
-    id: 'fingerprinting',
-    title: 'Device fingerprinting',
-    description: 'Limit multiple submissions from the same device.',
-  },
-  {
-    id: 'location-checks',
-    title: 'Location checks',
-    description: 'Add location checks to confirm on-site attendance.',
-  },
-  {
-    id: 'exports',
-    title: 'Exports',
-    description: 'Export attendance lists and matrices for reports.',
-  },
-  {
-    id: 'privacy',
-    title: 'Privacy',
-    description: 'Use attendee detail toggles when presenting on shared screens.',
-  },
-];
 
 const SEASON_PICKER_PAGE_SIZE = 9;
 
@@ -86,14 +39,16 @@ const Dashboard = () => {
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [eventSearch, setEventSearch] = useState('');
-  const [eventPage, setEventPage] = useState(1);
-  const [dismissedHints, setDismissedHints] = useState<string[]>([]);
   const [draggingEventId, setDraggingEventId] = useState<string | null>(null);
   const [draggingOverSeasonId, setDraggingOverSeasonId] = useState<string | null>(null);
   const [seasonPickerPage, setSeasonPickerPage] = useState(1);
+  const [sortBy, setSortBy] = useState<'date' | 'name' | 'attendance' | 'created' | 'season'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const seasonPickerPrevTimer = useRef<number | null>(null);
   const seasonPickerNextTimer = useRef<number | null>(null);
   const [seasonPagerHover, setSeasonPagerHover] = useState<'prev' | 'next' | null>(null);
+  const draggingEventRef = useRef<string | null>(null);
+  const dropHandledRef = useRef(false);
 
   useEffect(() => {
     if (currentWorkspace) {
@@ -172,32 +127,69 @@ const Dashboard = () => {
     return events.filter((event) => event.name.toLowerCase().includes(search));
   }, [events, eventSearch]);
 
-  const totalEventPages = Math.ceil(filteredEvents.length / EVENTS_PER_PAGE);
-  const paginatedEvents = useMemo(() => {
-    const start = (eventPage - 1) * EVENTS_PER_PAGE;
-    return filteredEvents.slice(start, start + EVENTS_PER_PAGE);
-  }, [filteredEvents, eventPage]);
+  const seasonNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    seasons.forEach((season) => map.set(season.id, season.name));
+    return map;
+  }, [seasons]);
 
-  useEffect(() => {
-    setEventPage(1);
-  }, [eventSearch]);
+  const sortedEvents = useMemo(() => {
+    const list = [...filteredEvents];
+    const direction = sortDirection === 'asc' ? 1 : -1;
 
-  const [hintSeed, setHintSeed] = useState(0);
+    const compareNullableString = (a: string | null, b: string | null) => {
+      if (a === null && b === null) return 0;
+      if (a === null) return 1;
+      if (b === null) return -1;
+      return a.localeCompare(b);
+    };
 
-  const visibleHints = useMemo(() => {
-    const pool = DASHBOARD_HINTS.filter((hint) => !dismissedHints.includes(hint.id));
-    if (pool.length <= 3) {
-      return pool;
-    }
-    const seeded = [...pool].sort(() => Math.random() - 0.5);
-    return seeded.slice(0, 3);
-  }, [dismissedHints, hintSeed]);
+    list.sort((a, b) => {
+      if (sortBy === 'name') {
+        return a.name.localeCompare(b.name) * direction;
+      }
 
-  const handleDismissHint = (hintId: string) => {
-    setDismissedHints((prev) => [...prev, hintId]);
-  };
+      if (sortBy === 'attendance') {
+        const aCount = attendanceCounts[a.id] ?? 0;
+        const bCount = attendanceCounts[b.id] ?? 0;
+        if (aCount === bCount) {
+          return a.name.localeCompare(b.name) * direction;
+        }
+        return (aCount < bCount ? -1 : 1) * direction;
+      }
+
+      if (sortBy === 'created') {
+        const aDate = Date.parse(a.created_at);
+        const bDate = Date.parse(b.created_at);
+        if (aDate === bDate) {
+          return a.name.localeCompare(b.name) * direction;
+        }
+        return (aDate < bDate ? -1 : 1) * direction;
+      }
+
+      if (sortBy === 'season') {
+        const aSeason = a.season_id ? seasonNameMap.get(a.season_id) ?? null : null;
+        const bSeason = b.season_id ? seasonNameMap.get(b.season_id) ?? null : null;
+        const comparison = compareNullableString(aSeason, bSeason);
+        if (comparison !== 0) return comparison * direction;
+        return a.name.localeCompare(b.name) * direction;
+      }
+
+      const aDate = Date.parse(a.event_date);
+      const bDate = Date.parse(b.event_date);
+      if (aDate === bDate) {
+        return a.name.localeCompare(b.name) * direction;
+      }
+      return (aDate < bDate ? -1 : 1) * direction;
+    });
+
+    return list;
+  }, [filteredEvents, sortBy, sortDirection, attendanceCounts, seasonNameMap]);
+
+  const paginatedEvents = sortedEvents;
 
   const handleAssignSeason = async (eventId: string, seasonId: string) => {
+    dropHandledRef.current = true;
     try {
       const { error } = await supabase
         .from('events')
@@ -212,6 +204,8 @@ const Dashboard = () => {
       });
       setDraggingEventId(null);
       setDraggingOverSeasonId(null);
+      draggingEventRef.current = null;
+      clearSeasonHoverTimers();
       fetchData();
     } catch (error) {
       toast({
@@ -219,10 +213,12 @@ const Dashboard = () => {
         title: 'Error',
         description: sanitizeError(error),
       });
+      dropHandledRef.current = false;
     }
   };
 
   const getDraggedEventId = (event?: DragEvent) => {
+    if (draggingEventRef.current) return draggingEventRef.current;
     if (draggingEventId) return draggingEventId;
     if (!event) return null;
     const payload = event.dataTransfer.getData('application/x-attendly-event');
@@ -279,14 +275,47 @@ const Dashboard = () => {
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <h2 className="text-xl font-semibold">Recent events</h2>
         {events.length > 0 && (
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search events..."
-              value={eventSearch}
-              onChange={(event) => setEventSearch(event.target.value)}
-              className="pl-9"
-            />
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search events..."
+                value={eventSearch}
+                onChange={(event) => setEventSearch(event.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Event date</SelectItem>
+                <SelectItem value="name">Alphabetically</SelectItem>
+                <SelectItem value="attendance">Attendance amount</SelectItem>
+                <SelectItem value="created">Created date</SelectItem>
+                <SelectItem value="season">Season assigned</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 w-10 p-0"
+              onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+              title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
+            >
+              {sortDirection === 'asc' ? (
+                <>
+                  <ArrowUp className="w-4 h-4" />
+                  <span className="sr-only">Ascending</span>
+                </>
+              ) : (
+                <>
+                  <ArrowDown className="w-4 h-4" />
+                  <span className="sr-only">Descending</span>
+                </>
+              )}
+            </Button>
           </div>
         )}
       </div>
@@ -322,78 +351,26 @@ const Dashboard = () => {
                 seasons={seasons}
                 onEventDeleted={fetchData}
                 onEventUpdated={fetchData}
-                onDragStart={(eventId) => setDraggingEventId(eventId)}
+                onDragStart={(eventId) => {
+                  dropHandledRef.current = false;
+                  draggingEventRef.current = eventId;
+                  setDraggingEventId(eventId);
+                }}
                 onDragEnd={() => {
-                  setDraggingEventId(null);
-                  setDraggingOverSeasonId(null);
+                  window.setTimeout(() => {
+                    if (!dropHandledRef.current) {
+                      setDraggingEventId(null);
+                      setDraggingOverSeasonId(null);
+                      draggingEventRef.current = null;
+                      clearSeasonHoverTimers();
+                    }
+                  }, 60);
                 }}
               />
             ))}
           </div>
 
-          {totalEventPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEventPage((page) => Math.max(1, page - 1))}
-                disabled={eventPage === 1}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {eventPage} of {totalEventPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEventPage((page) => Math.min(totalEventPages, page + 1))}
-                disabled={eventPage === totalEventPages}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
         </>
-      )}
-
-      {visibleHints.length > 0 && (
-        <section className="mt-10 border-t border-border py-8">
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-primary" />
-              Useful hints
-            </h2>
-            <button
-              type="button"
-              onClick={() => setHintSeed((seed) => seed + 1)}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <RefreshCcw className="w-3.5 h-3.5" />
-              More hints
-            </button>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {visibleHints.map((hint) => (
-              <div
-                key={hint.id}
-                className="relative rounded-lg border border-border bg-muted/60 p-4 text-sm text-foreground"
-              >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-2 top-2 h-7 w-7"
-                  onClick={() => handleDismissHint(hint.id)}
-                  aria-label={`Dismiss hint: ${hint.title}`}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-                <p className="font-medium mb-1">{hint.title}</p>
-                <p className="text-muted-foreground">{hint.description}</p>
-              </div>
-            ))}
-          </div>
-        </section>
       )}
 
       {draggingEventId && (
@@ -415,8 +392,11 @@ const Dashboard = () => {
                 onClick={() => {
                   setDraggingEventId(null);
                   setDraggingOverSeasonId(null);
+                  draggingEventRef.current = null;
+                  dropHandledRef.current = false;
                   clearSeasonHoverTimers();
                 }}
+                title="Close"
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -463,6 +443,7 @@ const Dashboard = () => {
                   size="sm"
                   disabled={seasonPickerPage === 1}
                   onClick={() => setSeasonPickerPage((page) => Math.max(1, page - 1))}
+                  title="Previous page"
                   onDragOver={(event) => {
                     event.preventDefault();
                     if (seasonPickerPage === 1 || seasonPickerPrevTimer.current) return;
@@ -485,6 +466,7 @@ const Dashboard = () => {
                   size="sm"
                   disabled={seasonPickerPage === totalSeasonPickerPages}
                   onClick={() => setSeasonPickerPage((page) => Math.min(totalSeasonPickerPages, page + 1))}
+                  title="Next page"
                   onDragOver={(event) => {
                     event.preventDefault();
                     if (seasonPickerPage === totalSeasonPickerPages || seasonPickerNextTimer.current) return;

@@ -279,7 +279,7 @@ const Attend = () => {
           sessionId,
           attendeeName: name.trim(),
           attendeeEmail: email.trim().toLowerCase(),
-          deviceFingerprint: event?.device_fingerprint_enabled ? fingerprint : undefined,
+          deviceFingerprint: fingerprint || undefined,
           location: event?.location_check_enabled ? effectiveLocation : null,
           locationDenied,
         },

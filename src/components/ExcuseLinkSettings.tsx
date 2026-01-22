@@ -157,7 +157,7 @@ const ExcuseLinkSettings = ({ eventId, eventName, onClose }: ExcuseLinkSettingsP
               <Calendar className="w-5 h-5 text-primary" />
               <h2 className="text-lg font-semibold">Excuse Links</h2>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose}>
+            <Button variant="ghost" size="icon" onClick={onClose} title="Close">
               <X className="w-4 h-4" />
             </Button>
           </div>

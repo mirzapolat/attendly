@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Calendar, Save, Shield, QrCode, Fingerprint, MapPinned } from 'lucide-react';
+import { ArrowLeft, Calendar, Save, Shield, QrCode, Fingerprint, MapPinned, Timer } from 'lucide-react';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
 import LocationPicker from '@/components/LocationPicker';
@@ -23,6 +23,8 @@ interface Season {
 
 const MIN_RADIUS_METERS = 1;
 const MAX_RADIUS_METERS = 1_000_000;
+const ROTATION_MIN_SECONDS = 2;
+const ROTATION_MAX_SECONDS = 60;
 
 const radiusToSlider = (radius: number) => {
   const clamped = Math.min(MAX_RADIUS_METERS, Math.max(MIN_RADIUS_METERS, radius || MIN_RADIUS_METERS));
@@ -71,6 +73,7 @@ const NewEvent = () => {
 
   // Security features
   const [rotatingQrEnabled, setRotatingQrEnabled] = useState(true);
+  const [rotatingQrSeconds, setRotatingQrSeconds] = useState(3);
   const [deviceFingerprintEnabled, setDeviceFingerprintEnabled] = useState(true);
   const [locationCheckEnabled, setLocationCheckEnabled] = useState(false);
 
@@ -170,6 +173,10 @@ const NewEvent = () => {
         location_radius_meters: radiusMeters,
         season_id: seasonId !== 'none' ? seasonId : null,
         rotating_qr_enabled: rotatingQrEnabled,
+        rotating_qr_interval_seconds: Math.min(
+          ROTATION_MAX_SECONDS,
+          Math.max(ROTATION_MIN_SECONDS, Math.round(rotatingQrSeconds)),
+        ),
         device_fingerprint_enabled: deviceFingerprintEnabled,
         location_check_enabled: locationCheckEnabled,
       }).select('id').single();
@@ -307,13 +314,29 @@ const NewEvent = () => {
                       <QrCode className="w-5 h-5 text-muted-foreground" />
                       <div>
                         <p className="font-medium text-sm">Rotating QR Codes</p>
-                        <p className="text-xs text-muted-foreground">QR code changes every 3 seconds</p>
+                        <p className="text-xs text-muted-foreground">
+                          QR code changes every {rotatingQrSeconds}s
+                        </p>
                       </div>
                     </div>
-                    <Switch
-                      checked={rotatingQrEnabled}
-                      onCheckedChange={setRotatingQrEnabled}
-                    />
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Timer className="h-3.5 w-3.5" />
+                        <Input
+                          type="number"
+                          min={ROTATION_MIN_SECONDS}
+                          max={ROTATION_MAX_SECONDS}
+                          value={rotatingQrSeconds}
+                          onChange={(event) => setRotatingQrSeconds(Number(event.target.value))}
+                          className="h-7 w-16 px-2 text-xs"
+                        />
+                        <span>s</span>
+                      </div>
+                      <Switch
+                        checked={rotatingQrEnabled}
+                        onCheckedChange={setRotatingQrEnabled}
+                      />
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between">

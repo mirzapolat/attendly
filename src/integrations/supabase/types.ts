@@ -19,6 +19,7 @@ export type Database = {
           attendee_email: string
           attendee_name: string
           device_fingerprint: string
+          device_fingerprint_raw: string | null
           event_id: string
           id: string
           location_lat: number | null
@@ -32,6 +33,7 @@ export type Database = {
           attendee_email: string
           attendee_name: string
           device_fingerprint: string
+          device_fingerprint_raw?: string | null
           event_id: string
           id?: string
           location_lat?: number | null
@@ -45,6 +47,7 @@ export type Database = {
           attendee_email?: string
           attendee_name?: string
           device_fingerprint?: string
+          device_fingerprint_raw?: string | null
           event_id?: string
           id?: string
           location_lat?: number | null
@@ -119,6 +122,7 @@ export type Database = {
           name: string
           qr_token_expires_at: string | null
           rotating_qr_enabled: boolean | null
+          rotating_qr_interval_seconds: number | null
           season_id: string | null
           updated_at: string | null
           workspace_id: string
@@ -142,6 +146,7 @@ export type Database = {
           name: string
           qr_token_expires_at?: string | null
           rotating_qr_enabled?: boolean | null
+          rotating_qr_interval_seconds?: number | null
           season_id?: string | null
           updated_at?: string | null
           workspace_id: string
@@ -165,6 +170,7 @@ export type Database = {
           name?: string
           qr_token_expires_at?: string | null
           rotating_qr_enabled?: boolean | null
+          rotating_qr_interval_seconds?: number | null
           season_id?: string | null
           updated_at?: string | null
           workspace_id?: string
