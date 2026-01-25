@@ -167,9 +167,9 @@ const Index = () => {
                 <section className="px-4 sm:px-6 pb-16 pt-16 md:pt-24">
                     <div className="container mx-auto grid gap-12 lg:grid-cols-[1.1fr_0.9fr] items-center">
                         <div>
-                            <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-4 py-2 text-xs uppercase tracking-[0.3em] text-[color:var(--lp-muted)] animate-fade-in">
-                                <Sparkles className="h-4 w-4 text-[color:var(--lp-accent)]" />
-                                Attendance, clean and accountable
+                            <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.3em] text-[color:var(--lp-muted)] animate-fade-in">
+                                <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-[color:var(--lp-accent)]" />
+                                <span className="whitespace-nowrap">Attendance, clean and accountable</span>
                             </div>
                             <h1 className="mt-6 text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight animate-fade-in" style={{ animationDelay: '80ms' }}>
                                 Attendance that stays honest{' '}
@@ -347,7 +347,7 @@ const Index = () => {
                     </div>
                 </section>
 
-                <section className="px-4 sm:px-6 pb-24">
+                <section className="px-4 sm:px-6 pb-[42px]">
                     <div className="container mx-auto">
                         <div className="rounded-3xl border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] px-8 py-12 text-center shadow-[var(--lp-shadow)]">
                             <h2 className="text-3xl md:text-4xl font-semibold">Ready to simplify attendance?</h2>
@@ -372,8 +372,18 @@ const Index = () => {
                 </section>
             </main>
 
-            <footer className="border-t border-[color:var(--lp-border)] px-4 sm:px-6 py-8 text-center text-xs text-[color:var(--lp-muted)]">
-                Built with ❤️ by Mirza Polat. Attendance data should feel trustworthy.
+            <footer className="border-t border-[color:var(--lp-border)] px-4 sm:px-6 py-8">
+                <div className="container mx-auto flex flex-col items-center gap-4 text-xs text-[color:var(--lp-muted)]">
+                    <p>Built with ❤️ by Mirza Polat. Attendance data should feel trustworthy.</p>
+                    <div className="flex items-center gap-4">
+                        <Link to="/privacy" className="hover:text-[color:var(--lp-ink)] transition-colors underline">
+                            Datenschutzerklärung
+                        </Link>
+                        <Link to="/impressum" className="hover:text-[color:var(--lp-ink)] transition-colors underline">
+                            Impressum
+                        </Link>
+                    </div>
+                </div>
             </footer>
 
             {menuOpen && (

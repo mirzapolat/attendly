@@ -25,6 +25,8 @@ import SeasonDetail from "./pages/SeasonDetail";
 import SeasonSanitize from "./pages/SeasonSanitize";
 import Settings from "./pages/Settings";
 import ModeratorView from "./pages/ModeratorView";
+import Privacy from "./pages/Privacy";
+import Impressum from "./pages/Impressum";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -58,6 +60,8 @@ const App = () => (
                   <Route path="/seasons/:id/sanitize" element={<SeasonSanitize />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/moderate/:eventId/:token" element={<ModeratorView />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/impressum" element={<Impressum />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
