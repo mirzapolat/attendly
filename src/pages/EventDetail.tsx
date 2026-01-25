@@ -659,6 +659,19 @@ const EventDetail = () => {
   };
 
   const deleteRecord = async (recordId: string) => {
+    const record = attendance.find(r => r.id === recordId);
+    const attendeeName = record ? (showAllDetails || revealedNames.has(recordId) ? record.attendee_name : maskName(record.attendee_name)) : 'this attendee';
+    
+    const confirmed = await confirm({
+      title: 'Delete attendee?',
+      description: `Are you sure you want to delete ${attendeeName} from the attendance list? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'destructive',
+    });
+
+    if (!confirmed) return;
+
     const { error } = await supabase
       .from('attendance_records')
       .delete()

@@ -156,8 +156,8 @@ const EventCard = ({
         role="button"
         tabIndex={0}
       >
-        <CardContent className="py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 flex-1 min-w-0">
+        <CardContent className="py-4 flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-4 flex-1 min-w-0 sm:min-w-[10rem]">
             <div
               className={`w-3 h-3 rounded-full shrink-0 ${event.is_active ? 'bg-success animate-pulse' : 'bg-muted-foreground'}`}
             />
@@ -180,17 +180,17 @@ const EventCard = ({
             </div>
           </div>
           <div
-            className="flex items-center gap-2"
+            className="flex flex-wrap items-center gap-2 shrink-0"
             onClick={(eventClick) => eventClick.stopPropagation()}
             onPointerDown={(eventClick) => eventClick.stopPropagation()}
           >
             {typeof attendeesCount === 'number' && (
-              <span className="text-xs rounded-full bg-muted/60 text-muted-foreground px-2 py-1">
+              <span className="text-xs rounded-full bg-muted/60 text-muted-foreground px-2 py-1 whitespace-nowrap">
                 {attendeesCount} attended
               </span>
             )}
             {event.is_active && (
-              <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full">
+              <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full whitespace-nowrap">
                 Active
               </span>
             )}

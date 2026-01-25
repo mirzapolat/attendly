@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Calendar, FolderOpen, Plus, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Calendar, Plus, Search, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -261,12 +261,6 @@ const Dashboard = () => {
             <Button variant="hero">
               <Plus className="w-4 h-4" />
               New event
-            </Button>
-          </Link>
-          <Link to="/seasons">
-            <Button variant="outline">
-              <FolderOpen className="w-4 h-4" />
-              View seasons
             </Button>
           </Link>
         </div>

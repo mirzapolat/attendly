@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { useConfirm } from '@/hooks/useConfirm';
 import { QRCodeSVG } from 'qrcode.react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -74,6 +75,7 @@ const maskEmail = (email: string): string => {
 const ModeratorView = () => {
   const { eventId, token } = useParams<{ eventId: string; token: string }>();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -381,6 +383,19 @@ const ModeratorView = () => {
   };
 
   const deleteRecord = async (recordId: string) => {
+    const record = attendance.find(r => r.id === recordId);
+    const attendeeName = record ? getDisplayName(record) : 'this attendee';
+    
+    const confirmed = await confirm({
+      title: 'Delete attendee?',
+      description: `Are you sure you want to delete ${attendeeName} from the attendance list? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'destructive',
+    });
+
+    if (!confirmed) return;
+
     const { data, error } = await supabase.functions.invoke('moderator-action', {
       body: {
         eventId,

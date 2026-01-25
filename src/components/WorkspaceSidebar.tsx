@@ -1,4 +1,5 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 import { CalendarDays, Home, Layers, Settings, Users } from 'lucide-react';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { themeColors } from '@/hooks/useThemeColor';
@@ -14,6 +15,9 @@ const navItems = [
 const WorkspaceSidebar = () => {
   const { currentWorkspace } = useWorkspace();
   const navigate = useNavigate();
+  const location = useLocation();
+  const navRef = useRef<HTMLElement>(null);
+  const scrollPositionRef = useRef<number>(0);
   const color = themeColors.find((item) => item.id === currentWorkspace?.brand_color);
 
   const initials = currentWorkspace?.name
@@ -26,6 +30,30 @@ const WorkspaceSidebar = () => {
     : 'WS';
 
   const hasLogo = Boolean(currentWorkspace?.brand_logo_url);
+
+  // Save scroll position before navigation
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    const handleScroll = () => {
+      scrollPositionRef.current = nav.scrollLeft;
+    };
+
+    nav.addEventListener('scroll', handleScroll);
+    return () => nav.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Restore scroll position after navigation
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
+      nav.scrollLeft = scrollPositionRef.current;
+    });
+  }, [location.pathname]);
 
   return (
     <aside className="border-r border-border bg-background/60 md:w-60">
@@ -64,7 +92,10 @@ const WorkspaceSidebar = () => {
           <p className="text-sm text-muted-foreground group-hover:text-primary transition-colors">Switch Space</p>
         </div>
       </div>
-      <nav className="flex md:flex-col gap-1 px-6 md:px-3 pb-6 overflow-x-auto scrollbar-none">
+      <nav 
+        ref={navRef}
+        className="flex md:flex-col gap-1 px-6 md:px-3 pb-6 overflow-x-auto scrollbar-none"
+      >
         {navItems.map((item) => {
           const Icon = item.icon;
           return (

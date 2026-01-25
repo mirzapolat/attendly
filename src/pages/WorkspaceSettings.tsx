@@ -238,8 +238,8 @@ const WorkspaceSettings = () => {
               <div className="space-y-2">
                 <Label htmlFor="workspaceLogo">Brand logo (URL)</Label>
                 <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 shrink-0 rounded-xl border border-border bg-muted/40 flex items-center justify-center overflow-hidden">
-                    {logoUrl.trim() ? (
+                  {logoUrl.trim() && (
+                    <div className="h-12 w-12 shrink-0 rounded-xl border border-border bg-muted/40 flex items-center justify-center overflow-hidden">
                       <img
                         src={logoUrl.trim()}
                         alt="Logo preview"
@@ -248,10 +248,8 @@ const WorkspaceSettings = () => {
                           (event.currentTarget as HTMLImageElement).style.display = 'none';
                         }}
                       />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Preview</span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   <Input
                     id="workspaceLogo"
                     value={logoUrl}

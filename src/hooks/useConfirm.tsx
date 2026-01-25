@@ -100,11 +100,11 @@ export const ConfirmDialogProvider = ({ children }: { children: React.ReactNode 
           <div className={`h-1 w-full bg-gradient-to-r ${accent.accent}`} />
           <div className="px-6 py-6">
             <AlertDialogHeader>
-              <div className="flex items-start gap-3">
-                <div className={`mt-1 h-9 w-9 rounded-full flex items-center justify-center ${accent.icon}`}>
+              <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
+                <div className={`h-9 w-9 flex-shrink-0 rounded-full flex items-center justify-center ${accent.icon}`}>
                   <AlertTriangle className="h-4 w-4" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 text-center sm:text-left">
                   <AlertDialogTitle>{title ?? "Are you sure?"}</AlertDialogTitle>
                   {description ? (
                     <AlertDialogDescription>{description}</AlertDialogDescription>
