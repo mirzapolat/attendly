@@ -423,7 +423,7 @@ const Index = () => {
                                     GitHub
                                 </a>
                             </div>
-                            <div className="mt-auto flex max-w-sm flex-col gap-3">
+                            <div className="mt-auto flex w-full flex-col gap-3">
                                 <Link to="/auth" onClick={() => setMenuOpen(false)}>
                                     <Button variant="outline" size="lg" className="w-full border-[color:var(--lp-border)] text-[color:var(--lp-ink)]">
                                         Sign In
