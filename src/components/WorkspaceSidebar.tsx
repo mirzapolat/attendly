@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { CalendarDays, Home, Layers, Settings, Users } from 'lucide-react';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { themeColors } from '@/hooks/useThemeColor';
@@ -13,6 +13,7 @@ const navItems = [
 
 const WorkspaceSidebar = () => {
   const { currentWorkspace } = useWorkspace();
+  const navigate = useNavigate();
   const color = themeColors.find((item) => item.id === currentWorkspace?.brand_color);
 
   const initials = currentWorkspace?.name
@@ -28,9 +29,12 @@ const WorkspaceSidebar = () => {
 
   return (
     <aside className="border-r border-border bg-background/60 md:w-60">
-      <div className="flex items-center gap-3 px-6 py-6">
+      <div 
+        className="group flex items-center gap-3 px-6 py-6 cursor-pointer hover:bg-muted/50 transition-colors rounded-lg"
+        onClick={() => navigate('/workspaces')}
+      >
         <div
-          className={`h-12 w-12 shrink-0 rounded-xl flex items-center justify-center text-sm font-semibold ${
+          className={`h-12 w-12 shrink-0 rounded-xl flex items-center justify-center text-sm font-semibold group-hover:animate-wiggle ${
             hasLogo ? 'overflow-hidden' : 'text-primary-foreground'
           }`}
           style={hasLogo ? undefined : { backgroundColor: color?.hex ?? 'hsl(var(--primary))' }}
@@ -46,7 +50,6 @@ const WorkspaceSidebar = () => {
           )}
         </div>
         <div className="min-w-0">
-          <p className="text-sm text-muted-foreground">Workspace</p>
           <p
             className="font-semibold leading-snug break-words"
             style={{
@@ -58,6 +61,7 @@ const WorkspaceSidebar = () => {
           >
             {currentWorkspace?.name ?? 'Unknown'}
           </p>
+          <p className="text-sm text-muted-foreground group-hover:text-primary transition-colors">Switch Space</p>
         </div>
       </div>
       <nav className="flex md:flex-col gap-1 px-6 md:px-3 pb-6 overflow-x-auto scrollbar-none">

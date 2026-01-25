@@ -152,6 +152,9 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
         title: 'Settings saved',
         description: 'All event settings have been updated.',
       });
+      
+      // Close the modal after successful save
+      onClose();
     } catch (error) {
       toast({
         variant: 'destructive',

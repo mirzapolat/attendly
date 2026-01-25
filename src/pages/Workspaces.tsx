@@ -333,7 +333,7 @@ const Workspaces = () => {
         {ownedWorkspaces.length > 0 && (
           <section className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Owned Workspaces</h2>
+              <h2 className="text-lg font-semibold">My Workspaces</h2>
               <span className="text-sm text-muted-foreground">{ownedWorkspaces.length}</span>
             </div>
             <div className={workspaceLayoutClass}>

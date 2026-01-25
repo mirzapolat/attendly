@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeftRight, Bell, LogOut, QrCode, Settings } from 'lucide-react';
+import { Bell, LogOut, QrCode, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface WorkspaceInvite {
   id: string;
@@ -62,6 +63,7 @@ const WorkspaceHeader = ({
   const { clearWorkspace, refresh } = useWorkspace();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [pendingInvites, setPendingInvites] = useState<WorkspaceInvite[]>([]);
   const [acceptedInvites, setAcceptedInvites] = useState<AcceptedInvite[]>([]);
   const [workspaceNotifications, setWorkspaceNotifications] = useState<WorkspaceNotification[]>([]);
@@ -226,6 +228,14 @@ const WorkspaceHeader = ({
   };
 
   const handleSignOut = async () => {
+    const confirmed = await confirm({
+      title: 'Sign out?',
+      description: 'Are you sure you want to sign out?',
+      confirmText: 'Sign out',
+      cancelText: 'Cancel',
+    });
+    if (!confirmed) return;
+
     await signOut();
     clearWorkspace();
     navigate('/');
@@ -242,22 +252,6 @@ const WorkspaceHeader = ({
           </div>
           <div className="flex items-center gap-3">
             <span className="font-semibold text-lg leading-tight">{headerTitle}</span>
-            {showChangeWorkspace && (
-              <Link to="/workspaces">
-                <Button variant="outline" size="sm" className="hidden sm:inline-flex">
-                  Change Workspace
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="sm:hidden"
-                  aria-label="Change workspace"
-                  title="Change workspace"
-                >
-                  <ArrowLeftRight className="w-4 h-4" />
-                </Button>
-              </Link>
-            )}
           </div>
         </div>
         <div className="flex items-center gap-2">

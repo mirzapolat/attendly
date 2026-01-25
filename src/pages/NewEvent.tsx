@@ -74,6 +74,7 @@ const NewEvent = () => {
   // Security features
   const [rotatingQrEnabled, setRotatingQrEnabled] = useState(true);
   const [rotatingQrSeconds, setRotatingQrSeconds] = useState(3);
+  const [showRotationSettings, setShowRotationSettings] = useState(false);
   const [deviceFingerprintEnabled, setDeviceFingerprintEnabled] = useState(true);
   const [locationCheckEnabled, setLocationCheckEnabled] = useState(false);
 
@@ -94,6 +95,12 @@ const NewEvent = () => {
       fetchSeasons();
     }
   }, [currentWorkspace]);
+
+  useEffect(() => {
+    if (!rotatingQrEnabled) {
+      setShowRotationSettings(false);
+    }
+  }, [rotatingQrEnabled]);
 
   const fetchSeasons = async () => {
     if (!currentWorkspace) return;
@@ -315,26 +322,51 @@ const NewEvent = () => {
                       <div>
                         <p className="font-medium text-sm">Rotating QR Codes</p>
                         <p className="text-xs text-muted-foreground">
-                          QR code changes every {rotatingQrSeconds}s
+                          {rotatingQrEnabled
+                            ? `QR code changes every ${rotatingQrSeconds}s`
+                            : 'Static QR code (can be downloaded)'}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Timer className="h-3.5 w-3.5" />
-                        <Input
-                          type="number"
-                          min={ROTATION_MIN_SECONDS}
-                          max={ROTATION_MAX_SECONDS}
-                          value={rotatingQrSeconds}
-                          onChange={(event) => setRotatingQrSeconds(Number(event.target.value))}
-                          className="h-7 w-16 px-2 text-xs"
-                        />
-                        <span>s</span>
-                      </div>
+                      {rotatingQrEnabled && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setShowRotationSettings((prev) => !prev)}
+                          title="Adjust rotation interval"
+                        >
+                          <Timer className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Switch
                         checked={rotatingQrEnabled}
                         onCheckedChange={setRotatingQrEnabled}
+                      />
+                    </div>
+                  </div>
+                  <div
+                    className={`overflow-hidden transition-all duration-200 ${showRotationSettings ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}
+                  >
+                    <div className="pt-2 text-xs text-muted-foreground transition-transform duration-200">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Timer className="h-3.5 w-3.5" />
+                          <span>Rotate every</span>
+                        </div>
+                        <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                          {rotatingQrSeconds}s
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={ROTATION_MIN_SECONDS}
+                        max={ROTATION_MAX_SECONDS}
+                        step={1}
+                        value={rotatingQrSeconds}
+                        onChange={(event) => setRotatingQrSeconds(Number(event.target.value))}
+                        className="mt-2 w-full accent-primary"
                       />
                     </div>
                   </div>

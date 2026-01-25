@@ -694,6 +694,22 @@ const EventDetail = () => {
     }
   };
 
+  const handleCopyEmail = async (email: string) => {
+    try {
+      await navigator.clipboard.writeText(email);
+      toast({
+        title: 'Email copied',
+        description: 'Email address copied to clipboard.',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Copy failed',
+        description: 'Unable to copy the email. Please try again.',
+      });
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -1128,15 +1144,31 @@ const EventDetail = () => {
                           </div>
                           {!compactView && (
                             <>
-                              <p 
-                                className={`text-sm text-muted-foreground truncate ${!showAllDetails && !revealedEmails.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
-                                onClick={() => !showAllDetails && toggleRevealEmail(record.id)}
-                                title={!showAllDetails && !revealedEmails.has(record.id) ? 'Click to reveal' : undefined}
-                              >
-                                {showAllDetails || revealedEmails.has(record.id) 
-                                  ? record.attendee_email 
-                                  : maskEmail(record.attendee_email)}
-                              </p>
+                              <div className="flex items-center gap-1.5">
+                                <p 
+                                  className={`text-sm text-muted-foreground truncate flex-1 ${!showAllDetails && !revealedEmails.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
+                                  onClick={() => !showAllDetails && toggleRevealEmail(record.id)}
+                                  title={!showAllDetails && !revealedEmails.has(record.id) ? 'Click to reveal' : undefined}
+                                >
+                                  {showAllDetails || revealedEmails.has(record.id) 
+                                    ? record.attendee_email 
+                                    : maskEmail(record.attendee_email)}
+                                </p>
+                                {(showAllDetails || revealedEmails.has(record.id)) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 flex-shrink-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCopyEmail(record.attendee_email);
+                                    }}
+                                    title="Copy email"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                  </Button>
+                                )}
+                              </div>
                               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                                 <span>{format(new Date(record.recorded_at), 'p')}</span>
                                 <span className="flex items-center gap-1">
