@@ -7,6 +7,8 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { WorkspaceProvider } from "@/hooks/useWorkspace";
 import { ThemeColorProvider } from "@/hooks/useThemeColor";
 import { ConfirmDialogProvider } from "@/hooks/useConfirm";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -36,6 +38,8 @@ const App = () => (
             <TooltipProvider>
               <Toaster />
               <Sonner />
+              <Analytics />
+              <SpeedInsights />
               <BrowserRouter>
                 <Routes>
                   <Route path="/" element={<Index />} />
