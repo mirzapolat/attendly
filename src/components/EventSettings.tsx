@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useWorkspace } from '@/hooks/useWorkspace';
-import { Settings, Save, Shield, QrCode, Fingerprint, MapPinned, X, Copy, Timer } from 'lucide-react';
+import { Settings, Save, Shield, QrCode, Fingerprint, MapPinned, X, Copy, Timer, ShieldCheck, AlertTriangle } from 'lucide-react';
 import QRCodeExport from '@/components/QRCodeExport';
 import LocationPicker from '@/components/LocationPicker';
 
@@ -25,6 +25,7 @@ interface EventSettingsProps {
     rotating_qr_enabled: boolean;
     rotating_qr_interval_seconds?: number | null;
     device_fingerprint_enabled: boolean;
+    fingerprint_collision_strict?: boolean | null;
     location_check_enabled: boolean;
     is_active: boolean;
     current_qr_token: string | null;
@@ -88,6 +89,9 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
   );
   const [showRotationSettings, setShowRotationSettings] = useState(false);
   const [deviceFingerprintEnabled, setDeviceFingerprintEnabled] = useState(event.device_fingerprint_enabled);
+  const [fingerprintCollisionStrict, setFingerprintCollisionStrict] = useState(
+    event.fingerprint_collision_strict ?? true,
+  );
   const [locationCheckEnabled, setLocationCheckEnabled] = useState(event.location_check_enabled);
 
   useEffect(() => {
@@ -136,6 +140,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
           Math.max(ROTATION_MIN_SECONDS, Math.round(rotatingQrSeconds)),
         ),
         device_fingerprint_enabled: deviceFingerprintEnabled,
+        fingerprint_collision_strict: fingerprintCollisionStrict,
         location_check_enabled: locationCheckEnabled,
       };
 
@@ -360,13 +365,40 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                     <Fingerprint className="w-5 h-5 text-muted-foreground" />
                     <div>
                       <p className="font-medium text-sm">Device Fingerprinting</p>
-                      <p className="text-xs text-muted-foreground">Prevent multiple submissions per device</p>
+                      <p className="text-xs text-muted-foreground">
+                        {deviceFingerprintEnabled
+                          ? fingerprintCollisionStrict
+                            ? 'Strict: block matching fingerprints'
+                            : 'Allow + mark suspicious on matches'
+                          : 'Prevent multiple submissions per device'}
+                      </p>
                     </div>
                   </div>
-                  <Switch
-                    checked={deviceFingerprintEnabled}
-                    onCheckedChange={setDeviceFingerprintEnabled}
-                  />
+                  <div className="flex items-center gap-3">
+                    {deviceFingerprintEnabled && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setFingerprintCollisionStrict((prev) => !prev)}
+                        title={
+                          fingerprintCollisionStrict
+                            ? 'Strict block: reject matching fingerprints'
+                            : 'Allow + mark suspicious on matches'
+                        }
+                      >
+                        {fingerprintCollisionStrict ? (
+                          <ShieldCheck className="h-4 w-4" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
+                    <Switch
+                      checked={deviceFingerprintEnabled}
+                      onCheckedChange={setDeviceFingerprintEnabled}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between">

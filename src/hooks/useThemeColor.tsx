@@ -16,6 +16,8 @@ interface ThemeColorContextType {
 }
 
 const ThemeColorContext = createContext<ThemeColorContextType | undefined>(undefined);
+const WORKSPACE_STORAGE_KEY = 'attendly:workspace';
+const THEME_COLOR_STORAGE_KEY = 'attendly:theme-color';
 
 export const themeColors: ThemeColor[] = [
   { id: 'default', name: 'Emerald', hex: '#10b77f' },
@@ -90,6 +92,29 @@ const hexToHsl = (hex: string) => {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+const readStoredThemeColor = (workspaceId?: string | null) => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  if (workspaceId) {
+    const scoped = localStorage.getItem(`${THEME_COLOR_STORAGE_KEY}:${workspaceId}`);
+    if (scoped) {
+      return scoped;
+    }
+  }
+  return localStorage.getItem(THEME_COLOR_STORAGE_KEY);
+};
+
+const persistThemeColor = (colorId: string, workspaceId?: string | null) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  localStorage.setItem(THEME_COLOR_STORAGE_KEY, colorId);
+  if (workspaceId) {
+    localStorage.setItem(`${THEME_COLOR_STORAGE_KEY}:${workspaceId}`, colorId);
+  }
+};
+
 export const applyThemeColor = (colorId: string) => {
   const color = themeColors.find((c) => c.id === colorId) || themeColors[0];
   const hslFromHex = color.hex ? hexToHsl(color.hex) : null;
@@ -116,16 +141,30 @@ export const applyThemeColor = (colorId: string) => {
 };
 
 export const ThemeColorProvider = ({ children }: { children: ReactNode }) => {
-  const { currentWorkspace, refresh } = useWorkspace();
-  const [themeColor, setThemeColorState] = useState('default');
+  const { currentWorkspace, currentWorkspaceId, loading, refresh } = useWorkspace();
+  const [themeColor, setThemeColorState] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 'default';
+    }
+    const storedWorkspaceId = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+    return readStoredThemeColor(storedWorkspaceId) ?? 'default';
+  });
 
   useEffect(() => {
-    if (currentWorkspace?.brand_color) {
-      setThemeColorState(currentWorkspace.brand_color);
-    } else {
-      setThemeColorState('default');
+    if (loading) {
+      return;
     }
-  }, [currentWorkspace?.brand_color, currentWorkspace?.id]);
+    if (!currentWorkspaceId) {
+      setThemeColorState('default');
+      return;
+    }
+    const storedColor = readStoredThemeColor(currentWorkspaceId);
+    const nextColor = currentWorkspace?.brand_color ?? storedColor ?? 'default';
+    setThemeColorState(nextColor);
+    if (currentWorkspace?.brand_color) {
+      persistThemeColor(currentWorkspace.brand_color, currentWorkspaceId);
+    }
+  }, [currentWorkspace?.brand_color, currentWorkspace?.id, currentWorkspaceId, loading]);
 
   useEffect(() => {
     applyThemeColor(themeColor);
@@ -133,6 +172,9 @@ export const ThemeColorProvider = ({ children }: { children: ReactNode }) => {
 
   const setThemeColor = async (colorId: string) => {
     setThemeColorState(colorId);
+    const fallbackWorkspaceId =
+      typeof window === 'undefined' ? null : localStorage.getItem(WORKSPACE_STORAGE_KEY);
+    persistThemeColor(colorId, currentWorkspace?.id ?? fallbackWorkspaceId);
     
     if (currentWorkspace) {
       await supabase

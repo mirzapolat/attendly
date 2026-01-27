@@ -108,6 +108,7 @@ export type Database = {
           current_qr_token: string | null
           description: string | null
           device_fingerprint_enabled: boolean | null
+          fingerprint_collision_strict: boolean | null
           event_date: string
           id: string
           is_active: boolean | null
@@ -132,6 +133,7 @@ export type Database = {
           current_qr_token?: string | null
           description?: string | null
           device_fingerprint_enabled?: boolean | null
+          fingerprint_collision_strict?: boolean | null
           event_date: string
           id?: string
           is_active?: boolean | null
@@ -156,6 +158,7 @@ export type Database = {
           current_qr_token?: string | null
           description?: string | null
           device_fingerprint_enabled?: boolean | null
+          fingerprint_collision_strict?: boolean | null
           event_date?: string
           id?: string
           is_active?: boolean | null

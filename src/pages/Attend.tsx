@@ -38,6 +38,38 @@ const attendeeSchema = z.object({
 type SubmitState = 'form' | 'loading' | 'success' | 'error' | 'expired' | 'already-submitted' | 'inactive' | 'time-expired';
 
 const FORM_TIME_LIMIT_MS = 2 * 60 * 1000; // 2 minutes
+const DEVICE_ID_KEY = 'attendly:device-id';
+
+const generateDeviceId = () => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `device-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const getStoredDeviceId = (): string => {
+  try {
+    const existing = localStorage.getItem(DEVICE_ID_KEY);
+    if (existing) return existing;
+    const next = generateDeviceId();
+    localStorage.setItem(DEVICE_ID_KEY, next);
+    return next;
+  } catch {
+    // Fall back to session storage if local storage is unavailable.
+  }
+
+  try {
+    const existing = sessionStorage.getItem(DEVICE_ID_KEY);
+    if (existing) return existing;
+    const next = generateDeviceId();
+    sessionStorage.setItem(DEVICE_ID_KEY, next);
+    return next;
+  } catch {
+    // Final fallback to in-memory id.
+  }
+
+  return generateDeviceId();
+};
 
 const Attend = () => {
   const { id } = useParams<{ id: string }>();
@@ -55,6 +87,7 @@ const Attend = () => {
   const [submitState, setSubmitState] = useState<SubmitState>('loading');
   const [startErrorMessage, setStartErrorMessage] = useState<string | null>(null);
   const [fingerprint, setFingerprint] = useState<string>('');
+  const [fingerprintRaw, setFingerprintRaw] = useState<string>('');
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationRequested, setLocationRequested] = useState(false);
   const [locationDenied, setLocationDenied] = useState(false);
@@ -128,6 +161,7 @@ const Attend = () => {
     setErrors({});
     setStartErrorMessage(null);
     setFingerprint('');
+    setFingerprintRaw('');
     setLocation(null);
     setLocationRequested(false);
     setLocationDenied(false);
@@ -136,9 +170,9 @@ const Attend = () => {
 
     let cancelled = false;
     const initialize = async () => {
-      const deviceFingerprint = await initializeFingerprint();
+      const { fingerprint: deviceFingerprint, raw: deviceFingerprintRaw } = await initializeFingerprint();
       if (cancelled) return;
-      await startAttendanceSession(deviceFingerprint);
+      await startAttendanceSession(deviceFingerprint, deviceFingerprintRaw);
     };
     initialize();
 
@@ -147,25 +181,30 @@ const Attend = () => {
     };
   }, [id, token]);
 
-  const initializeFingerprint = async (): Promise<string> => {
+  const initializeFingerprint = async (): Promise<{ fingerprint: string; raw: string }> => {
+    const deviceId = getStoredDeviceId();
+
     try {
       const fp = await FingerprintJS.load();
       const result = await fp.get();
-      setFingerprint(result.visitorId);
-      return result.visitorId;
+      const raw = result.visitorId?.trim() ?? '';
+      const combined = raw ? `${raw}::${deviceId}` : `local-${deviceId}`;
+      setFingerprint(combined);
+      setFingerprintRaw(raw);
+      return { fingerprint: combined, raw };
     } catch (error) {
-      // Generate a fallback fingerprint
-      const fallback = `fallback-${Date.now()}-${Math.random().toString(36)}`;
-      setFingerprint(fallback);
-      return fallback;
+      const combined = `local-${deviceId}`;
+      setFingerprint(combined);
+      setFingerprintRaw('');
+      return { fingerprint: combined, raw: '' };
     }
   };
 
-  const startAttendanceSession = async (deviceFingerprint?: string) => {
+  const startAttendanceSession = async (deviceFingerprint?: string, deviceFingerprintRaw?: string) => {
     if (!id) return;
 
     const { data, error } = await supabase.functions.invoke('attendance-start', {
-      body: { eventId: id, token, deviceFingerprint },
+      body: { eventId: id, token, deviceFingerprint, deviceFingerprintRaw },
     });
 
     if (error || !data?.authorized || !data?.event) {
@@ -280,6 +319,7 @@ const Attend = () => {
           attendeeName: name.trim(),
           attendeeEmail: email.trim().toLowerCase(),
           deviceFingerprint: fingerprint || undefined,
+          deviceFingerprintRaw: fingerprintRaw || undefined,
           location: event?.location_check_enabled ? effectiveLocation : null,
           locationDenied,
         },

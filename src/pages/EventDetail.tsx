@@ -2,17 +2,17 @@ import { useEffect, useState, useCallback, useRef, useMemo, type CSSProperties, 
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
+import { applyThemeColor } from '@/hooks/useThemeColor';
 import { supabase } from '@/integrations/supabase/client';
 import { getRuntimeEnv } from '@/lib/runtimeEnv';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
 import { useConfirm } from '@/hooks/useConfirm';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
-  ArrowLeft, QrCode, Users, MapPin, Calendar, Play, Square, 
+  ArrowLeft, QrCode, Users, MapPin, Calendar, Clock, Play, Square, 
   AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2, Search, UserMinus, List, ListCollapse
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -21,10 +21,10 @@ import ModerationSettings from '@/components/ModerationSettings';
 import ExcuseLinkSettings from '@/components/ExcuseLinkSettings';
 import AttendeeActions from '@/components/AttendeeActions';
 import QRCodeExport from '@/components/QRCodeExport';
-import { sanitizeError } from '@/utils/errorHandler';
 
 interface Event {
   id: string;
+  workspace_id?: string | null;
   name: string;
   description: string | null;
   event_date: string;
@@ -38,6 +38,7 @@ interface Event {
   rotating_qr_enabled: boolean;
   rotating_qr_interval_seconds?: number | null;
   device_fingerprint_enabled: boolean;
+  fingerprint_collision_strict?: boolean | null;
   location_check_enabled: boolean;
   moderation_enabled: boolean;
   moderator_show_full_name: boolean;
@@ -67,6 +68,7 @@ const RESUME_KEY_PREFIX = 'attendly:resume-event:';
 const ROTATION_GRACE_MS = 7000;
 const ROTATION_MIN_SECONDS = 2;
 const ROTATION_MAX_SECONDS = 60;
+const THEME_COLOR_STORAGE_KEY = 'attendly:theme-color';
 
 // Helper to mask last name (keep first name visible)
 const maskName = (fullName: string): string => {
@@ -91,7 +93,6 @@ const EventDetail = () => {
   const { currentWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
   const confirm = useConfirm();
 
   const [event, setEvent] = useState<Event | null>(null);
@@ -110,7 +111,6 @@ const EventDetail = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualEmail, setManualEmail] = useState('');
-  const [manualExcused, setManualExcused] = useState(false);
   const [suggestions, setSuggestions] = useState<KnownAttendee[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [copyingStaticLink, setCopyingStaticLink] = useState(false);
@@ -150,6 +150,34 @@ const EventDetail = () => {
     Math.max(ROTATION_MIN_SECONDS, Number(event?.rotating_qr_interval_seconds ?? 3)),
   );
 
+  const syncAccentColor = useCallback(
+    async (workspaceId?: string | null) => {
+      if (!workspaceId) {
+        applyThemeColor('default');
+        return;
+      }
+      if (currentWorkspace?.id === workspaceId && currentWorkspace.brand_color) {
+        applyThemeColor(currentWorkspace.brand_color);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('workspaces')
+        .select('brand_color')
+        .eq('id', workspaceId)
+        .maybeSingle();
+      if (error) {
+        return;
+      }
+      const nextColor = data?.brand_color ?? 'default';
+      applyThemeColor(nextColor);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(THEME_COLOR_STORAGE_KEY, nextColor);
+        localStorage.setItem(`${THEME_COLOR_STORAGE_KEY}:${workspaceId}`, nextColor);
+      }
+    },
+    [currentWorkspace?.brand_color, currentWorkspace?.id]
+  );
+
   const fetchEvent = useCallback(async () => {
     if (!id) return;
     const { data, error } = await supabase
@@ -159,22 +187,18 @@ const EventDetail = () => {
       .maybeSingle();
 
     if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: sanitizeError(error),
-      });
       setLoading(false);
       return;
     }
 
     if (data) {
       setEvent(data);
+      void syncAccentColor(data.workspace_id);
     }
     setLoading(false);
-  }, [id, toast]);
+  }, [id, syncAccentColor]);
 
-  const fetchAttendance = useCallback(async (opts?: { silent?: boolean }) => {
+  const fetchAttendance = useCallback(async (_opts?: { silent?: boolean }) => {
     if (!id) return;
     const { data, error } = await supabase
       .from('attendance_records')
@@ -183,18 +207,11 @@ const EventDetail = () => {
       .order('recorded_at', { ascending: false });
 
     if (error) {
-      if (!opts?.silent) {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: sanitizeError(error),
-        });
-      }
       return;
     }
 
     if (data) setAttendance(data as AttendanceRecord[]);
-  }, [id, toast]);
+  }, [id]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -291,11 +308,6 @@ const EventDetail = () => {
       .eq('id', id);
 
     if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: sanitizeError(error),
-      });
       return false;
     }
 
@@ -400,13 +412,8 @@ const EventDetail = () => {
     }
   };
 
-  const addManualAttendee = async () => {
+  const addManualAttendee = async (status: 'verified' | 'excused') => {
     if (!manualName.trim() || !manualEmail.trim()) {
-      toast({
-        title: 'Missing information',
-        description: 'Please enter both name and email',
-        variant: 'destructive',
-      });
       return;
     }
 
@@ -417,26 +424,13 @@ const EventDetail = () => {
         attendee_name: manualName.trim(),
         attendee_email: manualEmail.trim().toLowerCase(),
         device_fingerprint: `manual-${crypto.randomUUID()}`,
-        status: manualExcused ? 'excused' : 'verified',
+        status,
         location_provided: false,
       });
 
-    if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to add attendee',
-        variant: 'destructive',
-      });
-    } else {
-      toast({
-        title: 'Attendee added',
-        description: manualExcused
-          ? `${manualName} has been added as excused`
-          : `${manualName} has been added manually`,
-      });
+    if (!error) {
       setManualName('');
       setManualEmail('');
-      setManualExcused(false);
       setShowAddForm(false);
       setSuggestions([]);
       await fetchAttendance({ silent: true });
@@ -584,11 +578,6 @@ const EventDetail = () => {
         .eq('id', id);
 
       if (error) {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: sanitizeError(error),
-        });
         return;
       }
 
@@ -607,7 +596,7 @@ const EventDetail = () => {
     };
 
     void resumeEvent();
-  }, [event, id, generateToken, toast, rotationSeconds]);
+  }, [event, id, generateToken, rotationSeconds]);
 
   const handleEventUpdate = (updates: Partial<Event>) => {
     setEvent((prev) => prev ? { ...prev, ...updates } : null);
@@ -630,10 +619,6 @@ const EventDetail = () => {
 
     if (!error) {
       setEvent((prev) => prev ? { ...prev, is_active: newStatus } : null);
-      toast({
-        title: newStatus ? 'Event started' : 'Event stopped',
-        description: newStatus ? 'QR code is now active' : 'QR code is now inactive',
-      });
     }
   };
 
@@ -651,10 +636,6 @@ const EventDetail = () => {
 
     if (!error) {
       fetchAttendance();
-      toast({
-        title: 'Status updated',
-        description: `Attendee marked as ${newStatus}`,
-      });
     }
   };
 
@@ -679,9 +660,6 @@ const EventDetail = () => {
 
     if (!error) {
       fetchAttendance();
-      toast({
-        title: 'Record deleted',
-      });
     }
   };
 
@@ -692,16 +670,7 @@ const EventDetail = () => {
     setCopyingStaticLink(true);
     try {
       await navigator.clipboard.writeText(staticQrUrl);
-      toast({
-        title: 'Link copied',
-        description: 'Static QR link copied to clipboard.',
-      });
     } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Copy failed',
-        description: 'Unable to copy the link. Please try again.',
-      });
     } finally {
       setCopyingStaticLink(false);
     }
@@ -710,16 +679,7 @@ const EventDetail = () => {
   const handleCopyEmail = async (email: string) => {
     try {
       await navigator.clipboard.writeText(email);
-      toast({
-        title: 'Email copied',
-        description: 'Email address copied to clipboard.',
-      });
     } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Copy failed',
-        description: 'Unable to copy the email. Please try again.',
-      });
     }
   };
 
@@ -747,6 +707,7 @@ const EventDetail = () => {
   const verifiedCount = attendance.filter(a => a.status === 'verified' || a.status === 'cleared').length;
   const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
   const excusedCount = attendance.filter(a => a.status === 'excused').length;
+  const attendedCount = attendance.length - excusedCount;
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -792,7 +753,7 @@ const EventDetail = () => {
         />
       )}
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link
             to="/dashboard"
             onClick={handleDashboardClick}
@@ -802,28 +763,50 @@ const EventDetail = () => {
             <span className="hidden sm:inline">Events</span>
           </Link>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => setShowModeration(true)} title="Moderation settings">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowModeration(true)}
+              title="Moderation settings"
+              className="gap-2"
+            >
               <Users2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Moderation</span>
             </Button>
-            <Button variant="outline" size="icon" onClick={() => setShowExcuseLinks(true)} title="Excuse links">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowExcuseLinks(true)}
+              title="Excuse links"
+              className="gap-2"
+            >
               <UserMinus className="w-4 h-4" />
+              <span className="hidden sm:inline">Excuses</span>
             </Button>
-            <Button variant="outline" size="icon" onClick={() => setShowSettings(true)} title="Event settings">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSettings(true)}
+              title="Event settings"
+              className="gap-2"
+            >
               <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">Settings</span>
             </Button>
             <Button
               variant={event.is_active ? 'destructive' : 'hero'}
               onClick={toggleActive}
+              className="gap-2"
             >
               {event.is_active ? (
                 <>
                   <Square className="w-4 h-4" />
-                  Stop Event
+                  <span className="hidden sm:inline">Stop Event</span>
                 </>
               ) : (
                 <>
                   <Play className="w-4 h-4" />
-                  Start Event
+                  <span className="hidden sm:inline">Start Event</span>
                 </>
               )}
             </Button>
@@ -831,7 +814,7 @@ const EventDetail = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-4 sm:px-6 py-8">
         <div className="grid lg:grid-cols-2 gap-8">
           {/* QR Code Section */}
           <div>
@@ -847,7 +830,9 @@ const EventDetail = () => {
                 <CardDescription className="flex items-center gap-4 flex-wrap">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    {format(new Date(event.event_date), 'PPP HH:mm')}
+                    {format(new Date(event.event_date), 'PPP')}
+                    <Clock className="w-4 h-4" />
+                    {format(new Date(event.event_date), 'HH:mm')}
                   </span>
                   {event.location_check_enabled && (
                     <span className="flex items-center gap-1">
@@ -860,13 +845,14 @@ const EventDetail = () => {
               <CardContent>
                 {event.is_active ? (
                   <div className="text-center">
-                    <div className="inline-block p-4 bg-background rounded-2xl shadow-lg mb-4">
+                    <div className="inline-block w-full max-w-[240px] sm:max-w-[280px] p-3 sm:p-4 bg-background rounded-2xl shadow-lg mb-4">
                       <QRCodeSVG
                         value={qrUrl}
                         size={280}
                         level="M"
                         includeMargin
                         imageSettings={qrLogoSettings}
+                        className="w-full h-auto"
                       />
                     </div>
                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -966,12 +952,87 @@ const EventDetail = () => {
 
           {/* Attendance List */}
           <div>
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div className="sm:hidden mb-4">
+              <Card className="bg-gradient-card">
+                <CardContent className="py-4 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Attendance
+                    </h2>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <span className="inline-flex items-center rounded-full bg-muted/70 px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                        Attended {attendedCount}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-muted/70 px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                        Excused {excusedCount}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-1 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowAddForm(!showAddForm)}
+                        className="gap-2 flex-1"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        Add
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowAllDetails(!showAllDetails)}
+                        className="gap-2 flex-1"
+                      >
+                        {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showAllDetails ? 'Hide' : 'Details'}
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <AttendeeActions
+                        eventId={id!}
+                        eventName={event.name}
+                        attendance={attendance}
+                        onImportComplete={fetchAttendance}
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setCompactView((prev) => !prev)}
+                        aria-pressed={compactView}
+                        title={compactView ? 'Switch to normal view' : 'Switch to compact view'}
+                      >
+                        {compactView ? <List className="w-4 h-4" /> : <ListCollapse className="w-4 h-4" />}
+                        <span className="sr-only">{compactView ? 'Normal view' : 'Compact view'}</span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="hidden sm:flex items-center justify-between mb-4 flex-wrap gap-2">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <Users className="w-5 h-5" />
                 Attendance
                 <span className="inline-flex items-center rounded-full bg-muted/70 px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-                  {attendance.length}
+                  Attended {attendedCount}
+                </span>
+                <span className="inline-flex items-center rounded-full bg-muted/70 px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                  Excused {excusedCount}
                 </span>
               </h2>
               <div className="flex gap-2 flex-wrap">
@@ -1014,7 +1075,7 @@ const EventDetail = () => {
             </div>
 
             {/* Search bar */}
-            <div className="relative mb-4">
+            <div className="hidden sm:block relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name..."
@@ -1061,24 +1122,19 @@ const EventDetail = () => {
                       value={manualEmail}
                       onChange={(e) => setManualEmail(e.target.value)}
                     />
-                    <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-border text-warning focus:ring-warning"
-                        checked={manualExcused}
-                        onChange={(e) => setManualExcused(e.target.checked)}
-                      />
-                      Mark as excused (not attended)
-                    </label>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={addManualAttendee} className="flex-1">
-                        Add Attendee
+                      <Button size="sm" onClick={() => addManualAttendee('verified')} className="flex-1 gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        Attended
+                      </Button>
+                      <Button size="sm" variant="warning" onClick={() => addManualAttendee('excused')} className="flex-1 gap-2">
+                        <UserMinus className="w-4 h-4" />
+                        Excused
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => {
                         setShowAddForm(false);
                         setManualName('');
                         setManualEmail('');
-                        setManualExcused(false);
                         setSuggestions([]);
                       }}>
                         Cancel

@@ -11,6 +11,7 @@ type AttendanceSubmitRequest = {
   attendeeName?: string;
   attendeeEmail?: string;
   deviceFingerprint?: string;
+  deviceFingerprintRaw?: string;
   location?: { lat: number; lng: number } | null;
   locationDenied?: boolean;
 };
@@ -37,7 +38,7 @@ serve(async (req) => {
 
   try {
     const body = (await req.json().catch(() => ({}))) as AttendanceSubmitRequest;
-    const { sessionId, attendeeName, attendeeEmail, deviceFingerprint, location, locationDenied } = body;
+    const { sessionId, attendeeName, attendeeEmail, deviceFingerprint, deviceFingerprintRaw, location, locationDenied } = body;
 
     if (!sessionId || !attendeeName || !attendeeEmail) {
       return new Response(
@@ -97,6 +98,7 @@ serve(async (req) => {
           "id",
           "is_active",
           "device_fingerprint_enabled",
+          "fingerprint_collision_strict",
           "location_check_enabled",
           "location_lat",
           "location_lng",
@@ -123,8 +125,9 @@ serve(async (req) => {
     const trimmedName = attendeeName.trim();
     const trimmedEmail = attendeeEmail.trim().toLowerCase();
     const normalizedFingerprint = deviceFingerprint?.trim() ?? "";
-    let fingerprintToStore = normalizedFingerprint;
-    const fingerprintRaw = normalizedFingerprint || null;
+    const normalizedRaw = deviceFingerprintRaw?.trim() ?? "";
+    let fingerprintToStore = normalizedFingerprint || normalizedRaw;
+    const fingerprintRaw = normalizedRaw || (normalizedFingerprint ? normalizedFingerprint : null);
 
     if (event.device_fingerprint_enabled && !fingerprintToStore) {
       return new Response(
@@ -139,6 +142,62 @@ serve(async (req) => {
 
     let status: "verified" | "suspicious" = "verified";
     let suspiciousReason: string | null = null;
+
+    const fingerprintStrict = event.fingerprint_collision_strict !== false;
+    let fingerprintCollision = false;
+
+    if (event.device_fingerprint_enabled) {
+      if (normalizedFingerprint) {
+        const { data: existingExact } = await admin
+          .from("attendance_records")
+          .select("id")
+          .eq("event_id", event.id)
+          .eq("device_fingerprint", normalizedFingerprint)
+          .maybeSingle();
+
+        if (existingExact) {
+          return new Response(
+            JSON.stringify({ success: false, reason: "already_submitted" }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+
+      if (normalizedRaw) {
+        const { data: existingRaw } = await admin
+          .from("attendance_records")
+          .select("id")
+          .eq("event_id", event.id)
+          .eq("device_fingerprint_raw", normalizedRaw)
+          .maybeSingle();
+
+        if (existingRaw) {
+          fingerprintCollision = true;
+        } else {
+          const { data: existingLegacy } = await admin
+            .from("attendance_records")
+            .select("id")
+            .eq("event_id", event.id)
+            .eq("device_fingerprint", normalizedRaw)
+            .maybeSingle();
+
+          if (existingLegacy) {
+            fingerprintCollision = true;
+          }
+        }
+      }
+
+      if (fingerprintCollision) {
+        if (fingerprintStrict) {
+          return new Response(
+            JSON.stringify({ success: false, reason: "already_submitted" }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+        status = "suspicious";
+        suspiciousReason = "Fingerprint matched another submission";
+      }
+    }
 
     if (event.location_check_enabled) {
       if (locationDenied || !location) {
