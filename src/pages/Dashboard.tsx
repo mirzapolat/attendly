@@ -50,6 +50,8 @@ const Dashboard = () => {
   const [seasonPagerHover, setSeasonPagerHover] = useState<'prev' | 'next' | null>(null);
   const draggingEventRef = useRef<string | null>(null);
   const dropHandledRef = useRef(false);
+  const dragStartTimeRef = useRef<number | null>(null);
+  const dragOverlayTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (currentWorkspace) {
@@ -333,7 +335,7 @@ const Dashboard = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="h-9 w-10 p-0"
+                className="hidden h-9 w-10 p-0 sm:inline-flex"
                 onClick={() => setViewMode((prev) => (prev === 'list' ? 'grid' : 'list'))}
                 title={viewMode === 'list' ? 'Switch to grid view' : 'Switch to list view'}
               >
@@ -398,16 +400,33 @@ const Dashboard = () => {
                     onDragStart={(eventId) => {
                       dropHandledRef.current = false;
                       draggingEventRef.current = eventId;
-                      setDraggingEventId(eventId);
+                      dragStartTimeRef.current = Date.now();
+                      if (dragOverlayTimerRef.current) {
+                        window.clearTimeout(dragOverlayTimerRef.current);
+                      }
+                      dragOverlayTimerRef.current = window.setTimeout(() => {
+                        setDraggingEventId(eventId);
+                      }, 80);
                     }}
                     onDragEnd={() => {
+                      if (dragOverlayTimerRef.current) {
+                        window.clearTimeout(dragOverlayTimerRef.current);
+                        dragOverlayTimerRef.current = null;
+                      }
                       window.setTimeout(() => {
-                        if (!dropHandledRef.current) {
-                          setDraggingEventId(null);
-                          setDraggingOverSeasonId(null);
-                          draggingEventRef.current = null;
-                          clearSeasonHoverTimers();
+                        if (dropHandledRef.current) {
+                          return;
                         }
+                        const elapsed = dragStartTimeRef.current
+                          ? Date.now() - dragStartTimeRef.current
+                          : 0;
+                        if (elapsed < 200) {
+                          return;
+                        }
+                        setDraggingEventId(null);
+                        setDraggingOverSeasonId(null);
+                        draggingEventRef.current = null;
+                        clearSeasonHoverTimers();
                       }, 60);
                     }}
                   />
@@ -445,16 +464,33 @@ const Dashboard = () => {
                     onDragStart={(eventId) => {
                       dropHandledRef.current = false;
                       draggingEventRef.current = eventId;
-                      setDraggingEventId(eventId);
+                      dragStartTimeRef.current = Date.now();
+                      if (dragOverlayTimerRef.current) {
+                        window.clearTimeout(dragOverlayTimerRef.current);
+                      }
+                      dragOverlayTimerRef.current = window.setTimeout(() => {
+                        setDraggingEventId(eventId);
+                      }, 80);
                     }}
                     onDragEnd={() => {
+                      if (dragOverlayTimerRef.current) {
+                        window.clearTimeout(dragOverlayTimerRef.current);
+                        dragOverlayTimerRef.current = null;
+                      }
                       window.setTimeout(() => {
-                        if (!dropHandledRef.current) {
-                          setDraggingEventId(null);
-                          setDraggingOverSeasonId(null);
-                          draggingEventRef.current = null;
-                          clearSeasonHoverTimers();
+                        if (dropHandledRef.current) {
+                          return;
                         }
+                        const elapsed = dragStartTimeRef.current
+                          ? Date.now() - dragStartTimeRef.current
+                          : 0;
+                        if (elapsed < 200) {
+                          return;
+                        }
+                        setDraggingEventId(null);
+                        setDraggingOverSeasonId(null);
+                        draggingEventRef.current = null;
+                        clearSeasonHoverTimers();
                       }, 60);
                     }}
                   />
@@ -485,16 +521,33 @@ const Dashboard = () => {
                     onDragStart={(eventId) => {
                       dropHandledRef.current = false;
                       draggingEventRef.current = eventId;
-                      setDraggingEventId(eventId);
+                      dragStartTimeRef.current = Date.now();
+                      if (dragOverlayTimerRef.current) {
+                        window.clearTimeout(dragOverlayTimerRef.current);
+                      }
+                      dragOverlayTimerRef.current = window.setTimeout(() => {
+                        setDraggingEventId(eventId);
+                      }, 80);
                     }}
                     onDragEnd={() => {
+                      if (dragOverlayTimerRef.current) {
+                        window.clearTimeout(dragOverlayTimerRef.current);
+                        dragOverlayTimerRef.current = null;
+                      }
                       window.setTimeout(() => {
-                        if (!dropHandledRef.current) {
-                          setDraggingEventId(null);
-                          setDraggingOverSeasonId(null);
-                          draggingEventRef.current = null;
-                          clearSeasonHoverTimers();
+                        if (dropHandledRef.current) {
+                          return;
                         }
+                        const elapsed = dragStartTimeRef.current
+                          ? Date.now() - dragStartTimeRef.current
+                          : 0;
+                        if (elapsed < 200) {
+                          return;
+                        }
+                        setDraggingEventId(null);
+                        setDraggingOverSeasonId(null);
+                        draggingEventRef.current = null;
+                        clearSeasonHoverTimers();
                       }, 60);
                     }}
                   />
@@ -553,6 +606,12 @@ const Dashboard = () => {
                     }}
                     onDragLeave={() => {
                       setDraggingOverSeasonId((current) => (current === season.id ? null : current));
+                    }}
+                    onClick={() => {
+                      const eventId = draggingEventRef.current ?? draggingEventId;
+                      if (eventId) {
+                        handleAssignSeason(eventId, season.id);
+                      }
                     }}
                     onDrop={(event) => {
                       event.preventDefault();

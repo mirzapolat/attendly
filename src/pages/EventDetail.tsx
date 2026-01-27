@@ -781,7 +781,7 @@ const EventDetail = () => {
     : [];
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-gradient-subtle overflow-x-hidden">
       {showConfetti && (
         <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden="true">
           {confettiPieces.map((piece) => {
@@ -972,12 +972,12 @@ const EventDetail = () => {
           <div>
             <Card className="bg-gradient-card">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-start gap-2 flex-wrap min-w-0">
                   <QrCode className="w-5 h-5" />
-                  {event.name}
+                  <span className="min-w-0 break-words">{event.name}</span>
                 </CardTitle>
                 {event.description && (
-                  <p className="text-sm text-muted-foreground mt-1">{event.description}</p>
+                  <p className="text-sm text-muted-foreground mt-1 break-words">{event.description}</p>
                 )}
                 <CardDescription className="flex items-center gap-4 flex-wrap">
                   <span className="flex items-center gap-1">
@@ -987,7 +987,7 @@ const EventDetail = () => {
                     {format(new Date(event.event_date), 'HH:mm')}
                   </span>
                   {event.location_check_enabled && (
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 min-w-0 break-words">
                       <MapPin className="w-4 h-4" />
                       {event.location_name}
                     </span>

@@ -12,6 +12,8 @@ const navItems = [
   { to: '/workspace-settings', label: 'Workspace Settings', icon: Settings },
 ];
 
+const SIDEBAR_SCROLL_KEY = 'attendly:sidebar-scroll';
+
 const WorkspaceSidebar = () => {
   const { currentWorkspace } = useWorkspace();
   const navigate = useNavigate();
@@ -31,13 +33,23 @@ const WorkspaceSidebar = () => {
 
   const hasLogo = Boolean(currentWorkspace?.brand_logo_url);
 
-  // Save scroll position before navigation
+  // Save and restore scroll position for the mobile horizontal nav.
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
 
+    const saved = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+    if (saved) {
+      const parsed = Number(saved);
+      if (Number.isFinite(parsed)) {
+        nav.scrollLeft = parsed;
+        scrollPositionRef.current = parsed;
+      }
+    }
+
     const handleScroll = () => {
       scrollPositionRef.current = nav.scrollLeft;
+      sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(nav.scrollLeft));
     };
 
     nav.addEventListener('scroll', handleScroll);
@@ -49,9 +61,12 @@ const WorkspaceSidebar = () => {
     const nav = navRef.current;
     if (!nav) return;
 
+    const saved = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+    const scrollLeft = saved ? Number(saved) : scrollPositionRef.current;
+
     // Use requestAnimationFrame to ensure DOM has updated
     requestAnimationFrame(() => {
-      nav.scrollLeft = scrollPositionRef.current;
+      nav.scrollLeft = Number.isFinite(scrollLeft) ? scrollLeft : 0;
     });
   }, [location.pathname]);
 

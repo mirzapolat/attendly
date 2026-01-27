@@ -32,6 +32,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
 
   const ownedWorkspaces = useMemo(
     () => workspaces.filter((workspace) => workspace.owner_id === user?.id),
@@ -55,6 +56,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       setWorkspaces([]);
       setCurrentWorkspaceId(null);
       setLoading(false);
+      setHydrated(true);
       return;
     }
     refresh();
@@ -64,18 +66,22 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     if (!user) {
       return;
     }
+    if (!hydrated) {
+      return;
+    }
     if (!currentWorkspaceId) {
       localStorage.removeItem(STORAGE_KEY);
       return;
     }
     localStorage.setItem(STORAGE_KEY, currentWorkspaceId);
-  }, [currentWorkspaceId, user]);
+  }, [currentWorkspaceId, user, hydrated]);
 
   const refresh = async () => {
     if (!user) {
       setWorkspaces([]);
       setCurrentWorkspaceId(null);
       setLoading(false);
+      setHydrated(true);
       return;
     }
 
@@ -89,6 +95,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       setWorkspaces([]);
       setCurrentWorkspaceId(null);
       setLoading(false);
+      setHydrated(true);
       return;
     }
 
@@ -98,6 +105,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       setWorkspaces([]);
       setCurrentWorkspaceId(null);
       setLoading(false);
+      setHydrated(true);
       return;
     }
 
@@ -117,6 +125,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       setCurrentWorkspaceId(null);
     }
     setLoading(false);
+    setHydrated(true);
   };
 
   const selectWorkspace = (workspaceId: string) => {
