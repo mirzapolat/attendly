@@ -39,6 +39,18 @@ interface AttendanceRecord {
   attendee_email: string;
   attendee_name: string;
   status: AttendanceStatus;
+  device_fingerprint?: string | null;
+  device_fingerprint_raw?: string | null;
+}
+
+interface EmailSuggestion {
+  id: string;
+  emailA: string;
+  emailB: string;
+  countA: number;
+  countB: number;
+  distance: number;
+  signals: ('similarity' | 'fingerprint')[];
 }
 
 interface MemberStats {
@@ -63,6 +75,19 @@ const normalizeWeight = (weight: number | null | undefined) => {
 
 const normalizeDomain = (domain: string) =>
   domain.replace(/\s+/g, '').toLowerCase();
+
+const isReliableFingerprint = (value?: string | null) => {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return !(
+    trimmed.startsWith('no-fp-') ||
+    trimmed.startsWith('manual-') ||
+    trimmed.startsWith('moderator-') ||
+    trimmed.startsWith('fallback-') ||
+    trimmed.startsWith('import-')
+  );
+};
 
 const splitDomain = (domain: string) => {
   const parts = domain.split('.').filter(Boolean);
@@ -89,6 +114,9 @@ const longestCommonSubstring = (a: string, b: string) => {
   }
   return longest;
 };
+
+const getSuggestionKey = (emailA: string, emailB: string) =>
+  [emailA, emailB].sort().join('::');
 
 const levenshteinDistance = (a: string, b: string) => {
   if (a === b) return 0;
@@ -155,6 +183,8 @@ const SeasonDetail = () => {
   const [conflictsOpen, setConflictsOpen] = useState(false);
   const [conflictSelections, setConflictSelections] = useState<Record<string, string>>({});
   const [resolvingConflicts, setResolvingConflicts] = useState<Record<string, boolean>>({});
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Record<string, boolean>>({});
+  const [dismissalsLoaded, setDismissalsLoaded] = useState(false);
   const [weightDialogOpen, setWeightDialogOpen] = useState(false);
   const [weightSaving, setWeightSaving] = useState(false);
   const [weightValue, setWeightValue] = useState('1');
@@ -213,7 +243,27 @@ const SeasonDetail = () => {
       if (allEventsRes.data) setAllUserEvents(allEventsRes.data);
       if (eventsRes.data) {
         setEvents(eventsRes.data);
-        
+
+        const { data: dismissedData, error: dismissedError } = await supabase
+          .from('season_sanitize_dismissals')
+          .select('suggestion_id')
+          .eq('season_id', id);
+
+        if (dismissedError) {
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: sanitizeError(dismissedError),
+          });
+        } else {
+          const dismissedMap: Record<string, boolean> = {};
+          (dismissedData ?? []).forEach((row) => {
+            dismissedMap[row.suggestion_id] = true;
+          });
+          setDismissedSuggestions(dismissedMap);
+        }
+        setDismissalsLoaded(true);
+
         // Fetch attendance for all events
         const eventIds = eventsRes.data.map(e => e.id);
         if (eventIds.length > 0) {
@@ -388,17 +438,24 @@ const SeasonDetail = () => {
     return conflicts;
   }, [attendance]);
 
-  const hasEmailSuggestions = useMemo(() => {
-    const emailSet = new Set<string>();
+  const emailStats = useMemo(() => {
+    const map = new Map<string, number>();
     attendance.forEach((record) => {
       const normalized = normalizeEmail(record.attendee_email || '');
-      if (normalized) {
-        emailSet.add(normalized);
-      }
+      if (!normalized) return;
+      map.set(normalized, (map.get(normalized) ?? 0) + 1);
     });
+    return Array.from(map.entries()).map(([email, count]) => ({ email, count }));
+  }, [attendance]);
 
-    const entries = Array.from(emailSet)
-      .map((email) => {
+  const emailCountLookup = useMemo(
+    () => new Map(emailStats.map((entry) => [entry.email, entry.count])),
+    [emailStats],
+  );
+
+  const emailSuggestions = useMemo(() => {
+    const entries = emailStats
+      .map(({ email }) => {
         const [localPart, domainPart] = email.split('@');
         if (!localPart || !domainPart) return null;
         const local = normalizeLocalPart(localPart);
@@ -414,7 +471,57 @@ const SeasonDetail = () => {
           Boolean(entry),
       );
 
+    const suggestionMap = new Map<string, EmailSuggestion>();
+    const MAX_SUGGESTIONS = 24;
     const DOMAIN_MAX_DISTANCE = 2;
+
+    const addSuggestion = (
+      emailA: string,
+      emailB: string,
+      distance: number,
+      signal: 'similarity' | 'fingerprint',
+    ) => {
+      const id = getSuggestionKey(emailA, emailB);
+      const existing = suggestionMap.get(id);
+      if (existing) {
+        if (!existing.signals.includes(signal)) {
+          existing.signals.push(signal);
+        }
+        existing.distance = Math.min(existing.distance, distance);
+        return;
+      }
+      suggestionMap.set(id, {
+        id,
+        emailA,
+        emailB,
+        countA: emailCountLookup.get(emailA) ?? 0,
+        countB: emailCountLookup.get(emailB) ?? 0,
+        distance,
+        signals: [signal],
+      });
+    };
+
+    const fingerprintMap = new Map<string, Set<string>>();
+    attendance.forEach((record) => {
+      const fingerprint = record.device_fingerprint_raw ?? record.device_fingerprint ?? '';
+      if (!isReliableFingerprint(fingerprint)) return;
+      const email = normalizeEmail(record.attendee_email || '');
+      if (!email) return;
+      if (!fingerprintMap.has(fingerprint)) {
+        fingerprintMap.set(fingerprint, new Set());
+      }
+      fingerprintMap.get(fingerprint)!.add(email);
+    });
+
+    fingerprintMap.forEach((emailsSet) => {
+      const emails = Array.from(emailsSet);
+      if (emails.length < 2) return;
+      for (let i = 0; i < emails.length; i += 1) {
+        for (let j = i + 1; j < emails.length; j += 1) {
+          addSuggestion(emails[i], emails[j], 0, 'fingerprint');
+        }
+      }
+    });
 
     for (let i = 0; i < entries.length; i += 1) {
       for (let j = i + 1; j < entries.length; j += 1) {
@@ -449,14 +556,29 @@ const SeasonDetail = () => {
         if (!isLocalTypo && !hasLocalOverlap && !isTldVariant) continue;
         if (!isDomainTypo && !hasLocalOverlap && !isTldVariant) continue;
 
-        return true;
+        const distance = isTldVariant ? localDistance : localDistance + Math.min(domainDistance, 3);
+        addSuggestion(a.email, b.email, distance, 'similarity');
       }
     }
 
-    return false;
-  }, [attendance]);
+    return Array.from(suggestionMap.values())
+      .sort((a, b) => {
+        const aFingerprint = a.signals.includes('fingerprint');
+        const bFingerprint = b.signals.includes('fingerprint');
+        if (aFingerprint !== bFingerprint) {
+          return aFingerprint ? -1 : 1;
+        }
+        return a.distance - b.distance || (b.countA + b.countB) - (a.countA + a.countB);
+      })
+      .slice(0, MAX_SUGGESTIONS);
+  }, [emailStats, emailCountLookup, attendance]);
 
-  const shouldFlashSanitize = nameConflicts.length > 0 || hasEmailSuggestions;
+  const visibleSuggestions = useMemo(() => {
+    if (!dismissalsLoaded) return [];
+    return emailSuggestions.filter((suggestion) => !dismissedSuggestions[suggestion.id]);
+  }, [emailSuggestions, dismissedSuggestions, dismissalsLoaded]);
+
+  const shouldFlashSanitize = nameConflicts.length > 0 || visibleSuggestions.length > 0;
 
   useEffect(() => {
     setConflictSelections((prev) => {
@@ -538,11 +660,10 @@ const SeasonDetail = () => {
     const eventAttendance = attendance.filter(a => a.event_id === event.id && isActualAttendance(a));
     // Deduplicate by email
     const uniqueEmails = new Set(eventAttendance.map(a => a.attendee_email));
-    const weight = eventWeightMap.get(event.id) ?? 1;
     return {
       name: format(new Date(event.event_date), 'MMM d'),
       fullName: event.name,
-      attendance: uniqueEmails.size * weight,
+      attendance: uniqueEmails.size,
     };
   });
 
@@ -613,11 +734,18 @@ const SeasonDetail = () => {
         .filter(a => a.event_id === event.id && isActualAttendance(a))
         .map(a => a.attendee_email)
     );
-    const weight = eventWeightMap.get(event.id) ?? 1;
-    return sum + eventEmails.size * weight;
+    return sum + eventEmails.size;
+  }, 0);
+  const totalWeightedAttendance = events.reduce((sum, event) => {
+    const eventEmails = new Set(
+      attendance
+        .filter(a => a.event_id === event.id && isActualAttendance(a))
+        .map(a => a.attendee_email),
+    );
+    return sum + eventEmails.size * (eventWeightMap.get(event.id) ?? 1);
   }, 0);
   const uniqueAttendees = memberStats.filter(member => member.eventsAttended > 0).length;
-  const avgAttendance = totalWeight > 0 ? Math.round(totalUniqueAttendance / totalWeight) : 0;
+  const avgAttendance = events.length > 0 ? Math.round(totalUniqueAttendance / events.length) : 0;
   const getNotAttendedCount = (member: MemberStats) =>
     Math.max(0, totalWeight - member.eventsAttended - member.eventsExcused);
 
@@ -878,7 +1006,7 @@ const SeasonDetail = () => {
                   <UserCheck className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{totalUniqueAttendance}</p>
+                  <p className="text-2xl font-bold">{totalWeightedAttendance}</p>
                   <p className="text-sm text-muted-foreground">Total Attendance</p>
                 </div>
               </div>
@@ -1224,7 +1352,14 @@ const SeasonDetail = () => {
                   className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
                 >
                   <div>
-                    <p className="font-medium">{event.name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{event.name}</p>
+                      {getEventWeight(event) !== 1 && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                          Weight {getEventWeight(event)}x
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       {format(new Date(event.event_date), 'PPP')}
                     </p>

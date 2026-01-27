@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { format, differenceInMinutes, isSameDay } from 'date-fns';
-import { Trash2, FolderPlus, FolderMinus, Folder, Calendar, Clock, X } from 'lucide-react';
+import { Trash2, FolderPlus, FolderMinus, Folder, Calendar, Clock, UserCheck, X } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -439,7 +439,10 @@ const EventCard = ({
 
             <div className="mt-auto flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               {typeof attendeesCount === 'number' ? (
-                <span className="rounded-full bg-muted/60 px-2 py-1">{attendeesCount} attended</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-1">
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span className="font-medium">{attendeesCount}</span>
+                </span>
               ) : (
                 <span className="rounded-full bg-muted/60 px-2 py-1">No attendance</span>
               )}
@@ -465,48 +468,59 @@ const EventCard = ({
       >
         <div className="pointer-events-none absolute -left-16 -top-12 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
         <div className="pointer-events-none absolute -right-16 -bottom-14 h-28 w-28 rounded-full bg-emerald-500/10 blur-2xl" />
-        <CardContent className="relative z-10 flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:gap-5">
-          <div className="flex items-center gap-2.5 sm:flex-col sm:items-start sm:gap-1.5 sm:w-24">
-            <div className="rounded-xl border border-border/70 bg-background/70 px-2.5 py-1.5 text-center shadow-sm">
-              <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">{format(eventDate, 'EEE')}</p>
-              <p className="text-base font-semibold">{format(eventDate, 'MMM d')}</p>
-              <p className="text-xs text-muted-foreground">{format(eventDate, 'HH:mm')}</p>
-            </div>
-            {scheduleLabel && (
+        <CardContent className="relative z-10 flex flex-col gap-3 p-3">
+          <div className="flex items-center justify-between gap-2">
+            {scheduleLabel ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${event.is_active ? 'bg-success' : 'bg-muted-foreground/70'}`}
                 />
                 {event.is_active ? 'Live now' : scheduleLabel}
               </span>
+            ) : (
+              <span aria-hidden="true" />
             )}
+            {actionButtons}
           </div>
 
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <div className="space-y-1">
-              <p className="text-base font-semibold leading-snug line-clamp-1">{event.name}</p>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {format(eventDate, 'PPP')}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+            <div className="flex items-center gap-2.5 sm:flex-col sm:items-start sm:gap-1.5 sm:w-24">
+              <div className="rounded-xl border border-border/70 bg-background/70 px-2.5 py-1.5 text-center shadow-sm">
+                <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">{format(eventDate, 'EEE')}</p>
+                <p className="text-base font-semibold">{format(eventDate, 'MMM d')}</p>
+                <p className="text-xs text-muted-foreground">{format(eventDate, 'HH:mm')}</p>
+              </div>
+            </div>
+
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="space-y-1">
+                <p className="text-base font-semibold leading-snug line-clamp-1">{event.name}</p>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {format(eventDate, 'PPP')}
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                {currentSeason && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 font-medium">
+                    <Folder className="w-3 h-3" />
+                    {currentSeason.name}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-muted-foreground">
+                  {typeof attendeesCount === 'number' ? (
+                    <>
+                      <UserCheck className="h-3.5 w-3.5" />
+                      <span className="font-medium text-foreground">{attendeesCount}</span>
+                    </>
+                  ) : (
+                    'No attendance'
+                  )}
                 </span>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-[11px]">
-              {currentSeason && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 font-medium">
-                  <Folder className="w-3 h-3" />
-                  {currentSeason.name}
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-muted-foreground">
-                {typeof attendeesCount === 'number' ? `${attendeesCount} attended` : 'No attendance'}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-end">
-            {actionButtons}
           </div>
         </CardContent>
       </Card>
