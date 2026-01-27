@@ -758,7 +758,7 @@ const SeasonSanitize = () => {
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Mail className="w-4 h-4" />
-                  {emailStats.length} unique emails • {emailSuggestions.length} suggested merges
+                  {emailStats.length} unique emails • {visibleSuggestions.length} suggested merges
                 </div>
                 <Button
                   size="sm"
