@@ -11,7 +11,7 @@ const Impressum = () => {
     <div className="h-screen bg-gradient-subtle overflow-hidden flex flex-col">
       <div className="container mx-auto max-w-4xl px-4 py-4 md:py-6 flex-1 overflow-y-auto">
         <Link to="/">
-          <Button variant="ghost" className="mb-4 md:mb-6 gap-2">
+          <Button variant="glass" size="sm" className="mb-4 md:mb-6 gap-2 rounded-full px-3">
             <ArrowLeft className="h-4 w-4" />
             Zurück zur Startseite
           </Button>

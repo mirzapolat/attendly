@@ -642,7 +642,7 @@ const SeasonSanitize = () => {
           </p>
         </div>
         <Link to={`/seasons/${season.id}`}>
-          <Button variant="outline">
+          <Button variant="glass" size="sm" className="rounded-full px-3">
             <ArrowLeft className="w-4 h-4" />
             Back to season
           </Button>

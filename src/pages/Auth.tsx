@@ -178,10 +178,12 @@ const Auth = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle flex flex-col">
       <header className="p-6">
-        <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Link>
+        <Button asChild variant="glass" size="sm" className="rounded-full px-3">
+          <Link to="/">
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Link>
+        </Button>
       </header>
 
       <main className="flex-1 flex items-center justify-center px-6 pb-12">

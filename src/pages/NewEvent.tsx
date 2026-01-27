@@ -221,10 +221,12 @@ const NewEvent = () => {
     <div className="min-h-screen bg-gradient-subtle">
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-6 h-16 flex items-center">
-          <Link to="/dashboard" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-            Back to Events
-          </Link>
+          <Button asChild variant="glass" size="sm" className="rounded-full px-3">
+            <Link to="/dashboard">
+              <ArrowLeft className="w-4 h-4" />
+              Back to Events
+            </Link>
+          </Button>
         </div>
       </header>
 

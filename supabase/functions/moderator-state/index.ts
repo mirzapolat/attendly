@@ -261,13 +261,17 @@ serve(async (req) => {
 
     const { data: workspace } = await admin
       .from("workspaces")
-      .select("brand_logo_url")
+      .select("brand_logo_url, brand_color")
       .eq("id", nextEvent.workspace_id)
       .maybeSingle();
 
     return respond({
       authorized: true,
-      event: { ...nextEvent, brand_logo_url: workspace?.brand_logo_url ?? null },
+      event: {
+        ...nextEvent,
+        brand_logo_url: workspace?.brand_logo_url ?? null,
+        theme_color: workspace?.brand_color ?? "default",
+      },
       attendance,
     });
   } catch (error) {

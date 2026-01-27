@@ -56,6 +56,7 @@
     --gradient-primary: linear-gradient(135deg, hsl(160, 84%, 39%) 0%, hsl(160, 84%, 29%) 100%);
     --gradient-subtle: linear-gradient(180deg, hsl(0, 0%, 100%) 0%, hsl(220, 14%, 98%) 100%);
     --gradient-card: linear-gradient(135deg, hsl(0, 0%, 100%) 0%, hsl(220, 20%, 99%) 100%);
+    --page-bg-end: 220 14% 98%;
 
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -111,6 +112,7 @@
     --gradient-primary: linear-gradient(135deg, hsl(160, 72%, 47%) 0%, hsl(160, 72%, 37%) 100%);
     --gradient-subtle: linear-gradient(180deg, hsl(220, 20%, 7%) 0%, hsl(220, 20%, 10%) 100%);
     --gradient-card: linear-gradient(135deg, hsl(220, 20%, 10%) 0%, hsl(220, 20%, 12%) 100%);
+    --page-bg-end: 220 20% 10%;
 
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
@@ -187,6 +189,51 @@
   .bg-gradient-card {
     background: var(--gradient-card);
     box-shadow: none;
+  }
+
+  .filter-cloudy {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .filter-cloudy::before,
+  .filter-cloudy::after {
+    content: "";
+    position: absolute;
+    inset: -45% -30%;
+    background:
+      radial-gradient(closest-side, var(--cloudy-color, hsl(var(--primary))) 0%, transparent 70%),
+      radial-gradient(closest-side, var(--cloudy-color, hsl(var(--primary))) 0%, transparent 76%),
+      radial-gradient(closest-side, var(--cloudy-color, hsl(var(--primary))) 0%, transparent 82%);
+    opacity: 0.18;
+    filter: blur(16px);
+    animation: cloudy-drift 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .filter-cloudy::after {
+    inset: -40% -25%;
+    opacity: 0.12;
+    animation-duration: 8s;
+    animation-direction: reverse;
+  }
+
+  .filter-cloudy > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .filter-cloudy-primary {
+    --cloudy-color: hsl(var(--primary));
+  }
+
+  .filter-cloudy-success {
+    --cloudy-color: hsl(var(--success));
+  }
+
+  .filter-cloudy-warning {
+    --cloudy-color: hsl(var(--warning));
   }
 
   .shadow-glow {
@@ -268,6 +315,18 @@
   }
   50% {
     opacity: 0.7;
+  }
+}
+
+@keyframes cloudy-drift {
+  0% {
+    transform: translate(-6%, 2%) scale(1);
+  }
+  50% {
+    transform: translate(6%, -4%) scale(1.05);
+  }
+  100% {
+    transform: translate(-6%, 2%) scale(1);
   }
 }
 

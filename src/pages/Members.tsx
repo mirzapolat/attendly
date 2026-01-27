@@ -376,20 +376,20 @@ const Members = () => {
               {filteredMembers.map((member) => {
                 const isWorkspaceOwner = member.profile_id === currentWorkspace?.owner_id;
                 const isSelf = member.profile_id === user?.id;
-            const highlightOwner = isWorkspaceOwner && isSelf;
-            const highlightSelf = isSelf && !isWorkspaceOwner;
-            return (
-              <div
-                key={member.profile_id}
-                className="px-4 py-3 border-l-4 border-transparent"
-                style={
-                  highlightOwner
-                    ? { borderLeftColor: '#f59e0b', backgroundColor: '#f59e0b1A' }
-                    : highlightSelf
-                      ? { borderLeftColor: brandColor, backgroundColor: `${brandColor}1A` }
-                      : undefined
-                }
-              >
+                const highlightOwner = isWorkspaceOwner;
+                const highlightSelf = isSelf && !isWorkspaceOwner;
+                return (
+                  <div
+                    key={member.profile_id}
+                    className="px-4 py-3 border-l-4 border-transparent"
+                    style={
+                      highlightOwner
+                        ? { borderLeftColor: '#f59e0b', backgroundColor: '#f59e0b1A' }
+                        : highlightSelf
+                          ? { borderLeftColor: brandColor, backgroundColor: `${brandColor}1A` }
+                          : undefined
+                    }
+                  >
                     <div
                       className={`grid gap-3 items-center ${
                         showActions

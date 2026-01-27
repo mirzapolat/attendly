@@ -38,6 +38,7 @@ interface EventCardProps {
   onEventUpdated: () => void;
   onDragStart?: (eventId: string) => void;
   onDragEnd?: () => void;
+  variant?: 'list' | 'grid';
 }
 
 const EventCard = ({
@@ -48,6 +49,7 @@ const EventCard = ({
   onEventUpdated,
   onDragStart,
   onDragEnd,
+  variant = 'list',
 }: EventCardProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -116,6 +118,8 @@ const EventCard = ({
   };
 
   const currentSeason = seasons.find((s) => s.id === event.season_id);
+  const eventDate = new Date(event.event_date);
+  const isPastEvent = eventDate.getTime() < Date.now();
 
   const handleDragStart = (dragEvent: DragEvent<HTMLDivElement>) => {
     draggingRef.current = true;
@@ -144,33 +148,101 @@ const EventCard = ({
     }
   };
 
-  return (
-    <>
-      <Card
-        className="bg-gradient-card hover:border-primary/50 transition-colors cursor-pointer active:cursor-grabbing select-none"
-        draggable
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onClick={handleCardClick}
-        onKeyDown={handleCardKeyDown}
-        role="button"
-        tabIndex={0}
+  const cardProps = {
+    draggable: true,
+    onDragStart: handleDragStart,
+    onDragEnd: handleDragEnd,
+    onClick: handleCardClick,
+    onKeyDown: handleCardKeyDown,
+    role: 'button' as const,
+    tabIndex: 0,
+  };
+
+  const actionButtons = (
+    <div
+      className="flex items-center gap-2 shrink-0"
+      onClick={(eventClick) => eventClick.stopPropagation()}
+      onPointerDown={(eventClick) => eventClick.stopPropagation()}
+    >
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setShowSeasonPicker(true)}
+        title={event.season_id ? 'Change season' : 'Assign to season'}
       >
-        <CardContent className="py-4 flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-4 flex-1 min-w-0 sm:min-w-[10rem]">
-            <div
-              className={`w-3 h-3 rounded-full shrink-0 ${event.is_active ? 'bg-success animate-pulse' : 'bg-muted-foreground'}`}
-            />
-            <div className="grid w-full gap-x-4 gap-y-1 sm:grid-cols-[minmax(10rem,1.2fr)_auto_auto_auto] sm:items-center">
-              <p className="font-medium truncate">{event.name}</p>
-              <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                <Calendar className="h-3.5 w-3.5" />
-                {format(new Date(event.event_date), 'PPP')}
-              </span>
-              <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" />
-                {format(new Date(event.event_date), 'HH:mm')}
-              </span>
+        {event.season_id ? (
+          <FolderMinus className="w-4 h-4" />
+        ) : (
+          <FolderPlus className="w-4 h-4" />
+        )}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-destructive hover:text-destructive"
+        onClick={() => setShowDeleteDialog(true)}
+        title="Delete event"
+      >
+        <Trash2 className="w-4 h-4" />
+      </Button>
+    </div>
+  );
+
+  if (variant === 'grid') {
+    return (
+      <>
+        <Card
+          className="group relative h-full min-h-[230px] overflow-hidden bg-gradient-card border border-border/80 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_18px_40px_-24px_hsl(var(--primary)/0.35)] cursor-pointer active:cursor-grabbing select-none"
+          {...cardProps}
+        >
+          <div className="pointer-events-none absolute -top-16 -right-10 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-10 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl" />
+          <CardContent className="relative z-10 flex h-full flex-col gap-4 p-5">
+            <div className="flex items-start justify-between gap-3">
+              {(event.is_active || !isPastEvent) && (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      event.is_active ? 'bg-success animate-pulse' : 'bg-muted-foreground/60'
+                    }`}
+                  />
+                  <span className={`text-xs font-semibold ${event.is_active ? 'text-success' : 'text-muted-foreground'}`}>
+                    {event.is_active ? 'Live' : 'Scheduled'}
+                  </span>
+                </div>
+              )}
+              <div
+                className="flex items-center gap-2 opacity-70 transition-opacity group-hover:opacity-100"
+                onClick={(eventClick) => eventClick.stopPropagation()}
+                onPointerDown={(eventClick) => eventClick.stopPropagation()}
+              >
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setShowSeasonPicker(true)}
+                  title={event.season_id ? 'Change season' : 'Assign to season'}
+                >
+                  {event.season_id ? (
+                    <FolderMinus className="w-4 h-4" />
+                  ) : (
+                    <FolderPlus className="w-4 h-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                  title="Delete event"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-lg font-semibold leading-snug line-clamp-2">{event.name}</p>
               {currentSeason && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium w-fit">
                   <Folder className="w-3 h-3" />
@@ -178,43 +250,81 @@ const EventCard = ({
                 </span>
               )}
             </div>
+
+            <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2 text-sm text-muted-foreground shadow-sm">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <span className="font-medium text-foreground">{format(eventDate, 'EEE, MMM d')}</span>
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-xs">
+                <Clock className="h-3.5 w-3.5" />
+                <span>{format(eventDate, 'HH:mm')}</span>
+              </div>
+            </div>
+
+            <div className="mt-auto flex items-center gap-2 text-xs text-muted-foreground">
+              {typeof attendeesCount === 'number' ? (
+                <span className="rounded-full bg-muted/60 px-2 py-1">{attendeesCount} attended</span>
+              ) : (
+                <span className="rounded-full bg-muted/60 px-2 py-1">No attendance</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Card
+        className="group relative overflow-hidden bg-gradient-card border border-border/80 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_18px_40px_-30px_hsl(var(--primary)/0.35)] cursor-pointer active:cursor-grabbing select-none"
+        {...cardProps}
+      >
+        <div className="pointer-events-none absolute -left-16 -top-12 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
+        <div className="pointer-events-none absolute -right-16 -bottom-14 h-28 w-28 rounded-full bg-emerald-500/10 blur-2xl" />
+        <CardContent className="relative z-10 flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:gap-5">
+          <div className="flex items-center gap-2.5 sm:flex-col sm:items-start sm:gap-1.5 sm:w-24">
+            <div className="rounded-xl border border-border/70 bg-background/70 px-2.5 py-1.5 text-center shadow-sm">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">{format(eventDate, 'EEE')}</p>
+              <p className="text-base font-semibold">{format(eventDate, 'MMM d')}</p>
+              <p className="text-xs text-muted-foreground">{format(eventDate, 'HH:mm')}</p>
+            </div>
+            {(event.is_active || !isPastEvent) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${event.is_active ? 'bg-success' : 'bg-muted-foreground/70'}`}
+                />
+                {event.is_active ? 'Live now' : 'Scheduled'}
+              </span>
+            )}
           </div>
-          <div
-            className="flex flex-wrap items-center gap-2 shrink-0"
-            onClick={(eventClick) => eventClick.stopPropagation()}
-            onPointerDown={(eventClick) => eventClick.stopPropagation()}
-          >
-            {typeof attendeesCount === 'number' && (
-              <span className="text-xs rounded-full bg-muted/60 text-muted-foreground px-2 py-1 whitespace-nowrap">
-                {attendeesCount} attended
+
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="space-y-1">
+              <p className="text-base font-semibold leading-snug line-clamp-1">{event.name}</p>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {format(eventDate, 'PPP')}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              {currentSeason && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 font-medium">
+                  <Folder className="w-3 h-3" />
+                  {currentSeason.name}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-muted-foreground">
+                {typeof attendeesCount === 'number' ? `${attendeesCount} attended` : 'No attendance'}
               </span>
-            )}
-            {event.is_active && (
-              <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full whitespace-nowrap">
-                Active
-              </span>
-            )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowSeasonPicker(true)}
-                title={event.season_id ? 'Change season' : 'Assign to season'}
-              >
-                {event.season_id ? (
-                  <FolderMinus className="w-4 h-4" />
-                ) : (
-                  <FolderPlus className="w-4 h-4" />
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                onClick={() => setShowDeleteDialog(true)}
-                title="Delete event"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-end">
+            {actionButtons}
           </div>
         </CardContent>
       </Card>

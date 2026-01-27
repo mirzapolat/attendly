@@ -700,10 +700,12 @@ const SeasonDetail = () => {
     <div className="min-h-screen bg-gradient-subtle">
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/seasons" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Seasons</span>
-          </Link>
+          <Button asChild variant="glass" size="sm" className="rounded-full px-3">
+            <Link to="/seasons">
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Seasons</span>
+            </Link>
+          </Button>
           <div className="flex items-center gap-2">
             <Link to={`/seasons/${season.id}/sanitize`}>
               <Button

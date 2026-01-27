@@ -24,6 +24,7 @@ interface WorkspaceInvite {
   responded_at?: string | null;
   workspaces?: {
     name: string;
+    brand_logo_url?: string | null;
   } | null;
   inviter?: {
     full_name: string | null;
@@ -38,6 +39,7 @@ interface AcceptedInvite {
   responded_at?: string | null;
   workspaces?: {
     name: string;
+    brand_logo_url?: string | null;
   } | null;
   invitee_name?: string;
 }
@@ -101,13 +103,13 @@ const WorkspaceHeader = ({
     const [pendingRes, acceptedRes, notificationsRes] = await Promise.all([
       supabase
         .from('workspace_invites')
-        .select('id, workspace_id, invited_by, invited_email, created_at, workspaces ( name ), inviter:profiles ( full_name, email )')
+        .select('id, workspace_id, invited_by, invited_email, created_at, workspaces ( name, brand_logo_url ), inviter:profiles ( full_name, email )')
         .eq('invited_email', user.email)
         .eq('status', 'pending')
         .order('created_at', { ascending: false }),
       supabase
         .from('workspace_invites')
-        .select('id, workspace_id, invited_email, responded_at, workspaces ( name, owner_id )')
+        .select('id, workspace_id, invited_email, responded_at, workspaces ( name, owner_id, brand_logo_url )')
         .eq('status', 'accepted')
         .eq('workspaces.owner_id', user.id)
         .order('responded_at', { ascending: false })
@@ -282,12 +284,27 @@ const WorkspaceHeader = ({
                       invite.inviter?.full_name ??
                       invite.inviter?.email ??
                       'Someone';
+                    const workspaceName = invite.workspaces?.name ?? 'Unknown workspace';
+                    const workspaceLogo = invite.workspaces?.brand_logo_url ?? null;
                     return (
                       <div key={invite.id} className="space-y-2">
-                        <p className="text-sm font-medium">
-                          {inviterName} invited you to workspace:{' '}
-                          {invite.workspaces?.name ?? 'Unknown workspace'}
-                        </p>
+                        <div className="flex items-center gap-3">
+                          {workspaceLogo ? (
+                            <img
+                              src={workspaceLogo}
+                              alt={`${workspaceName} logo`}
+                              className="h-9 w-9 rounded-full border border-border object-cover bg-background"
+                            />
+                          ) : (
+                            <div className="h-9 w-9 rounded-full border border-border bg-muted/70 text-sm font-semibold text-muted-foreground flex items-center justify-center">
+                              {workspaceName.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <p className="text-sm font-medium">
+                            {inviterName} invited you to workspace{' '}
+                            <span className="font-semibold text-foreground">{workspaceName}</span>
+                          </p>
+                        </div>
                         <div className="flex items-center gap-2">
                           <Button
                             size="sm"

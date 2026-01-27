@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Calendar, Plus, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Calendar, LayoutGrid, List, Plus, Search, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -44,6 +44,7 @@ const Dashboard = () => {
   const [seasonPickerPage, setSeasonPickerPage] = useState(1);
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'attendance' | 'created' | 'season'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
   const seasonPickerPrevTimer = useRef<number | null>(null);
   const seasonPickerNextTimer = useRef<number | null>(null);
   const [seasonPagerHover, setSeasonPagerHover] = useState<'prev' | 'next' | null>(null);
@@ -188,6 +189,36 @@ const Dashboard = () => {
 
   const paginatedEvents = sortedEvents;
 
+  const { todayEvents, upcomingEvents, pastEvents } = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+    const today: Event[] = [];
+    const upcoming: Event[] = [];
+    const past: Event[] = [];
+
+    paginatedEvents.forEach((event) => {
+      const eventTime = Date.parse(event.event_date);
+      if (!Number.isNaN(eventTime)) {
+        if (eventTime >= startOfToday && eventTime < endOfToday) {
+          today.push(event);
+          return;
+        }
+        if (eventTime < startOfToday) {
+          past.push(event);
+          return;
+        }
+      }
+      upcoming.push(event);
+    });
+
+    return { todayEvents: today, upcomingEvents: upcoming, pastEvents: past };
+  }, [paginatedEvents]);
+
+  const eventsGridClass = viewMode === 'grid'
+    ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3 items-stretch'
+    : 'grid gap-3';
+
   const handleAssignSeason = async (eventId: string, seasonId: string) => {
     dropHandledRef.current = true;
     try {
@@ -256,7 +287,70 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold">Events</h1>
           <p className="text-muted-foreground">Plan, launch, and manage attendance.</p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {events.length > 0 && (
+            <>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search events..."
+                  value={eventSearch}
+                  onChange={(event) => setEventSearch(event.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">Event date</SelectItem>
+                  <SelectItem value="name">Alphabetically</SelectItem>
+                  <SelectItem value="attendance">Attendance amount</SelectItem>
+                  <SelectItem value="created">Created date</SelectItem>
+                  <SelectItem value="season">Season assigned</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 w-10 p-0"
+                onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
+              >
+                {sortDirection === 'asc' ? (
+                  <>
+                    <ArrowUp className="w-4 h-4" />
+                    <span className="sr-only">Ascending</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowDown className="w-4 h-4" />
+                    <span className="sr-only">Descending</span>
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 w-10 p-0"
+                onClick={() => setViewMode((prev) => (prev === 'list' ? 'grid' : 'list'))}
+                title={viewMode === 'list' ? 'Switch to grid view' : 'Switch to list view'}
+              >
+                {viewMode === 'list' ? (
+                  <>
+                    <LayoutGrid className="w-4 h-4" />
+                    <span className="sr-only">Grid view</span>
+                  </>
+                ) : (
+                  <>
+                    <List className="w-4 h-4" />
+                    <span className="sr-only">List view</span>
+                  </>
+                )}
+              </Button>
+            </>
+          )}
           <Link to="/events/new">
             <Button variant="hero">
               <Plus className="w-4 h-4" />
@@ -264,54 +358,6 @@ const Dashboard = () => {
             </Button>
           </Link>
         </div>
-      </div>
-
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <h2 className="text-xl font-semibold">Recent events</h2>
-        {events.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search events..."
-                value={eventSearch}
-                onChange={(event) => setEventSearch(event.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date">Event date</SelectItem>
-                <SelectItem value="name">Alphabetically</SelectItem>
-                <SelectItem value="attendance">Attendance amount</SelectItem>
-                <SelectItem value="created">Created date</SelectItem>
-                <SelectItem value="season">Season assigned</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-9 w-10 p-0"
-              onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-              title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
-            >
-              {sortDirection === 'asc' ? (
-                <>
-                  <ArrowUp className="w-4 h-4" />
-                  <span className="sr-only">Ascending</span>
-                </>
-              ) : (
-                <>
-                  <ArrowDown className="w-4 h-4" />
-                  <span className="sr-only">Descending</span>
-                </>
-              )}
-            </Button>
-          </div>
-        )}
       </div>
 
       {loading ? (
@@ -336,34 +382,126 @@ const Dashboard = () => {
         </Card>
       ) : (
         <>
-          <div className="grid gap-3">
-            {paginatedEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                attendeesCount={attendanceCounts[event.id] ?? 0}
-                seasons={seasons}
-                onEventDeleted={fetchData}
-                onEventUpdated={fetchData}
-                onDragStart={(eventId) => {
-                  dropHandledRef.current = false;
-                  draggingEventRef.current = eventId;
-                  setDraggingEventId(eventId);
-                }}
-                onDragEnd={() => {
-                  window.setTimeout(() => {
-                    if (!dropHandledRef.current) {
-                      setDraggingEventId(null);
-                      setDraggingOverSeasonId(null);
-                      draggingEventRef.current = null;
-                      clearSeasonHoverTimers();
-                    }
-                  }, 60);
-                }}
-              />
-            ))}
+          {todayEvents.length > 0 && (
+            <div className="mb-10">
+              <h2 className="text-xl font-semibold mb-4">Events today</h2>
+              <div className={eventsGridClass}>
+                {todayEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    attendeesCount={attendanceCounts[event.id] ?? 0}
+                    seasons={seasons}
+                    onEventDeleted={fetchData}
+                    onEventUpdated={fetchData}
+                    variant={viewMode}
+                    onDragStart={(eventId) => {
+                      dropHandledRef.current = false;
+                      draggingEventRef.current = eventId;
+                      setDraggingEventId(eventId);
+                    }}
+                    onDragEnd={() => {
+                      window.setTimeout(() => {
+                        if (!dropHandledRef.current) {
+                          setDraggingEventId(null);
+                          setDraggingOverSeasonId(null);
+                          draggingEventRef.current = null;
+                          clearSeasonHoverTimers();
+                        }
+                      }, 60);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <h2 className="text-xl font-semibold">Upcoming events</h2>
+              {pastEvents.length > 0 && (
+                <Button asChild variant="glass" size="sm" className="rounded-full px-3">
+                  <a href="#past-events">Skip to past events</a>
+                </Button>
+              )}
+            </div>
+            <div className={eventsGridClass}>
+              {upcomingEvents.length === 0 ? (
+                <Card className="bg-gradient-card">
+                  <CardContent className="py-8 text-center">
+                    <p className="text-muted-foreground">No upcoming events</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                upcomingEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    attendeesCount={attendanceCounts[event.id] ?? 0}
+                    seasons={seasons}
+                    onEventDeleted={fetchData}
+                    onEventUpdated={fetchData}
+                    variant={viewMode}
+                    onDragStart={(eventId) => {
+                      dropHandledRef.current = false;
+                      draggingEventRef.current = eventId;
+                      setDraggingEventId(eventId);
+                    }}
+                    onDragEnd={() => {
+                      window.setTimeout(() => {
+                        if (!dropHandledRef.current) {
+                          setDraggingEventId(null);
+                          setDraggingOverSeasonId(null);
+                          draggingEventRef.current = null;
+                          clearSeasonHoverTimers();
+                        }
+                      }, 60);
+                    }}
+                  />
+                ))
+              )}
+            </div>
           </div>
 
+          <div id="past-events" className="mt-10">
+            <h2 className="text-xl font-semibold mb-4">Past events</h2>
+            <div className={eventsGridClass}>
+              {pastEvents.length === 0 ? (
+                <Card className="bg-gradient-card">
+                  <CardContent className="py-8 text-center">
+                    <p className="text-muted-foreground">No past events</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                pastEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    attendeesCount={attendanceCounts[event.id] ?? 0}
+                    seasons={seasons}
+                    onEventDeleted={fetchData}
+                    onEventUpdated={fetchData}
+                    variant={viewMode}
+                    onDragStart={(eventId) => {
+                      dropHandledRef.current = false;
+                      draggingEventRef.current = eventId;
+                      setDraggingEventId(eventId);
+                    }}
+                    onDragEnd={() => {
+                      window.setTimeout(() => {
+                        if (!dropHandledRef.current) {
+                          setDraggingEventId(null);
+                          setDraggingOverSeasonId(null);
+                          draggingEventRef.current = null;
+                          clearSeasonHoverTimers();
+                        }
+                      }, 60);
+                    }}
+                  />
+                ))
+              )}
+            </div>
+          </div>
         </>
       )}
 

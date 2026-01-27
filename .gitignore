@@ -25,3 +25,4 @@ dist-ssr
 
 .env
 docker-compose.yaml
+supabase-db-push.sh

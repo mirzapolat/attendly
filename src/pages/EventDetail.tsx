@@ -128,12 +128,16 @@ const EventDetail = () => {
 
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious' | 'excused'>('all');
   const [showConfetti, setShowConfetti] = useState(false);
   const [compactView, setCompactView] = useState(false);
 
   const getFingerprintKey = (record: AttendanceRecord) =>
     (record.device_fingerprint_raw ?? record.device_fingerprint ?? '').trim();
+
+  const handleStatusFilter = (next: 'all' | 'verified' | 'suspicious' | 'excused') => {
+    setStatusFilter((prev) => (prev === next && next !== 'all' ? 'all' : next));
+  };
 
   const openFingerprintMatches = (record: AttendanceRecord) => {
     const key = getFingerprintKey(record);
@@ -899,14 +903,17 @@ const EventDetail = () => {
       </Dialog>
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link
-            to="/dashboard"
-            onClick={handleDashboardClick}
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          <Button
+            asChild
+            variant="glass"
+            size="sm"
+            className="rounded-full px-3"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Events</span>
-          </Link>
+            <Link to="/dashboard" onClick={handleDashboardClick}>
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Events</span>
+            </Link>
+          </Button>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -1053,8 +1060,8 @@ const EventDetail = () => {
             {/* Stats - clickable filters */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-primary/50 ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
-                onClick={() => setStatusFilter('all')}
+                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--primary)/0.45)] ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
+                onClick={() => handleStatusFilter('all')}
               >
                 <CardContent className="py-4 text-center">
                   <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
@@ -1063,8 +1070,8 @@ const EventDetail = () => {
                 </CardContent>
               </Card>
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-warning/50 ${statusFilter === 'excused' ? 'ring-2 ring-warning' : ''}`}
-                onClick={() => setStatusFilter('excused')}
+                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] ${statusFilter === 'excused' ? 'ring-2 ring-warning filter-cloudy filter-cloudy-warning' : ''}`}
+                onClick={() => handleStatusFilter('excused')}
               >
                 <CardContent className="py-4 text-center">
                   <UserMinus className="w-5 h-5 mx-auto mb-1 text-warning" />
@@ -1073,8 +1080,8 @@ const EventDetail = () => {
                 </CardContent>
               </Card>
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-success/50 ${statusFilter === 'verified' ? 'ring-2 ring-success' : ''}`}
-                onClick={() => setStatusFilter('verified')}
+                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)] ${statusFilter === 'verified' ? 'ring-2 ring-success filter-cloudy filter-cloudy-success' : ''}`}
+                onClick={() => handleStatusFilter('verified')}
               >
                 <CardContent className="py-4 text-center">
                   <CheckCircle className="w-5 h-5 mx-auto mb-1 text-success" />
@@ -1083,8 +1090,8 @@ const EventDetail = () => {
                 </CardContent>
               </Card>
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-warning/50 ${statusFilter === 'suspicious' ? 'ring-2 ring-warning' : ''}`}
-                onClick={() => setStatusFilter('suspicious')}
+                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] ${statusFilter === 'suspicious' ? 'ring-2 ring-warning filter-cloudy filter-cloudy-warning' : ''}`}
+                onClick={() => handleStatusFilter('suspicious')}
               >
                 <CardContent className="py-4 text-center">
                   <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-warning" />
@@ -1323,12 +1330,13 @@ const EventDetail = () => {
               }
 
               return (
-                <div className={`max-h-[600px] overflow-y-auto ${compactView ? 'space-y-1' : 'space-y-2'}`}>
-                  {filteredAttendance.map((record) => (
-                  <Card key={record.id} className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}>
-                    <CardContent className={compactView ? 'py-2' : 'py-3'}>
-                      <div className="flex items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0">
+                <div className="relative">
+                  <div className={`max-h-[600px] overflow-y-auto ${compactView ? 'space-y-1' : 'space-y-2'}`}>
+                    {filteredAttendance.map((record) => (
+                    <Card key={record.id} className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}>
+                      <CardContent className={compactView ? 'py-2' : 'py-3'}>
+                        <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
                           <div className={`flex items-center gap-2 ${compactView ? 'mb-0.5' : 'mb-1'}`}>
                             <p 
                               className={`font-medium truncate ${!showAllDetails && !revealedNames.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
@@ -1481,10 +1489,13 @@ const EventDetail = () => {
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                    <div className="hidden sm:block h-10" aria-hidden="true" />
+                  </div>
+                  <div className="pointer-events-none absolute bottom-0 left-0 right-0 hidden h-10 bg-gradient-to-t from-[hsl(var(--page-bg-end))] via-[hsl(var(--page-bg-end)/0.7)] to-transparent sm:block" />
                 </div>
               );
             })()}

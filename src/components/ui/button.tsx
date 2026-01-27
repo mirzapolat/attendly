@@ -17,6 +17,8 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         hero: "bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300",
         warning: "bg-warning text-warning-foreground hover:bg-warning/90 shadow-sm hover:shadow-md active:scale-[0.98]",
+        glass:
+          "border border-border/60 bg-background/70 text-foreground shadow-sm backdrop-blur-md hover:bg-background/90 hover:border-border/80 hover:shadow-md active:scale-[0.98]",
       },
       size: {
         default: "h-10 px-4 py-2",

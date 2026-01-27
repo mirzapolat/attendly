@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -7,13 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useConfirm } from '@/hooks/useConfirm';
+import { applyThemeColor, useThemeColor } from '@/hooks/useThemeColor';
 import { QRCodeSVG } from 'qrcode.react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { 
-  ArrowLeft, QrCode, Users, MapPin, Calendar, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Copy, Radio, Search, UserMinus
+  QrCode, Users, MapPin, Calendar, Clock,
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Radio, Search, UserMinus
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -34,6 +35,7 @@ interface Event {
   moderation_enabled: boolean;
   moderator_show_full_name: boolean;
   moderator_show_email: boolean;
+  theme_color?: string | null;
   brand_logo_url?: string | null;
 }
 
@@ -77,6 +79,7 @@ const ModeratorView = () => {
   const { eventId, token } = useParams<{ eventId: string; token: string }>();
   const { toast } = useToast();
   const confirm = useConfirm();
+  const { themeColor } = useThemeColor();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -88,6 +91,7 @@ const ModeratorView = () => {
   const pollIntervalRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
   const liveUpdatesRef = useRef(true);
+  const [eventThemeColor, setEventThemeColor] = useState<string | null>(null);
 
   // Privacy controls
   const [showAllDetails, setShowAllDetails] = useState(false);
@@ -98,7 +102,6 @@ const ModeratorView = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualEmail, setManualEmail] = useState('');
-  const [manualExcused, setManualExcused] = useState(false);
   const [suggestions, setSuggestions] = useState<KnownAttendee[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -106,7 +109,11 @@ const ModeratorView = () => {
 
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious' | 'excused'>('all');
+
+  const handleStatusFilter = (next: 'all' | 'verified' | 'suspicious' | 'excused') => {
+    setStatusFilter((prev) => (prev === next && next !== 'all' ? 'all' : next));
+  };
 
   const pageTitle = event?.name ? `${event.name} - Moderator View` : 'Moderator View - Attendly';
   usePageTitle(pageTitle);
@@ -158,6 +165,7 @@ const ModeratorView = () => {
         setAuthorized(false);
         setEvent(null);
         setAttendance([]);
+        setEventThemeColor(null);
         setLoading(false);
         setUnauthorizedMessage(resolveUnauthorizedMessage('missing_params'));
         return;
@@ -176,6 +184,7 @@ const ModeratorView = () => {
         setAuthorized(false);
         setEvent(null);
         setAttendance([]);
+        setEventThemeColor(null);
         setLoading(false);
         setUnauthorizedMessage(
           reason ? resolveUnauthorizedMessage(reason) : 'Unable to reach moderation service. Please refresh and try again.'
@@ -187,6 +196,7 @@ const ModeratorView = () => {
         setAuthorized(false);
         setEvent(null);
         setAttendance([]);
+        setEventThemeColor(null);
         setLoading(false);
         setUnauthorizedMessage(resolveUnauthorizedMessage(data?.reason ?? null));
         return;
@@ -195,6 +205,7 @@ const ModeratorView = () => {
       const nextEvent = data.event as Event;
       setAuthorized(true);
       setEvent(nextEvent);
+      setEventThemeColor(nextEvent.theme_color ?? 'default');
       setUnauthorizedMessage(null);
 
       if (includeAttendance && Array.isArray(data.attendance)) {
@@ -221,6 +232,15 @@ const ModeratorView = () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, [fetchModeratorState]);
+
+  useEffect(() => {
+    if (eventThemeColor) {
+      applyThemeColor(eventThemeColor);
+      return () => applyThemeColor(themeColor);
+    }
+
+    applyThemeColor(themeColor);
+  }, [eventThemeColor, themeColor]);
 
   useEffect(() => {
     // local countdown indicator for rotating QR
@@ -304,7 +324,7 @@ const ModeratorView = () => {
     setSuggestions(data.attendees as KnownAttendee[]);
   };
 
-  const addManualAttendee = async () => {
+  const addManualAttendee = async (status: 'verified' | 'excused') => {
     if (!manualName.trim() || !manualEmail.trim()) {
       toast({
         title: 'Missing information',
@@ -321,7 +341,7 @@ const ModeratorView = () => {
         action: 'add_attendee',
         attendeeName: manualName.trim(),
         attendeeEmail: manualEmail.trim().toLowerCase(),
-        attendeeStatus: manualExcused ? 'excused' : 'verified',
+        attendeeStatus: status,
       },
     });
 
@@ -334,13 +354,13 @@ const ModeratorView = () => {
     } else {
       toast({
         title: 'Attendee added',
-        description: manualExcused
-          ? `${manualName} has been added as excused`
-          : `${manualName} has been added`,
+        description:
+          status === 'excused'
+            ? `${manualName} has been added as excused`
+            : `${manualName} has been added`,
       });
       setManualName('');
       setManualEmail('');
-      setManualExcused(false);
       setShowAddForm(false);
       setSuggestions([]);
       await fetchModeratorState({ includeAttendance: true });
@@ -492,6 +512,8 @@ const ModeratorView = () => {
 
   const verifiedCount = attendance.filter(a => a.status === 'verified' || a.status === 'cleared').length;
   const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
+  const excusedCount = attendance.filter(a => a.status === 'excused').length;
+  const attendedCount = attendance.length - excusedCount;
   const qrLogoSettings = event?.brand_logo_url
     ? { src: event.brand_logo_url, height: 56, width: 56, excavate: true }
     : undefined;
@@ -499,7 +521,7 @@ const ModeratorView = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center">
+        <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-primary" />
             <span className="font-semibold">Moderator View</span>
@@ -508,7 +530,7 @@ const ModeratorView = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-4 sm:px-6 py-8">
         <div className="grid lg:grid-cols-2 gap-8">
           {/* QR Code Section */}
           <div>
@@ -518,27 +540,35 @@ const ModeratorView = () => {
                   <QrCode className="w-5 h-5" />
                   {event.name}
                 </CardTitle>
+                {event.description && (
+                  <p className="text-sm text-muted-foreground mt-1">{event.description}</p>
+                )}
                 <CardDescription className="flex items-center gap-4 flex-wrap">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    {format(new Date(event.event_date), 'PPP p')}
+                    {format(new Date(event.event_date), 'PPP')}
+                    <Clock className="w-4 h-4" />
+                    {format(new Date(event.event_date), 'HH:mm')}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-4 h-4" />
-                    {event.location_name}
-                  </span>
+                  {event.location_check_enabled && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
+                      {event.location_name}
+                    </span>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {event.is_active ? (
                   <div className="text-center">
-                    <div className="inline-block p-4 bg-background rounded-2xl shadow-lg mb-4">
+                    <div className="inline-block w-full max-w-[240px] sm:max-w-[280px] p-3 sm:p-4 bg-background rounded-2xl shadow-lg mb-4">
                       <QRCodeSVG
                         value={qrUrl}
                         size={280}
                         level="M"
                         includeMargin
                         imageSettings={qrLogoSettings}
+                        className="w-full h-auto"
                       />
                     </div>
                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -567,10 +597,10 @@ const ModeratorView = () => {
             </Card>
 
             {/* Stats - clickable filters */}
-            <div className="grid grid-cols-3 gap-4 mt-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-primary/50 ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
-                onClick={() => setStatusFilter('all')}
+                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--primary)/0.45)] ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
+                onClick={() => handleStatusFilter('all')}
               >
                 <CardContent className="py-4 text-center">
                   <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
@@ -579,8 +609,18 @@ const ModeratorView = () => {
                 </CardContent>
               </Card>
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-success/50 ${statusFilter === 'verified' ? 'ring-2 ring-success' : ''}`}
-                onClick={() => setStatusFilter('verified')}
+                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] ${statusFilter === 'excused' ? 'ring-2 ring-warning filter-cloudy filter-cloudy-warning' : ''}`}
+                onClick={() => handleStatusFilter('excused')}
+              >
+                <CardContent className="py-4 text-center">
+                  <UserMinus className="w-5 h-5 mx-auto mb-1 text-warning" />
+                  <p className="text-2xl font-bold">{excusedCount}</p>
+                  <p className="text-xs text-muted-foreground">Excused</p>
+                </CardContent>
+              </Card>
+              <Card 
+                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)] ${statusFilter === 'verified' ? 'ring-2 ring-success filter-cloudy filter-cloudy-success' : ''}`}
+                onClick={() => handleStatusFilter('verified')}
               >
                 <CardContent className="py-4 text-center">
                   <CheckCircle className="w-5 h-5 mx-auto mb-1 text-success" />
@@ -589,8 +629,8 @@ const ModeratorView = () => {
                 </CardContent>
               </Card>
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:ring-2 hover:ring-warning/50 ${statusFilter === 'suspicious' ? 'ring-2 ring-warning' : ''}`}
-                onClick={() => setStatusFilter('suspicious')}
+                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] ${statusFilter === 'suspicious' ? 'ring-2 ring-warning filter-cloudy filter-cloudy-warning' : ''}`}
+                onClick={() => handleStatusFilter('suspicious')}
               >
                 <CardContent className="py-4 text-center">
                   <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-warning" />
@@ -603,19 +643,94 @@ const ModeratorView = () => {
 
           {/* Attendance List */}
           <div>
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div className="sm:hidden mb-4">
+              <Card className="bg-gradient-card">
+                <CardContent className="py-4 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Attendance
+                    </h2>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <span className="inline-flex items-center rounded-full bg-muted/70 px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                        Attended {attendedCount}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-muted/70 px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                        Excused {excusedCount}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-1 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowAddForm(!showAddForm)}
+                        className="gap-2 flex-1"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        Add
+                      </Button>
+                      {(canRevealName() || canRevealEmail()) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowAllDetails(!showAllDetails)}
+                          className="gap-2 flex-1"
+                        >
+                          {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          {showAllDetails ? 'Hide' : 'Details'}
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="live-updates-mobile"
+                          checked={liveUpdatesEnabled}
+                          onCheckedChange={handleLiveUpdatesToggle}
+                        />
+                        <Label htmlFor="live-updates-mobile" className="flex items-center gap-1 text-sm cursor-pointer">
+                          <Radio className={`w-3 h-3 ${liveUpdatesEnabled ? 'text-success animate-pulse' : 'text-muted-foreground'}`} />
+                          Live
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="hidden sm:flex items-center justify-between mb-4 flex-wrap gap-2">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <Users className="w-5 h-5" />
-                Attendance ({attendance.length})
+                Attendance
+                <span className="inline-flex items-center rounded-full bg-muted/70 px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                  Attended {attendedCount}
+                </span>
+                <span className="inline-flex items-center rounded-full bg-muted/70 px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                  Excused {excusedCount}
+                </span>
               </h2>
               <div className="flex gap-2 flex-wrap items-center">
                 <div className="flex items-center gap-2 mr-2">
                   <Switch
-                    id="live-updates"
+                    id="live-updates-desktop"
                     checked={liveUpdatesEnabled}
                     onCheckedChange={handleLiveUpdatesToggle}
                   />
-                  <Label htmlFor="live-updates" className="flex items-center gap-1 text-sm cursor-pointer">
+                  <Label htmlFor="live-updates-desktop" className="flex items-center gap-1 text-sm cursor-pointer">
                     <Radio className={`w-3 h-3 ${liveUpdatesEnabled ? 'text-success animate-pulse' : 'text-muted-foreground'}`} />
                     Live
                   </Label>
@@ -637,14 +752,14 @@ const ModeratorView = () => {
                     className="gap-2"
                   >
                     {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    {showAllDetails ? 'Hide' : 'Show'}
+                    {showAllDetails ? 'Hide' : 'Details'}
                   </Button>
                 )}
               </div>
             </div>
 
             {/* Search bar */}
-            <div className="relative mb-4">
+            <div className="hidden sm:block relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name..."
@@ -689,24 +804,24 @@ const ModeratorView = () => {
                       value={manualEmail}
                       onChange={(e) => setManualEmail(e.target.value)}
                     />
-                    <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-border text-warning focus:ring-warning"
-                        checked={manualExcused}
-                        onChange={(e) => setManualExcused(e.target.checked)}
-                      />
-                      Mark as excused (not attended)
-                    </label>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={addManualAttendee} className="flex-1">
-                        Add Attendee
+                      <Button size="sm" onClick={() => addManualAttendee('verified')} className="flex-1 gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        Attended
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="warning"
+                        onClick={() => addManualAttendee('excused')}
+                        className="flex-1 gap-2"
+                      >
+                        <UserMinus className="w-4 h-4" />
+                        Excused
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => {
                         setShowAddForm(false);
                         setManualName('');
                         setManualEmail('');
-                        setManualExcused(false);
                         setSuggestions([]);
                       }}>
                         Cancel
@@ -723,7 +838,8 @@ const ModeratorView = () => {
                   record.attendee_name.toLowerCase().includes(searchQuery.toLowerCase());
                 const matchesStatus = statusFilter === 'all' ||
                   (statusFilter === 'verified' && (record.status === 'verified' || record.status === 'cleared')) ||
-                  (statusFilter === 'suspicious' && record.status === 'suspicious');
+                  (statusFilter === 'suspicious' && record.status === 'suspicious') ||
+                  (statusFilter === 'excused' && record.status === 'excused');
                 return matchesSearch && matchesStatus;
               });
 
@@ -750,12 +866,13 @@ const ModeratorView = () => {
               }
 
               return (
-                <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                  {filteredAttendance.map((record) => (
-                  <Card key={record.id} className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}>
-                    <CardContent className="py-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
+                <div className="relative">
+                  <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                    {filteredAttendance.map((record) => (
+                    <Card key={record.id} className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}>
+                      <CardContent className="py-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <p 
                               className={`font-medium truncate ${canRevealName() && !showAllDetails && !revealedNames.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
@@ -874,10 +991,13 @@ const ModeratorView = () => {
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                    <div className="hidden sm:block h-10" aria-hidden="true" />
+                  </div>
+                  <div className="pointer-events-none absolute bottom-0 left-0 right-0 hidden h-10 bg-gradient-to-t from-[hsl(var(--page-bg-end))] via-[hsl(var(--page-bg-end)/0.7)] to-transparent sm:block" />
                 </div>
               );
             })()}
