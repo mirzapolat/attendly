@@ -1,6 +1,29 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Calendar, LayoutGrid, List, Plus, Search, X } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Calendar,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
+  List,
+  Plus,
+  Search,
+  X,
+} from 'lucide-react';
+import {
+  eachDayOfInterval,
+  addMonths,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  startOfMonth,
+  startOfWeek,
+} from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -44,7 +67,9 @@ const Dashboard = () => {
   const [seasonPickerPage, setSeasonPickerPage] = useState(1);
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'attendance' | 'created' | 'season'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
+  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'calendar'>('grid');
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<Date | null>(null);
   const seasonPickerPrevTimer = useRef<number | null>(null);
   const seasonPickerNextTimer = useRef<number | null>(null);
   const [seasonPagerHover, setSeasonPagerHover] = useState<'prev' | 'next' | null>(null);
@@ -221,6 +246,41 @@ const Dashboard = () => {
     ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3 items-stretch'
     : 'grid gap-3';
 
+  const calendarRange = useMemo(() => {
+    const monthStart = startOfMonth(calendarMonth);
+    const monthEnd = endOfMonth(calendarMonth);
+    const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    return { monthStart, monthEnd, gridStart, gridEnd };
+  }, [calendarMonth]);
+
+  const calendarDays = useMemo(
+    () =>
+      eachDayOfInterval({
+        start: calendarRange.gridStart,
+        end: calendarRange.gridEnd,
+      }),
+    [calendarRange],
+  );
+
+  const calendarEvents = useMemo(() => {
+    const map = new Map<string, Event[]>();
+    filteredEvents.forEach((event) => {
+      const key = format(new Date(event.event_date), 'yyyy-MM-dd');
+      const list = map.get(key) ?? [];
+      list.push(event);
+      map.set(key, list);
+    });
+    map.forEach((list) =>
+      list.sort((a, b) => Date.parse(a.event_date) - Date.parse(b.event_date)),
+    );
+    return map;
+  }, [filteredEvents]);
+
+  const weekDayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const selectedDayKey = selectedCalendarDay ? format(selectedCalendarDay, 'yyyy-MM-dd') : null;
+  const selectedDayEvents = selectedDayKey ? calendarEvents.get(selectedDayKey) ?? [] : [];
+
   const handleAssignSeason = async (eventId: string, seasonId: string) => {
     dropHandledRef.current = true;
     try {
@@ -332,25 +392,41 @@ const Dashboard = () => {
                   </>
                 )}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="hidden h-9 w-10 p-0 sm:inline-flex"
-                onClick={() => setViewMode((prev) => (prev === 'list' ? 'grid' : 'list'))}
-                title={viewMode === 'list' ? 'Switch to grid view' : 'Switch to list view'}
-              >
-                {viewMode === 'list' ? (
-                  <>
-                    <LayoutGrid className="w-4 h-4" />
-                    <span className="sr-only">Grid view</span>
-                  </>
-                ) : (
-                  <>
-                    <List className="w-4 h-4" />
-                    <span className="sr-only">List view</span>
-                  </>
-                )}
-              </Button>
+              <div className="hidden items-center gap-1 rounded-full bg-muted/40 p-1 sm:flex">
+                <Button
+                  type="button"
+                  variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setViewMode('grid')}
+                  title="Grid view"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                  <span className="sr-only">Grid view</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setViewMode('list')}
+                  title="List view"
+                >
+                  <List className="w-4 h-4" />
+                  <span className="sr-only">List view</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={viewMode === 'calendar' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setViewMode('calendar')}
+                  title="Calendar view"
+                >
+                  <CalendarDays className="w-4 h-4" />
+                  <span className="sr-only">Calendar view</span>
+                </Button>
+              </div>
             </>
           )}
           <Link to="/events/new">
@@ -380,6 +456,192 @@ const Dashboard = () => {
         <Card className="bg-gradient-card">
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">No events match your search</p>
+          </CardContent>
+        </Card>
+      ) : viewMode === 'calendar' ? (
+        <Card className="bg-gradient-card">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {format(calendarMonth, 'MMMM yyyy')}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Tap an event to open details.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCalendarMonth(new Date())}
+                >
+                  Today
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCalendarMonth((prev) => addMonths(prev, -1))}
+                  title="Previous month"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCalendarMonth((prev) => addMonths(prev, 1))}
+                  title="Next month"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-7 gap-2 text-[10px] sm:text-xs uppercase tracking-[0.22em] text-muted-foreground mb-2">
+              {weekDayLabels.map((label) => (
+                <div key={label} className="text-center">
+                  {label}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-2">
+              {calendarDays.map((day) => {
+                const dayKey = format(day, 'yyyy-MM-dd');
+                const dayEvents = calendarEvents.get(dayKey) ?? [];
+                const dayIsToday = isSameDay(day, new Date());
+                const isCurrentMonth = isSameMonth(day, calendarMonth);
+                const visibleEvents = dayEvents.slice(0, 2);
+                const extraCount = Math.max(0, dayEvents.length - visibleEvents.length);
+                return (
+                  <button
+                    type="button"
+                    key={dayKey}
+                    onClick={() => setSelectedCalendarDay(day)}
+                    className={`rounded-xl border p-2 min-h-[88px] sm:min-h-[120px] flex flex-col gap-1 text-left transition-all hover:border-primary/40 hover:bg-background/90 ${
+                      isCurrentMonth
+                        ? 'border-border/70 bg-background/70'
+                        : 'border-border/40 bg-muted/40 text-muted-foreground'
+                    } ${dayIsToday ? 'ring-1 ring-primary/40 filter-cloudy filter-cloudy-primary bg-primary/5' : ''}`}
+                  >
+                    <div className="flex items-center justify-between text-[10px] sm:text-xs">
+                      <span
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${
+                          dayIsToday ? 'bg-primary/10 text-primary font-semibold' : 'text-foreground'
+                        }`}
+                      >
+                        {format(day, 'd')}
+                      </span>
+                      {dayEvents.length > 0 && (
+                        <span className="text-[9px] text-muted-foreground">
+                          {dayEvents.length} event{dayEvents.length === 1 ? '' : 's'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      {visibleEvents.map((event) => (
+                        <div
+                          key={event.id}
+                          className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/80 px-2 py-1 text-[10px]"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{event.name}</p>
+                            <p className="text-[9px] text-muted-foreground">
+                              {format(new Date(event.event_date), 'HH:mm')}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end leading-none">
+                            <span className="text-sm sm:text-base font-semibold">
+                              {attendanceCounts[event.id] ?? 0}
+                            </span>
+                            <span className="text-[8px] uppercase tracking-[0.2em] text-muted-foreground">
+                              attended
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      {extraCount > 0 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          +{extraCount} more
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {selectedCalendarDay && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm p-4"
+                onClick={() => setSelectedCalendarDay(null)}
+              >
+                <div
+                  className="w-full max-w-2xl rounded-2xl border border-border bg-background shadow-lg p-6"
+                  onClick={(eventClick) => eventClick.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                        {format(selectedCalendarDay, 'EEEE')}
+                      </p>
+                      <h3 className="text-lg font-semibold">
+                        {format(selectedCalendarDay, 'MMMM d, yyyy')}
+                      </h3>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setSelectedCalendarDay(null)} title="Close">
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <p className="text-sm text-muted-foreground">
+                      {selectedDayEvents.length === 0
+                        ? 'No events scheduled for this day.'
+                        : `${selectedDayEvents.length} event${selectedDayEvents.length === 1 ? '' : 's'} scheduled.`}
+                    </p>
+                    <Link
+                      to={`/events/new?date=${format(selectedCalendarDay, 'yyyy-MM-dd')}`}
+                      onClick={() => setSelectedCalendarDay(null)}
+                    >
+                      <Button variant="hero" size="sm" className="gap-2">
+                        <Plus className="w-4 h-4" />
+                        Add event
+                      </Button>
+                    </Link>
+                  </div>
+
+                  {selectedDayEvents.length > 0 && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {selectedDayEvents.map((event) => (
+                        <Link
+                          key={event.id}
+                          to={`/events/${event.id}`}
+                          className="group flex items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 px-4 py-3 hover:border-primary/40 transition-colors"
+                          onClick={() => setSelectedCalendarDay(null)}
+                        >
+                          <div>
+                            <p className="font-medium group-hover:text-primary transition-colors">
+                              {event.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(event.event_date), 'HH:mm')}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end leading-none">
+                            <span className="text-2xl font-semibold">
+                              {attendanceCounts[event.id] ?? 0}
+                            </span>
+                            <span className="text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
+                              attended
+                            </span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -436,80 +698,70 @@ const Dashboard = () => {
           )}
 
           <div>
-            <div className="flex flex-wrap items-center gap-3 mb-4">
-              <h2 className="text-xl font-semibold">Upcoming events</h2>
-              {pastEvents.length > 0 && (
-                <Button asChild variant="glass" size="sm" className="rounded-full px-3">
-                  <a href="#past-events">Skip to past events</a>
-                </Button>
-              )}
-            </div>
-            <div className={eventsGridClass}>
-              {upcomingEvents.length === 0 ? (
-                <Card className="bg-gradient-card">
-                  <CardContent className="py-8 text-center">
-                    <p className="text-muted-foreground">No upcoming events</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                upcomingEvents.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    attendeesCount={attendanceCounts[event.id] ?? 0}
-                    seasons={seasons}
-                    onEventDeleted={fetchData}
-                    onEventUpdated={fetchData}
-                    variant={viewMode}
-                    onDragStart={(eventId) => {
-                      dropHandledRef.current = false;
-                      draggingEventRef.current = eventId;
-                      dragStartTimeRef.current = Date.now();
-                      if (dragOverlayTimerRef.current) {
-                        window.clearTimeout(dragOverlayTimerRef.current);
-                      }
-                      dragOverlayTimerRef.current = window.setTimeout(() => {
-                        setDraggingEventId(eventId);
-                      }, 80);
-                    }}
-                    onDragEnd={() => {
-                      if (dragOverlayTimerRef.current) {
-                        window.clearTimeout(dragOverlayTimerRef.current);
-                        dragOverlayTimerRef.current = null;
-                      }
-                      window.setTimeout(() => {
-                        if (dropHandledRef.current) {
-                          return;
+            {upcomingEvents.length > 0 && (
+              <>
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  <h2 className="text-xl font-semibold">Upcoming events</h2>
+                  {pastEvents.length > 0 && (
+                    <Button asChild variant="glass" size="sm" className="rounded-full px-3">
+                      <a href="#past-events">Skip to past events</a>
+                    </Button>
+                  )}
+                </div>
+                <div className={eventsGridClass}>
+                  {upcomingEvents.map((event) => (
+                    <EventCard
+                      key={event.id}
+                      event={event}
+                      attendeesCount={attendanceCounts[event.id] ?? 0}
+                      seasons={seasons}
+                      onEventDeleted={fetchData}
+                      onEventUpdated={fetchData}
+                      variant={viewMode}
+                      onDragStart={(eventId) => {
+                        dropHandledRef.current = false;
+                        draggingEventRef.current = eventId;
+                        dragStartTimeRef.current = Date.now();
+                        if (dragOverlayTimerRef.current) {
+                          window.clearTimeout(dragOverlayTimerRef.current);
                         }
-                        const elapsed = dragStartTimeRef.current
-                          ? Date.now() - dragStartTimeRef.current
-                          : 0;
-                        if (elapsed < 200) {
-                          return;
+                        dragOverlayTimerRef.current = window.setTimeout(() => {
+                          setDraggingEventId(eventId);
+                        }, 80);
+                      }}
+                      onDragEnd={() => {
+                        if (dragOverlayTimerRef.current) {
+                          window.clearTimeout(dragOverlayTimerRef.current);
+                          dragOverlayTimerRef.current = null;
                         }
-                        setDraggingEventId(null);
-                        setDraggingOverSeasonId(null);
-                        draggingEventRef.current = null;
-                        clearSeasonHoverTimers();
-                      }, 60);
-                    }}
-                  />
-                ))
-              )}
-            </div>
+                        window.setTimeout(() => {
+                          if (dropHandledRef.current) {
+                            return;
+                          }
+                          const elapsed = dragStartTimeRef.current
+                            ? Date.now() - dragStartTimeRef.current
+                            : 0;
+                          if (elapsed < 200) {
+                            return;
+                          }
+                          setDraggingEventId(null);
+                          setDraggingOverSeasonId(null);
+                          draggingEventRef.current = null;
+                          clearSeasonHoverTimers();
+                        }, 60);
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
-          <div id="past-events" className="mt-10">
-            <h2 className="text-xl font-semibold mb-4">Past events</h2>
-            <div className={eventsGridClass}>
-              {pastEvents.length === 0 ? (
-                <Card className="bg-gradient-card">
-                  <CardContent className="py-8 text-center">
-                    <p className="text-muted-foreground">No past events</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                pastEvents.map((event) => (
+          {pastEvents.length > 0 && (
+            <div id="past-events" className="mt-10">
+              <h2 className="text-xl font-semibold mb-4">Past events</h2>
+              <div className={eventsGridClass}>
+                {pastEvents.map((event) => (
                   <EventCard
                     key={event.id}
                     event={event}
@@ -551,10 +803,10 @@ const Dashboard = () => {
                       }, 60);
                     }}
                   />
-                ))
-              )}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
 

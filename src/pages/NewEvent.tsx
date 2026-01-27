@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,6 +51,7 @@ const NewEvent = () => {
   const { user, loading: authLoading } = useAuth();
   const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
   const [name, setName] = useState('');
@@ -70,6 +71,7 @@ const NewEvent = () => {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const appliedDateParamRef = useRef(false);
 
   // Security features
   const [rotatingQrEnabled, setRotatingQrEnabled] = useState(true);
@@ -96,6 +98,37 @@ const NewEvent = () => {
       fetchSeasons();
     }
   }, [currentWorkspace]);
+
+  useEffect(() => {
+    if (appliedDateParamRef.current) return;
+    const dateParam = searchParams.get('date');
+    if (!dateParam) return;
+
+    const toLocalInput = (date: Date) => {
+      const local = new Date(date);
+      local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+      return local.toISOString().slice(0, 16);
+    };
+
+    if (dateParam.includes('T')) {
+      const parsed = new Date(dateParam);
+      if (!Number.isNaN(parsed.getTime())) {
+        setEventDate(toLocalInput(parsed));
+        appliedDateParamRef.current = true;
+      }
+      return;
+    }
+
+    const parts = dateParam.split('-').map(Number);
+    if (parts.length === 3 && parts.every((part) => Number.isFinite(part))) {
+      const [year, month, day] = parts;
+      const base = new Date();
+      base.setFullYear(year, month - 1, day);
+      base.setSeconds(0, 0);
+      setEventDate(toLocalInput(base));
+      appliedDateParamRef.current = true;
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!rotatingQrEnabled) {

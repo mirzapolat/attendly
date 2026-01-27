@@ -519,7 +519,7 @@ const ModeratorView = () => {
     : undefined;
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-gradient-subtle overflow-x-hidden">
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -530,18 +530,18 @@ const ModeratorView = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 sm:px-6 py-8">
+      <main className="container mx-auto px-4 sm:px-6 py-8 overflow-x-hidden">
         <div className="grid lg:grid-cols-2 gap-8">
           {/* QR Code Section */}
-          <div>
+          <div className="min-w-0">
             <Card className="bg-gradient-card">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-start gap-2 flex-wrap min-w-0">
                   <QrCode className="w-5 h-5" />
-                  {event.name}
+                  <span className="min-w-0 break-words">{event.name}</span>
                 </CardTitle>
                 {event.description && (
-                  <p className="text-sm text-muted-foreground mt-1">{event.description}</p>
+                  <p className="text-sm text-muted-foreground mt-1 break-words">{event.description}</p>
                 )}
                 <CardDescription className="flex items-center gap-4 flex-wrap">
                   <span className="flex items-center gap-1">
@@ -551,7 +551,7 @@ const ModeratorView = () => {
                     {format(new Date(event.event_date), 'HH:mm')}
                   </span>
                   {event.location_check_enabled && (
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 min-w-0 break-words">
                       <MapPin className="w-4 h-4" />
                       {event.location_name}
                     </span>
@@ -642,7 +642,7 @@ const ModeratorView = () => {
           </div>
 
           {/* Attendance List */}
-          <div>
+          <div className="min-w-0">
             <div className="sm:hidden mb-4">
               <Card className="bg-gradient-card">
                 <CardContent className="py-4 space-y-4">
@@ -918,7 +918,7 @@ const ModeratorView = () => {
                           </div>
                           {record.suspicious_reason && (
                             <div className="flex items-center gap-2 mt-1">
-                              <p className="text-xs text-warning flex items-center gap-1">
+                              <p className="text-xs text-warning flex items-center gap-1 break-words">
                                 <AlertTriangle className="w-3 h-3" />
                                 {record.suspicious_reason}
                               </p>

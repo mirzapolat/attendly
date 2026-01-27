@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { format, differenceInMinutes } from 'date-fns';
+import { format, differenceInMinutes, isSameDay } from 'date-fns';
 import { Trash2, FolderPlus, FolderMinus, Folder, Calendar, Clock, X } from 'lucide-react';
 
 interface Event {
@@ -123,11 +123,14 @@ const EventCard = ({
   const currentSeason = seasons.find((s) => s.id === event.season_id);
   const eventDate = new Date(event.event_date);
   const isPastEvent = eventDate.getTime() < Date.now();
+  const isToday = isSameDay(eventDate, new Date());
   const now = Date.now();
 
   const getScheduleLabel = () => {
     if (event.is_active) return 'Live';
-    if (isPastEvent) return '';
+    if (isPastEvent) {
+      return isToday ? 'Scheduled today' : '';
+    }
     const minutesDiff = differenceInMinutes(eventDate, now);
     if (minutesDiff <= 0) return 'Scheduled';
     if (minutesDiff < 60) {
@@ -420,12 +423,6 @@ const EventCard = ({
 
             <div className="space-y-2">
               <p className="text-lg font-semibold leading-snug line-clamp-2">{event.name}</p>
-              {currentSeason && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium w-fit">
-                  <Folder className="w-3 h-3" />
-                  {currentSeason.name}
-                </span>
-              )}
             </div>
 
             <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2 text-sm text-muted-foreground shadow-sm">
@@ -439,11 +436,17 @@ const EventCard = ({
               </div>
             </div>
 
-            <div className="mt-auto flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="mt-auto flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               {typeof attendeesCount === 'number' ? (
                 <span className="rounded-full bg-muted/60 px-2 py-1">{attendeesCount} attended</span>
               ) : (
                 <span className="rounded-full bg-muted/60 px-2 py-1">No attendance</span>
+              )}
+              {currentSeason && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-1 text-xs font-medium">
+                  <Folder className="w-3 h-3" />
+                  {currentSeason.name}
+                </span>
               )}
             </div>
           </CardContent>

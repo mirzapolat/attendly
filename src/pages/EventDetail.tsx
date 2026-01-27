@@ -966,10 +966,10 @@ const EventDetail = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 sm:px-6 py-8">
+      <main className="container mx-auto px-4 sm:px-6 py-8 overflow-x-hidden">
         <div className="grid lg:grid-cols-2 gap-8">
           {/* QR Code Section */}
-          <div>
+          <div className="min-w-0">
             <Card className="bg-gradient-card">
               <CardHeader>
                 <CardTitle className="flex items-start gap-2 flex-wrap min-w-0">
@@ -1103,7 +1103,7 @@ const EventDetail = () => {
           </div>
 
           {/* Attendance List */}
-          <div>
+          <div className="min-w-0">
             <div className="sm:hidden mb-4">
               <Card className="bg-gradient-card">
                 <CardContent className="py-4 space-y-4">
@@ -1404,7 +1404,7 @@ const EventDetail = () => {
                           )}
                           {record.suspicious_reason && (
                             <div className={`flex items-center gap-2 ${compactView ? 'mt-0.5' : 'mt-1'}`}>
-                              <p className="text-xs text-warning flex items-center gap-1">
+                              <p className="text-xs text-warning flex items-center gap-1 break-words">
                                 <AlertTriangle className="w-3 h-3" />
                                 {record.suspicious_reason}
                               </p>
