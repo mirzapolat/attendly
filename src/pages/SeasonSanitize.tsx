@@ -77,6 +77,7 @@ const isReliableFingerprint = (value?: string | null) => {
   return !(
     trimmed.startsWith('no-fp-') ||
     trimmed.startsWith('manual-') ||
+    trimmed.startsWith('moderator-') ||
     trimmed.startsWith('fallback-') ||
     trimmed.startsWith('import-')
   );
@@ -150,6 +151,8 @@ const SeasonSanitize = () => {
   const [suggestionOverrideOpen, setSuggestionOverrideOpen] = useState<Record<string, boolean>>({});
   const [mergeLoading, setMergeLoading] = useState<Record<string, boolean>>({});
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Record<string, boolean>>({});
+  const [dismissalsLoaded, setDismissalsLoaded] = useState(false);
+  const [restoreDismissalsLoading, setRestoreDismissalsLoading] = useState(false);
   const [manualEmailA, setManualEmailA] = useState('');
   const [manualEmailB, setManualEmailB] = useState('');
   const [manualCorrectEmail, setManualCorrectEmail] = useState('');
@@ -175,6 +178,7 @@ const SeasonSanitize = () => {
       fetchData();
     }
   }, [user, id, currentWorkspace]);
+
 
   const fetchData = async () => {
     try {
@@ -208,6 +212,25 @@ const SeasonSanitize = () => {
       setEvents(eventsRes.data ?? []);
 
       const eventIds = (eventsRes.data ?? []).map((event) => event.id);
+      const { data: dismissedData, error: dismissedError } = await supabase
+        .from('season_sanitize_dismissals')
+        .select('suggestion_id')
+        .eq('season_id', id);
+
+      if (dismissedError) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: sanitizeError(dismissedError),
+        });
+      } else {
+        const dismissedMap: Record<string, boolean> = {};
+        (dismissedData ?? []).forEach((row) => {
+          dismissedMap[row.suggestion_id] = true;
+        });
+        setDismissedSuggestions(dismissedMap);
+      }
+      setDismissalsLoaded(true);
       if (eventIds.length === 0) {
         setAttendance([]);
         setLoading(false);
@@ -379,10 +402,10 @@ const SeasonSanitize = () => {
       .slice(0, MAX_SUGGESTIONS);
   }, [emailStats, emailCountLookup, attendance]);
 
-  const visibleSuggestions = useMemo(
-    () => emailSuggestions.filter((suggestion) => !dismissedSuggestions[suggestion.id]),
-    [emailSuggestions, dismissedSuggestions],
-  );
+  const visibleSuggestions = useMemo(() => {
+    if (!dismissalsLoaded) return [];
+    return emailSuggestions.filter((suggestion) => !dismissedSuggestions[suggestion.id]);
+  }, [emailSuggestions, dismissedSuggestions, dismissalsLoaded]);
 
   useEffect(() => {
     setSuggestionSelections((prev) => {
@@ -438,6 +461,61 @@ const SeasonSanitize = () => {
     toast({
       title: 'Emails merged',
       description: `${wrongEmail} → ${correctEmail}`,
+    });
+  };
+
+  const handleDismissSuggestion = async (suggestion: EmailSuggestion) => {
+    setDismissedSuggestions((prev) => ({ ...prev, [suggestion.id]: true }));
+    if (!id) return;
+
+    const { error } = await supabase
+      .from('season_sanitize_dismissals')
+      .upsert(
+        {
+          season_id: id,
+          suggestion_id: suggestion.id,
+          dismissed_by: user?.id ?? null,
+        },
+        { onConflict: 'season_id,suggestion_id' },
+      );
+
+    if (error) {
+      toast({
+        title: 'Could not dismiss',
+        description: sanitizeError(error),
+        variant: 'destructive',
+      });
+      setDismissedSuggestions((prev) => {
+        const next = { ...prev };
+        delete next[suggestion.id];
+        return next;
+      });
+    }
+  };
+
+  const handleRestoreDismissals = async () => {
+    if (!id) return;
+    setRestoreDismissalsLoading(true);
+    const { error } = await supabase
+      .from('season_sanitize_dismissals')
+      .delete()
+      .eq('season_id', id);
+
+    setRestoreDismissalsLoading(false);
+
+    if (error) {
+      toast({
+        title: 'Could not restore suggestions',
+        description: sanitizeError(error),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setDismissedSuggestions({});
+    toast({
+      title: 'Dismissals restored',
+      description: 'All dismissed suggestions are visible again.',
     });
   };
 
@@ -677,9 +755,19 @@ const SeasonSanitize = () => {
         <div className="space-y-8">
           <Card className="bg-gradient-card">
             <CardContent className="py-6 space-y-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="w-4 h-4" />
-                {emailStats.length} unique emails • {emailSuggestions.length} suggested merges
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  {emailStats.length} unique emails • {emailSuggestions.length} suggested merges
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRestoreDismissals}
+                  disabled={restoreDismissalsLoading || Object.keys(dismissedSuggestions).length === 0}
+                >
+                  {restoreDismissalsLoading ? 'Restoring...' : 'Restore dismissed'}
+                </Button>
               </div>
 
               {visibleSuggestions.length === 0 ? (
@@ -713,12 +801,7 @@ const SeasonSanitize = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() =>
-                                  setDismissedSuggestions((prev) => ({
-                                    ...prev,
-                                    [suggestion.id]: true,
-                                  }))
-                                }
+                                onClick={() => handleDismissSuggestion(suggestion)}
                               >
                                 Dismiss
                               </Button>
