@@ -28,6 +28,7 @@ interface Event {
   name: string;
   event_date: string;
   season_id: string | null;
+  attendance_weight: number | null;
 }
 
 type AttendanceStatus = 'verified' | 'suspicious' | 'cleared' | 'excused';
@@ -54,6 +55,11 @@ const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 const normalizeLocalPart = (localPart: string) =>
   localPart.replace(/\./g, '').replace(/\s+/g, '').toLowerCase();
+
+const normalizeWeight = (weight: number | null | undefined) => {
+  if (typeof weight !== 'number' || Number.isNaN(weight)) return 1;
+  return Math.max(1, Math.round(weight));
+};
 
 const normalizeDomain = (domain: string) =>
   domain.replace(/\s+/g, '').toLowerCase();
@@ -149,6 +155,10 @@ const SeasonDetail = () => {
   const [conflictsOpen, setConflictsOpen] = useState(false);
   const [conflictSelections, setConflictSelections] = useState<Record<string, string>>({});
   const [resolvingConflicts, setResolvingConflicts] = useState<Record<string, boolean>>({});
+  const [weightDialogOpen, setWeightDialogOpen] = useState(false);
+  const [weightSaving, setWeightSaving] = useState(false);
+  const [weightValue, setWeightValue] = useState('1');
+  const [weightEvent, setWeightEvent] = useState<Event | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -233,7 +243,7 @@ const SeasonDetail = () => {
   const handleRemoveEventFromSeason = async (eventId: string) => {
     const { error } = await supabase
       .from('events')
-      .update({ season_id: null })
+      .update({ season_id: null, attendance_weight: 1 })
       .eq('id', eventId);
 
     if (error) {
@@ -247,7 +257,7 @@ const SeasonDetail = () => {
   const handleAddEventToSeason = async (eventId: string) => {
     const { error } = await supabase
       .from('events')
-      .update({ season_id: id })
+      .update({ season_id: id, attendance_weight: 1 })
       .eq('id', eventId);
 
     if (error) {
@@ -307,6 +317,49 @@ const SeasonDetail = () => {
     );
     setSeasonSettingsOpen(false);
     toast({ title: 'Season updated' });
+  };
+
+  const getEventWeight = (event: Event) => {
+    return normalizeWeight(event.attendance_weight);
+  };
+
+  const openWeightDialog = (event: Event) => {
+    setWeightEvent(event);
+    setWeightValue(String(getEventWeight(event)));
+    setWeightDialogOpen(true);
+  };
+
+  const handleWeightSave = async () => {
+    if (!weightEvent) return;
+    const parsed = Number.parseInt(weightValue, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      toast({
+        title: 'Invalid weight',
+        description: 'Weight must be a whole number of 1 or higher.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setWeightSaving(true);
+    const { error } = await supabase
+      .from('events')
+      .update({ attendance_weight: parsed })
+      .eq('id', weightEvent.id);
+    setWeightSaving(false);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update event weight',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    toast({ title: 'Weight updated', description: `Weight set to ${parsed}.` });
+    setWeightDialogOpen(false);
+    setWeightEvent(null);
+    fetchData();
   };
 
   const nameConflicts = useMemo(() => {
@@ -467,15 +520,29 @@ const SeasonDetail = () => {
 
   const isActualAttendance = (record: AttendanceRecord) => record.status !== 'excused';
 
+  const eventWeightMap = useMemo(() => {
+    const map = new Map<string, number>();
+    events.forEach((event) => {
+      map.set(event.id, normalizeWeight(event.attendance_weight));
+    });
+    return map;
+  }, [events]);
+
+  const totalWeight = useMemo(
+    () => events.reduce((sum, event) => sum + normalizeWeight(event.attendance_weight), 0),
+    [events],
+  );
+
   // Calculate analytics with deduplication (only count one attendance per member per event)
   const eventAttendanceData = events.map(event => {
     const eventAttendance = attendance.filter(a => a.event_id === event.id && isActualAttendance(a));
     // Deduplicate by email
     const uniqueEmails = new Set(eventAttendance.map(a => a.attendee_email));
+    const weight = eventWeightMap.get(event.id) ?? 1;
     return {
       name: format(new Date(event.event_date), 'MMM d'),
       fullName: event.name,
-      attendance: uniqueEmails.size,
+      attendance: uniqueEmails.size * weight,
     };
   });
 
@@ -509,13 +576,23 @@ const SeasonDetail = () => {
     }
   });
 
-  const memberStats = Array.from(memberStatsMap.values())
-    .map(member => ({
+  const memberStats = Array.from(memberStatsMap.values()).map((member) => {
+    const attendedWeight = Array.from(member.attendedEventIds).reduce(
+      (sum, eventId) => sum + (eventWeightMap.get(eventId) ?? 1),
+      0,
+    );
+    const excusedWeight = Array.from(member.excusedEventIds).reduce(
+      (sum, eventId) => sum + (eventWeightMap.get(eventId) ?? 1),
+      0,
+    );
+
+    return {
       ...member,
-      eventsAttended: member.attendedEventIds.size,
-      eventsExcused: member.excusedEventIds.size,
-      attendanceRate: events.length > 0 ? Math.round((member.attendedEventIds.size / events.length) * 100) : 0,
-    }));
+      eventsAttended: attendedWeight,
+      eventsExcused: excusedWeight,
+      attendanceRate: totalWeight > 0 ? Math.round((attendedWeight / totalWeight) * 100) : 0,
+    };
+  });
 
   // Filter and sort member stats
   const filteredMemberStats = memberStats
@@ -536,12 +613,13 @@ const SeasonDetail = () => {
         .filter(a => a.event_id === event.id && isActualAttendance(a))
         .map(a => a.attendee_email)
     );
-    return sum + eventEmails.size;
+    const weight = eventWeightMap.get(event.id) ?? 1;
+    return sum + eventEmails.size * weight;
   }, 0);
   const uniqueAttendees = memberStats.filter(member => member.eventsAttended > 0).length;
-  const avgAttendance = events.length > 0 ? Math.round(totalUniqueAttendance / events.length) : 0;
+  const avgAttendance = totalWeight > 0 ? Math.round(totalUniqueAttendance / totalWeight) : 0;
   const getNotAttendedCount = (member: MemberStats) =>
-    Math.max(0, events.length - member.eventsAttended - member.eventsExcused);
+    Math.max(0, totalWeight - member.eventsAttended - member.eventsExcused);
 
   // Events not in this season
   const eventsNotInSeason = allUserEvents.filter(e => e.season_id !== id);
@@ -1041,6 +1119,9 @@ const SeasonDetail = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openWeightDialog(seasonEvent)}>
+                              Adjust weighting
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleRemoveEventFromSeason(seasonEvent.id)}
                               className="text-destructive focus:text-destructive"
@@ -1066,7 +1147,14 @@ const SeasonDetail = () => {
                       </Link>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Attendees</span>
-                        <span className="font-semibold">{eventEmails.size}</span>
+                        <div className="flex items-center gap-2">
+                          {getEventWeight(seasonEvent) !== 1 && (
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                              Weight {getEventWeight(seasonEvent)}x
+                            </span>
+                          )}
+                          <span className="font-semibold">{eventEmails.size}</span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1264,6 +1352,57 @@ const SeasonDetail = () => {
                   ))
                 )}
               </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Adjust Weight Modal */}
+      <Dialog
+        open={weightDialogOpen}
+        onOpenChange={(open) => {
+          setWeightDialogOpen(open);
+          if (!open) {
+            setWeightEvent(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adjust event weighting</DialogTitle>
+            <DialogDescription>
+              {weightEvent ? `Set the attendance weight for ${weightEvent.name}.` : 'Set the attendance weight.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="attendance-weight">Weight</Label>
+              <Input
+                id="attendance-weight"
+                type="number"
+                min={1}
+                step={1}
+                value={weightValue}
+                onChange={(event) => setWeightValue(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Weight 1 counts as one attendance. Weight 2 counts as two.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setWeightDialogOpen(false);
+                  setWeightEvent(null);
+                }}
+                disabled={weightSaving}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleWeightSave} disabled={weightSaving}>
+                {weightSaving ? 'Saving...' : 'Save'}
+              </Button>
             </div>
           </div>
         </DialogContent>

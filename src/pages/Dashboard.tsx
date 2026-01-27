@@ -283,10 +283,18 @@ const Dashboard = () => {
 
   const handleAssignSeason = async (eventId: string, seasonId: string) => {
     dropHandledRef.current = true;
+    const existingEvent = events.find((event) => event.id === eventId);
+    if (existingEvent?.season_id === seasonId) {
+      setDraggingEventId(null);
+      setDraggingOverSeasonId(null);
+      draggingEventRef.current = null;
+      clearSeasonHoverTimers();
+      return;
+    }
     try {
       const { error } = await supabase
         .from('events')
-        .update({ season_id: seasonId })
+        .update({ season_id: seasonId, attendance_weight: 1 })
         .eq('id', eventId);
 
       if (error) throw error;

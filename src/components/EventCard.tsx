@@ -97,9 +97,10 @@ const EventCard = ({
 
   const handleSeasonChange = async (seasonId: string | null) => {
     try {
+      if (seasonId === event.season_id) return;
       const { error } = await supabase
         .from('events')
-        .update({ season_id: seasonId })
+        .update({ season_id: seasonId, attendance_weight: 1 })
         .eq('id', event.id);
 
       if (error) throw error;

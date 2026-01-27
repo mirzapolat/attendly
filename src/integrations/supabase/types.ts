@@ -104,6 +104,7 @@ export type Database = {
       }
       events: {
         Row: {
+          attendance_weight: number
           created_at: string | null
           current_qr_token: string | null
           description: string | null
@@ -129,6 +130,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          attendance_weight?: number
           created_at?: string | null
           current_qr_token?: string | null
           description?: string | null
@@ -154,6 +156,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          attendance_weight?: number
           created_at?: string | null
           current_qr_token?: string | null
           description?: string | null
