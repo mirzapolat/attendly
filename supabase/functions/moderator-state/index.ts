@@ -164,6 +164,7 @@ serve(async (req) => {
           "location_lat",
           "location_lng",
           "location_radius_meters",
+          "location_check_enabled",
           "workspace_id",
           "is_active",
           "current_qr_token",

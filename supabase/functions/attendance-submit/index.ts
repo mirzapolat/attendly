@@ -145,6 +145,7 @@ serve(async (req) => {
 
     const fingerprintStrict = event.fingerprint_collision_strict !== false;
     let fingerprintCollision = false;
+    let fingerprintExactMatch = false;
 
     if (event.device_fingerprint_enabled) {
       if (normalizedFingerprint) {
@@ -156,10 +157,8 @@ serve(async (req) => {
           .maybeSingle();
 
         if (existingExact) {
-          return new Response(
-            JSON.stringify({ success: false, reason: "already_submitted" }),
-            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
+          fingerprintCollision = true;
+          fingerprintExactMatch = true;
         }
       }
 
@@ -196,6 +195,9 @@ serve(async (req) => {
         }
         status = "suspicious";
         suspiciousReason = "Fingerprint matched another submission";
+        if (fingerprintExactMatch || normalizedRaw || normalizedFingerprint) {
+          fingerprintToStore = `collision-${crypto.randomUUID()}`;
+        }
       }
     }
 

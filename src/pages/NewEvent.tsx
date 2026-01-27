@@ -348,10 +348,8 @@ const NewEvent = () => {
                       />
                     </div>
                   </div>
-                  <div
-                    className={`overflow-hidden transition-all duration-200 ${showRotationSettings ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}
-                  >
-                    <div className="pt-2 text-xs text-muted-foreground transition-transform duration-200">
+                  {showRotationSettings && (
+                    <div className="text-xs text-muted-foreground">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
                           <Timer className="h-3.5 w-3.5" />
@@ -371,7 +369,7 @@ const NewEvent = () => {
                         className="mt-2 w-full accent-primary"
                       />
                     </div>
-                  </div>
+                  )}
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">

@@ -131,73 +131,75 @@ serve(async (req) => {
 
       const fingerprintStrict = event.fingerprint_collision_strict !== false;
 
-      if (normalizedFingerprint) {
-        const { data: existingExact, error: existingExactError } = await admin
-          .from("attendance_records")
-          .select("id")
-          .eq("event_id", event.id)
-          .eq("device_fingerprint", normalizedFingerprint)
-          .maybeSingle();
+      if (fingerprintStrict) {
+        if (normalizedFingerprint) {
+          const { data: existingExact, error: existingExactError } = await admin
+            .from("attendance_records")
+            .select("id")
+            .eq("event_id", event.id)
+            .eq("device_fingerprint", normalizedFingerprint)
+            .maybeSingle();
 
-        if (existingExactError) {
-          console.error("attendance-start fingerprint error", existingExactError);
-          return respond(
-            {
-              authorized: false,
-              reason: isSchemaError(existingExactError) ? "missing_migrations" : "server_error",
-            },
-            500,
-          );
+          if (existingExactError) {
+            console.error("attendance-start fingerprint error", existingExactError);
+            return respond(
+              {
+                authorized: false,
+                reason: isSchemaError(existingExactError) ? "missing_migrations" : "server_error",
+              },
+              500,
+            );
+          }
+
+          if (existingExact) {
+            return respond({ authorized: false, reason: "already_submitted" });
+          }
         }
 
-        if (existingExact) {
-          return respond({ authorized: false, reason: "already_submitted" });
-        }
-      }
+        if (normalizedRaw) {
+          const { data: existingRaw, error: existingRawError } = await admin
+            .from("attendance_records")
+            .select("id")
+            .eq("event_id", event.id)
+            .eq("device_fingerprint_raw", normalizedRaw)
+            .maybeSingle();
 
-      if (fingerprintStrict && normalizedRaw) {
-        const { data: existingRaw, error: existingRawError } = await admin
-          .from("attendance_records")
-          .select("id")
-          .eq("event_id", event.id)
-          .eq("device_fingerprint_raw", normalizedRaw)
-          .maybeSingle();
+          if (existingRawError) {
+            console.error("attendance-start fingerprint error", existingRawError);
+            return respond(
+              {
+                authorized: false,
+                reason: isSchemaError(existingRawError) ? "missing_migrations" : "server_error",
+              },
+              500,
+            );
+          }
 
-        if (existingRawError) {
-          console.error("attendance-start fingerprint error", existingRawError);
-          return respond(
-            {
-              authorized: false,
-              reason: isSchemaError(existingRawError) ? "missing_migrations" : "server_error",
-            },
-            500,
-          );
-        }
+          if (existingRaw) {
+            return respond({ authorized: false, reason: "already_submitted" });
+          }
 
-        if (existingRaw) {
-          return respond({ authorized: false, reason: "already_submitted" });
-        }
+          const { data: existingLegacy, error: existingLegacyError } = await admin
+            .from("attendance_records")
+            .select("id")
+            .eq("event_id", event.id)
+            .eq("device_fingerprint", normalizedRaw)
+            .maybeSingle();
 
-        const { data: existingLegacy, error: existingLegacyError } = await admin
-          .from("attendance_records")
-          .select("id")
-          .eq("event_id", event.id)
-          .eq("device_fingerprint", normalizedRaw)
-          .maybeSingle();
+          if (existingLegacyError) {
+            console.error("attendance-start fingerprint error", existingLegacyError);
+            return respond(
+              {
+                authorized: false,
+                reason: isSchemaError(existingLegacyError) ? "missing_migrations" : "server_error",
+              },
+              500,
+            );
+          }
 
-        if (existingLegacyError) {
-          console.error("attendance-start fingerprint error", existingLegacyError);
-          return respond(
-            {
-              authorized: false,
-              reason: isSchemaError(existingLegacyError) ? "missing_migrations" : "server_error",
-            },
-            500,
-          );
-        }
-
-        if (existingLegacy) {
-          return respond({ authorized: false, reason: "already_submitted" });
+          if (existingLegacy) {
+            return respond({ authorized: false, reason: "already_submitted" });
+          }
         }
       }
     }

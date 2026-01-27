@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getRuntimeEnv } from '@/lib/runtimeEnv';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/hooks/useConfirm';
@@ -55,6 +56,8 @@ interface AttendanceRecord {
   location_lat: number | null;
   location_lng: number | null;
   recorded_at: string;
+  device_fingerprint?: string | null;
+  device_fingerprint_raw?: string | null;
 }
 
 interface KnownAttendee {
@@ -114,6 +117,9 @@ const EventDetail = () => {
   const [suggestions, setSuggestions] = useState<KnownAttendee[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [copyingStaticLink, setCopyingStaticLink] = useState(false);
+  const [fingerprintDialogOpen, setFingerprintDialogOpen] = useState(false);
+  const [fingerprintDialogKey, setFingerprintDialogKey] = useState<string | null>(null);
+  const [fingerprintBulkAction, setFingerprintBulkAction] = useState<'clearing' | 'deleting' | null>(null);
   
   // Settings modals
   const [showSettings, setShowSettings] = useState(false);
@@ -125,6 +131,61 @@ const EventDetail = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious'>('all');
   const [showConfetti, setShowConfetti] = useState(false);
   const [compactView, setCompactView] = useState(false);
+
+  const getFingerprintKey = (record: AttendanceRecord) =>
+    (record.device_fingerprint_raw ?? record.device_fingerprint ?? '').trim();
+
+  const openFingerprintMatches = (record: AttendanceRecord) => {
+    const key = getFingerprintKey(record);
+    if (!key) return;
+    setFingerprintDialogKey(key);
+    setFingerprintDialogOpen(true);
+  };
+
+  const clearFingerprintMatches = async () => {
+    if (!fingerprintMatches.length) return;
+    const ids = fingerprintMatches.filter((record) => record.status === 'suspicious').map((record) => record.id);
+    if (!ids.length) return;
+
+    setFingerprintBulkAction('clearing');
+    const { error } = await supabase
+      .from('attendance_records')
+      .update({ status: 'cleared', suspicious_reason: null })
+      .in('id', ids);
+
+    setFingerprintBulkAction(null);
+
+    if (!error) {
+      fetchAttendance();
+    }
+  };
+
+  const deleteFingerprintMatches = async () => {
+    if (!fingerprintMatches.length) return;
+    const confirmed = await confirm({
+      title: 'Delete matching attendees?',
+      description: `Delete all ${fingerprintMatches.length} records that share this fingerprint? This cannot be undone.`,
+      confirmText: 'Delete all',
+      cancelText: 'Cancel',
+      variant: 'destructive',
+    });
+
+    if (!confirmed) return;
+
+    setFingerprintBulkAction('deleting');
+    const { error } = await supabase
+      .from('attendance_records')
+      .delete()
+      .in('id', fingerprintMatches.map((record) => record.id));
+
+    setFingerprintBulkAction(null);
+
+    if (!error) {
+      fetchAttendance();
+      setFingerprintDialogOpen(false);
+      setFingerprintDialogKey(null);
+    }
+  };
 
   const confettiPieces = useMemo(() => {
     const colors = ['#16a34a', '#22c55e', '#14b8a6', '#f59e0b', '#84cc16'];
@@ -708,6 +769,12 @@ const EventDetail = () => {
   const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
   const excusedCount = attendance.filter(a => a.status === 'excused').length;
   const attendedCount = attendance.length - excusedCount;
+  const fingerprintMatches = fingerprintDialogKey
+    ? attendance.filter((record) => {
+        const fingerprint = (record.device_fingerprint_raw ?? record.device_fingerprint ?? '').trim();
+        return fingerprint && fingerprint === fingerprintDialogKey;
+      })
+    : [];
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -752,6 +819,84 @@ const EventDetail = () => {
           onClose={() => setShowExcuseLinks(false)}
         />
       )}
+      <Dialog
+        open={fingerprintDialogOpen}
+        onOpenChange={(open) => {
+          setFingerprintDialogOpen(open);
+          if (!open) setFingerprintDialogKey(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Matching fingerprints</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {fingerprintMatches.length === 0
+                ? 'No matching records found.'
+                : `Found ${fingerprintMatches.length} record${fingerprintMatches.length === 1 ? '' : 's'} with the same fingerprint.`}
+            </p>
+            {fingerprintMatches.length > 0 && (
+              <div className="max-h-64 overflow-y-auto divide-y divide-border/60 rounded-lg border border-border/60 bg-background/60">
+                {fingerprintMatches.map((match) => (
+                  <div key={match.id} className="flex items-start justify-between gap-3 px-3 py-2">
+                    <div>
+                      <p className="text-sm font-medium">{match.attendee_name}</p>
+                      <p className="text-xs text-muted-foreground">{match.attendee_email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right text-xs text-muted-foreground">
+                        <span className="block">{match.status}</span>
+                        <span className="block">{format(new Date(match.recorded_at), 'p')}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteRecord(match.id)}
+                        title="Delete record"
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={clearFingerprintMatches}
+                disabled={
+                  fingerprintBulkAction !== null ||
+                  fingerprintMatches.every((record) => record.status !== 'suspicious')
+                }
+                className="gap-2"
+              >
+                {fingerprintBulkAction === 'clearing' ? (
+                  'Verifying...'
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    Verify and close
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={deleteFingerprintMatches}
+                disabled={fingerprintBulkAction !== null || fingerprintMatches.length === 0}
+              >
+                {fingerprintBulkAction === 'deleting' ? 'Deleting...' : 'Delete all'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <header className="bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link
@@ -1240,10 +1385,12 @@ const EventDetail = () => {
                               </div>
                               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                                 <span>{format(new Date(record.recorded_at), 'p')}</span>
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="w-3 h-3" />
-                                  {record.location_provided ? 'Location verified' : 'No location'}
-                                </span>
+                                {event?.location_check_enabled && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {record.location_provided ? 'Location verified' : 'No location'}
+                                  </span>
+                                )}
                               </div>
                             </>
                           )}
@@ -1253,7 +1400,21 @@ const EventDetail = () => {
                                 <AlertTriangle className="w-3 h-3" />
                                 {record.suspicious_reason}
                               </p>
-                              {record.location_lat != null && record.location_lng != null && (
+                              {record.suspicious_reason.toLowerCase().includes('fingerprint') &&
+                                getFingerprintKey(record) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-5 px-1.5 text-xs"
+                                    onClick={() => openFingerprintMatches(record)}
+                                    title="Show matching fingerprint entries"
+                                  >
+                                    Show matches
+                                  </Button>
+                                )}
+                              {event?.location_check_enabled &&
+                                record.location_lat != null &&
+                                record.location_lng != null && (
                                 <Button
                                   variant="ghost"
                                   size="sm"

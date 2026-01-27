@@ -307,10 +307,8 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                     />
                   </div>
                 </div>
-                <div
-                  className={`overflow-hidden transition-all duration-200 ${showRotationSettings ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}
-                >
-                  <div className="pt-2 text-xs text-muted-foreground transition-transform duration-200">
+                {showRotationSettings && (
+                  <div className="text-xs text-muted-foreground">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <Timer className="h-3.5 w-3.5" />
@@ -330,7 +328,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                       className="mt-2 w-full accent-primary"
                     />
                   </div>
-                </div>
+                )}
 
                 {!rotatingQrEnabled && (
                   <div className="p-4 border border-border rounded-lg">

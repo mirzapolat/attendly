@@ -26,6 +26,7 @@ interface Event {
   location_lat: number;
   location_lng: number;
   location_radius_meters: number;
+  location_check_enabled: boolean;
   is_active: boolean;
   current_qr_token: string | null;
   rotating_qr_enabled: boolean;
@@ -791,10 +792,12 @@ const ModeratorView = () => {
                           )}
                           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                             <span>{format(new Date(record.recorded_at), 'p')}</span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {record.location_provided ? 'Location verified' : 'No location'}
-                            </span>
+                            {event?.location_check_enabled && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {record.location_provided ? 'Location verified' : 'No location'}
+                              </span>
+                            )}
                           </div>
                           {record.suspicious_reason && (
                             <div className="flex items-center gap-2 mt-1">
@@ -802,7 +805,9 @@ const ModeratorView = () => {
                                 <AlertTriangle className="w-3 h-3" />
                                 {record.suspicious_reason}
                               </p>
-                              {record.location_lat != null && record.location_lng != null && (
+                              {event?.location_check_enabled &&
+                                record.location_lat != null &&
+                                record.location_lng != null && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
