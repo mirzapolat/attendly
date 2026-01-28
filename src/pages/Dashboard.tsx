@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowDown,
   ArrowUp,
+  ArrowUpDown,
   Calendar,
   CalendarDays,
   ChevronLeft,
@@ -67,7 +68,11 @@ const Dashboard = () => {
   const [seasonPickerPage, setSeasonPickerPage] = useState(1);
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'attendance' | 'created' | 'season'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'calendar'>('grid');
+  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'calendar'>(() => {
+    if (typeof window === 'undefined') return 'grid';
+    const saved = window.localStorage.getItem('attendly:events-view');
+    return saved === 'list' || saved === 'grid' || saved === 'calendar' ? saved : 'grid';
+  });
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<Date | null>(null);
   const seasonPickerPrevTimer = useRef<number | null>(null);
@@ -93,6 +98,11 @@ const Dashboard = () => {
   useEffect(() => {
     localStorage.removeItem('attendly:welcome');
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('attendly:events-view', viewMode);
+  }, [viewMode]);
 
   const fetchData = async () => {
     if (!currentWorkspace) return;
@@ -249,8 +259,8 @@ const Dashboard = () => {
   const calendarRange = useMemo(() => {
     const monthStart = startOfMonth(calendarMonth);
     const monthEnd = endOfMonth(calendarMonth);
-    const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-    const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
     return { monthStart, monthEnd, gridStart, gridEnd };
   }, [calendarMonth]);
 
@@ -277,7 +287,7 @@ const Dashboard = () => {
     return map;
   }, [filteredEvents]);
 
-  const weekDayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekDayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const selectedDayKey = selectedCalendarDay ? format(selectedCalendarDay, 'yyyy-MM-dd') : null;
   const selectedDayEvents = selectedDayKey ? calendarEvents.get(selectedDayKey) ?? [] : [];
 
@@ -371,7 +381,10 @@ const Dashboard = () => {
               </div>
               <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Sort by" />
+                  <div className="flex items-center gap-2">
+                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Sort by" />
+                  </div>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="date">Event date</SelectItem>
@@ -521,11 +534,19 @@ const Dashboard = () => {
                 const isCurrentMonth = isSameMonth(day, calendarMonth);
                 const visibleEvents = dayEvents.slice(0, 2);
                 const extraCount = Math.max(0, dayEvents.length - visibleEvents.length);
+                const dayCloudStyle = dayIsToday
+                  ? ({
+                      ['--cloudy-opacity' as string]: '0.05',
+                      ['--cloudy-opacity-secondary' as string]: '0.03',
+                    } as CSSProperties)
+                  : undefined;
+
                 return (
                   <button
                     type="button"
                     key={dayKey}
                     onClick={() => setSelectedCalendarDay(day)}
+                    style={dayCloudStyle}
                     className={`rounded-xl border p-2 min-h-[88px] sm:min-h-[120px] flex flex-col gap-1 text-left transition-all hover:border-primary/40 hover:bg-background/90 ${
                       isCurrentMonth
                         ? 'border-border/70 bg-background/70'

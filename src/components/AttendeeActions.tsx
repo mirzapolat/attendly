@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowUpDown, Download, Upload, FileText, UserPlus } from 'lucide-react';
+import { Download, Upload, FileText, UserPlus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -319,7 +319,7 @@ const AttendeeActions = ({
               aria-label="Export or import"
               title="Import or export"
             >
-              <ArrowUpDown className="w-4 h-4" />
+              <FileText className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

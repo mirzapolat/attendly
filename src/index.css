@@ -203,10 +203,10 @@
     position: absolute;
     inset: -45% -30%;
     background:
-      radial-gradient(closest-side, var(--cloudy-color, hsl(var(--primary))) 0%, transparent 70%),
-      radial-gradient(closest-side, var(--cloudy-color, hsl(var(--primary))) 0%, transparent 76%),
-      radial-gradient(closest-side, var(--cloudy-color, hsl(var(--primary))) 0%, transparent 82%);
-    opacity: 0.18;
+      radial-gradient(closest-side at var(--cloudy-origin-x, 50%) var(--cloudy-origin-y, 50%), var(--cloudy-color, hsl(var(--primary))) 0%, transparent 70%),
+      radial-gradient(closest-side at calc(var(--cloudy-origin-x, 50%) + 12%) calc(var(--cloudy-origin-y, 50%) - 8%), var(--cloudy-color, hsl(var(--primary))) 0%, transparent 76%),
+      radial-gradient(closest-side at calc(var(--cloudy-origin-x, 50%) - 10%) calc(var(--cloudy-origin-y, 50%) + 10%), var(--cloudy-color, hsl(var(--primary))) 0%, transparent 82%);
+    opacity: var(--cloudy-opacity, 0.18);
     filter: blur(16px);
     animation: cloudy-drift 6s ease-in-out infinite;
     pointer-events: none;
@@ -214,7 +214,7 @@
 
   .filter-cloudy::after {
     inset: -40% -25%;
-    opacity: 0.12;
+    opacity: var(--cloudy-opacity-secondary, 0.12);
     animation-duration: 8s;
     animation-direction: reverse;
   }
@@ -222,6 +222,27 @@
   .filter-cloudy > * {
     position: relative;
     z-index: 1;
+  }
+
+  .filter-cloud-burst {
+    position: absolute;
+    inset: -50% -35%;
+    background:
+      radial-gradient(closest-side at var(--cloudy-origin-x, 50%) var(--cloudy-origin-y, 50%), var(--cloudy-color, hsl(var(--primary))) 0%, transparent 70%),
+      radial-gradient(closest-side at calc(var(--cloudy-origin-x, 50%) + 14%) calc(var(--cloudy-origin-y, 50%) - 10%), var(--cloudy-color, hsl(var(--primary))) 0%, transparent 78%),
+      radial-gradient(closest-side at calc(var(--cloudy-origin-x, 50%) - 12%) calc(var(--cloudy-origin-y, 50%) + 14%), var(--cloudy-color, hsl(var(--primary))) 0%, transparent 82%);
+    filter: blur(14px);
+    transform-origin: var(--cloudy-origin-x, 50%) var(--cloudy-origin-y, 50%);
+    --cloudy-burst-start: calc(0.28 + (var(--cloudy-strength, 0) * 0.22));
+    --cloudy-burst-mid: calc(0.18 + (var(--cloudy-strength, 0) * 0.18));
+    --cloudy-burst-scale-start: calc(0.2 + (var(--cloudy-strength, 0) * 0.18));
+    --cloudy-burst-scale-end: calc(1.2 + (var(--cloudy-strength, 0) * 0.25));
+    animation: cloudy-burst 700ms ease-out forwards;
+    pointer-events: none;
+  }
+
+  .filter-cloudy > .filter-cloud-burst {
+    z-index: 0;
   }
 
   .filter-cloudy-primary {
@@ -240,6 +261,12 @@
     box-shadow: var(--shadow-glow);
   }
 
+  .qr-rounded {
+    border-radius: 1.5rem;
+    overflow: hidden;
+    clip-path: inset(0 round 1.5rem);
+  }
+
   .animate-fade-in {
     animation: fadeIn 0.5s ease-out forwards;
   }
@@ -252,12 +279,28 @@
     animation: scaleIn 0.3s ease-out forwards;
   }
 
+  .animate-qr-entrance {
+    animation: qrEntrance 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: transform, opacity;
+    transform: translateZ(0);
+  }
+
+  .animate-qr-refresh {
+    animation: qrRefresh 450ms ease-out;
+    will-change: transform, opacity, filter;
+  }
+
   .animate-pulse-subtle {
     animation: pulseSub 2s ease-in-out infinite;
   }
 
   .animate-wiggle {
     animation: wiggle 0.7s ease-in-out infinite;
+  }
+
+  .animate-button-press {
+    animation: buttonPress 260ms ease-out;
+    will-change: transform;
   }
 
   .confetti-piece {
@@ -309,6 +352,39 @@
   }
 }
 
+@keyframes qrEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes qrRefresh {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.995);
+    filter: blur(0.6px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0.2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0px);
+  }
+}
+
 @keyframes pulseSub {
   0%, 100% {
     opacity: 1;
@@ -327,6 +403,33 @@
   }
   100% {
     transform: translate(-6%, 2%) scale(1);
+  }
+}
+
+@keyframes cloudy-burst {
+  0% {
+    opacity: var(--cloudy-burst-start, 0.35);
+    transform: scale(var(--cloudy-burst-scale-start, 0.2));
+  }
+  60% {
+    opacity: var(--cloudy-burst-mid, 0.22);
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(var(--cloudy-burst-scale-end, 1.35));
+  }
+}
+
+@keyframes buttonPress {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 

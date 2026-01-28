@@ -904,7 +904,7 @@ const SeasonDetail = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      <header className="bg-background/80 backdrop-blur-sm border-b border-border">
+      <header className="bg-background/80 backdrop-blur-sm border-b border-border shadow-sm">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <Button asChild variant="glass" size="sm" className="rounded-full px-3">
             <Link to="/seasons">

@@ -520,7 +520,7 @@ const ModeratorView = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle overflow-x-hidden">
-      <header className="bg-background/80 backdrop-blur-sm border-b border-border">
+      <header className="bg-background/80 backdrop-blur-sm border-b border-border shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-primary" />

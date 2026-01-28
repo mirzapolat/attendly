@@ -128,15 +128,82 @@ const EventDetail = () => {
 
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious' | 'excused'>('all');
+  type StatusFilter = 'all' | 'verified' | 'suspicious' | 'excused';
+  type CloudBurst = { x: number; y: number; id: number; strength: number };
+
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [cloudBursts, setCloudBursts] = useState<Record<StatusFilter, CloudBurst | null>>({
+    all: null,
+    verified: null,
+    suspicious: null,
+    excused: null,
+  });
   const [showConfetti, setShowConfetti] = useState(false);
   const [compactView, setCompactView] = useState(false);
+  const [qrEntrance, setQrEntrance] = useState(false);
+  const qrEntranceTimerRef = useRef<number | null>(null);
+  const prevActiveRef = useRef<boolean | null>(null);
+  const [startButtonPulse, setStartButtonPulse] = useState(false);
+  const startButtonPulseTimerRef = useRef<number | null>(null);
+  const [qrRefreshPulse, setQrRefreshPulse] = useState(false);
+  const qrRefreshTimerRef = useRef<number | null>(null);
+  const prevQrTokenRef = useRef<string | null>(null);
 
   const getFingerprintKey = (record: AttendanceRecord) =>
     (record.device_fingerprint_raw ?? record.device_fingerprint ?? '').trim();
 
-  const handleStatusFilter = (next: 'all' | 'verified' | 'suspicious' | 'excused') => {
+  const triggerStartButtonPulse = () => {
+    setStartButtonPulse(true);
+    if (startButtonPulseTimerRef.current) {
+      window.clearTimeout(startButtonPulseTimerRef.current);
+    }
+    startButtonPulseTimerRef.current = window.setTimeout(() => {
+      setStartButtonPulse(false);
+      startButtonPulseTimerRef.current = null;
+    }, 260);
+  };
+
+  const triggerCloudBurst = (event: MouseEvent<HTMLElement>, filter: StatusFilter) => {
+    const target = event.currentTarget;
+    const rect = target.getBoundingClientRect();
+    const x = rect.width ? ((event.clientX - rect.left) / rect.width) * 100 : 50;
+    const y = rect.height ? ((event.clientY - rect.top) / rect.height) * 100 : 50;
+    const clampedX = Math.min(100, Math.max(0, x));
+    const clampedY = Math.min(100, Math.max(0, y));
+    const normalizedX = (clampedX - 50) / 50;
+    const normalizedY = (clampedY - 50) / 50;
+    const distance = Math.sqrt(normalizedX ** 2 + normalizedY ** 2);
+    const strength = Math.min(1, distance / Math.SQRT2);
+
+    setCloudBursts((prev) => {
+      const current = prev[filter];
+      return {
+        ...prev,
+        [filter]: {
+          x: clampedX,
+          y: clampedY,
+          strength,
+          id: (current?.id ?? 0) + 1,
+        },
+      };
+    });
+  };
+
+  const handleStatusFilter = (next: StatusFilter, event?: MouseEvent<HTMLElement>) => {
+    if (event) {
+      triggerCloudBurst(event, next);
+    }
     setStatusFilter((prev) => (prev === next && next !== 'all' ? 'all' : next));
+  };
+
+  const getCloudOriginStyle = (filter: StatusFilter): CSSProperties | undefined => {
+    const burst = cloudBursts[filter];
+    if (!burst) return undefined;
+    return {
+      ['--cloudy-origin-x' as string]: `${burst.x}%`,
+      ['--cloudy-origin-y' as string]: `${burst.y}%`,
+      ['--cloudy-strength' as string]: `${burst.strength}`,
+    };
   };
 
   const openFingerprintMatches = (record: AttendanceRecord) => {
@@ -214,6 +281,63 @@ const EventDetail = () => {
     ROTATION_MAX_SECONDS,
     Math.max(ROTATION_MIN_SECONDS, Number(event?.rotating_qr_interval_seconds ?? 3)),
   );
+
+  useEffect(() => {
+    if (!event) return;
+    const wasActive = prevActiveRef.current;
+    if (event.is_active && wasActive === false) {
+      setQrEntrance(true);
+      if (qrEntranceTimerRef.current) {
+        window.clearTimeout(qrEntranceTimerRef.current);
+      }
+      qrEntranceTimerRef.current = window.setTimeout(() => {
+        setQrEntrance(false);
+        qrEntranceTimerRef.current = null;
+      }, 900);
+    }
+    prevActiveRef.current = event.is_active;
+    return () => {
+      if (qrEntranceTimerRef.current) {
+        window.clearTimeout(qrEntranceTimerRef.current);
+        qrEntranceTimerRef.current = null;
+      }
+    };
+  }, [event]);
+
+  useEffect(() => {
+    if (!event?.is_active || !event?.rotating_qr_enabled) {
+      prevQrTokenRef.current = qrToken || null;
+      return;
+    }
+    if (!qrToken) {
+      prevQrTokenRef.current = null;
+      return;
+    }
+    if (prevQrTokenRef.current && prevQrTokenRef.current !== qrToken) {
+      setQrRefreshPulse(true);
+      if (qrRefreshTimerRef.current) {
+        window.clearTimeout(qrRefreshTimerRef.current);
+      }
+      qrRefreshTimerRef.current = window.setTimeout(() => {
+        setQrRefreshPulse(false);
+        qrRefreshTimerRef.current = null;
+      }, 500);
+    }
+    prevQrTokenRef.current = qrToken;
+  }, [qrToken, event?.is_active, event?.rotating_qr_enabled]);
+
+  useEffect(() => {
+    return () => {
+      if (startButtonPulseTimerRef.current) {
+        window.clearTimeout(startButtonPulseTimerRef.current);
+        startButtonPulseTimerRef.current = null;
+      }
+      if (qrRefreshTimerRef.current) {
+        window.clearTimeout(qrRefreshTimerRef.current);
+        qrRefreshTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const syncAccentColor = useCallback(
     async (workspaceId?: string | null) => {
@@ -669,6 +793,9 @@ const EventDetail = () => {
 
   const toggleActive = async () => {
     const newStatus = !event?.is_active;
+    if (newStatus) {
+      triggerStartButtonPulse();
+    }
     const expiresAt = newStatus
       ? new Date(Date.now() + rotationSeconds * 1000 + ROTATION_GRACE_MS).toISOString()
       : null;
@@ -773,6 +900,17 @@ const EventDetail = () => {
   const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
   const excusedCount = attendance.filter(a => a.status === 'excused').length;
   const attendedCount = attendance.length - excusedCount;
+  const totalCloudStyle = (() => {
+    const baseStyle = getCloudOriginStyle('all') ?? {};
+    if (statusFilter === 'all' && !cloudBursts.all) {
+      return {
+        ...baseStyle,
+        ['--cloudy-opacity' as string]: '0.06',
+        ['--cloudy-opacity-secondary' as string]: '0.03',
+      } as CSSProperties;
+    }
+    return baseStyle as CSSProperties;
+  })();
   const fingerprintMatches = fingerprintDialogKey
     ? attendance.filter((record) => {
         const fingerprint = (record.device_fingerprint_raw ?? record.device_fingerprint ?? '').trim();
@@ -901,7 +1039,7 @@ const EventDetail = () => {
           </div>
         </DialogContent>
       </Dialog>
-      <header className="bg-background/80 backdrop-blur-sm border-b border-border">
+      <header className="bg-background/80 backdrop-blur-sm border-b border-border shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Button
             asChild
@@ -948,7 +1086,7 @@ const EventDetail = () => {
             <Button
               variant={event.is_active ? 'destructive' : 'hero'}
               onClick={toggleActive}
-              className="gap-2"
+              className={`gap-2 ${startButtonPulse ? 'animate-button-press' : ''}`}
             >
               {event.is_active ? (
                 <>
@@ -996,15 +1134,19 @@ const EventDetail = () => {
               </CardHeader>
               <CardContent>
                 {event.is_active ? (
-                  <div className="text-center">
-                    <div className="inline-block w-full max-w-[240px] sm:max-w-[280px] p-3 sm:p-4 bg-background rounded-2xl shadow-lg mb-4">
+                  <div className={`text-center ${qrEntrance ? 'animate-qr-entrance' : ''}`}>
+                    <div
+                      className={`inline-block w-full max-w-[240px] sm:max-w-[280px] p-3 sm:p-4 bg-background rounded-2xl overflow-hidden shadow-lg mb-4 ${
+                        qrRefreshPulse ? 'animate-qr-refresh' : ''
+                      }`}
+                    >
                       <QRCodeSVG
                         value={qrUrl}
                         size={280}
                         level="M"
                         includeMargin
                         imageSettings={qrLogoSettings}
-                        className="w-full h-auto"
+                        className="w-full h-auto qr-rounded"
                       />
                     </div>
                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -1048,7 +1190,11 @@ const EventDetail = () => {
                     <p className="text-muted-foreground mb-4">
                       Start the event to display the QR code
                     </p>
-                    <Button onClick={toggleActive} variant="hero">
+                    <Button
+                      onClick={toggleActive}
+                      variant="hero"
+                      className={startButtonPulse ? 'animate-button-press' : undefined}
+                    >
                       <Play className="w-4 h-4" />
                       Start Event
                     </Button>
@@ -1060,40 +1206,56 @@ const EventDetail = () => {
             {/* Stats - clickable filters */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--primary)/0.45)] ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
-                onClick={() => handleStatusFilter('all')}
+                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--primary)/0.45)] filter-cloudy-primary ${statusFilter === 'all' ? 'ring-2 ring-primary filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--primary)/0.45)]' : ''}`}
+                onClick={(event) => handleStatusFilter('all', event)}
+                style={totalCloudStyle}
               >
-                <CardContent className="py-4 text-center">
+                {cloudBursts.all && (
+                  <span key={cloudBursts.all.id} className="filter-cloud-burst" />
+                )}
+                <CardContent className="py-4 text-center relative z-10">
                   <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
                   <p className="text-2xl font-bold">{attendance.length}</p>
                   <p className="text-xs text-muted-foreground">Total</p>
                 </CardContent>
               </Card>
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] ${statusFilter === 'excused' ? 'ring-2 ring-warning filter-cloudy filter-cloudy-warning' : ''}`}
-                onClick={() => handleStatusFilter('excused')}
+                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] filter-cloudy-warning ${statusFilter === 'excused' ? 'ring-2 ring-warning filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)]' : ''}`}
+                onClick={(event) => handleStatusFilter('excused', event)}
+                style={getCloudOriginStyle('excused')}
               >
-                <CardContent className="py-4 text-center">
+                {cloudBursts.excused && (
+                  <span key={cloudBursts.excused.id} className="filter-cloud-burst" />
+                )}
+                <CardContent className="py-4 text-center relative z-10">
                   <UserMinus className="w-5 h-5 mx-auto mb-1 text-warning" />
                   <p className="text-2xl font-bold">{excusedCount}</p>
                   <p className="text-xs text-muted-foreground">Excused</p>
                 </CardContent>
               </Card>
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)] ${statusFilter === 'verified' ? 'ring-2 ring-success filter-cloudy filter-cloudy-success' : ''}`}
-                onClick={() => handleStatusFilter('verified')}
+                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)] filter-cloudy-success ${statusFilter === 'verified' ? 'ring-2 ring-success filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)]' : ''}`}
+                onClick={(event) => handleStatusFilter('verified', event)}
+                style={getCloudOriginStyle('verified')}
               >
-                <CardContent className="py-4 text-center">
+                {cloudBursts.verified && (
+                  <span key={cloudBursts.verified.id} className="filter-cloud-burst" />
+                )}
+                <CardContent className="py-4 text-center relative z-10">
                   <CheckCircle className="w-5 h-5 mx-auto mb-1 text-success" />
                   <p className="text-2xl font-bold">{verifiedCount}</p>
                   <p className="text-xs text-muted-foreground">Verified</p>
                 </CardContent>
               </Card>
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] ${statusFilter === 'suspicious' ? 'ring-2 ring-warning filter-cloudy filter-cloudy-warning' : ''}`}
-                onClick={() => handleStatusFilter('suspicious')}
+                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] filter-cloudy-warning ${statusFilter === 'suspicious' ? 'ring-2 ring-warning filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)]' : ''}`}
+                onClick={(event) => handleStatusFilter('suspicious', event)}
+                style={getCloudOriginStyle('suspicious')}
               >
-                <CardContent className="py-4 text-center">
+                {cloudBursts.suspicious && (
+                  <span key={cloudBursts.suspicious.id} className="filter-cloud-burst" />
+                )}
+                <CardContent className="py-4 text-center relative z-10">
                   <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-warning" />
                   <p className="text-2xl font-bold">{suspiciousCount}</p>
                   <p className="text-xs text-muted-foreground">Suspicious</p>
