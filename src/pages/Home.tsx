@@ -251,7 +251,7 @@ const Home = () => {
       <div className="space-y-8">
         <section className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-[hsl(var(--page-bg-start))] via-[hsl(var(--card))] to-[hsl(var(--page-bg-end))] p-6 lg:p-8">
           <div className="pointer-events-none absolute -right-28 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-          <div className="pointer-events-none absolute -left-24 -bottom-28 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -left-24 -bottom-28 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
           <div className="relative z-10 space-y-6">
             <div className="space-y-6">
               <div className="space-y-2">
@@ -279,8 +279,8 @@ const Home = () => {
                   </Button>
                 </Link>
                 <Link to="/workspace-settings">
-                  <Button variant="outline" className="gap-2">
-                    <Settings className="h-4 w-4" />
+                  <Button variant="outline" className="gap-2 gear-trigger">
+                    <Settings className="h-4 w-4 gear-icon" />
                     Workspace settings
                   </Button>
                 </Link>
@@ -520,9 +520,9 @@ const Home = () => {
                   </Button>
                 </Link>
                 <Link to="/workspace-settings">
-                  <Button variant="outline" className="w-full justify-between">
+                  <Button variant="outline" className="w-full justify-between gear-trigger">
                     Workspace settings
-                    <Settings className="h-4 w-4" />
+                    <Settings className="h-4 w-4 gear-icon" />
                   </Button>
                 </Link>
               </div>

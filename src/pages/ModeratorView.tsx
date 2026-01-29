@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { 
   QrCode, Users, MapPin, Calendar, Clock,
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Radio, Search, UserMinus
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Radio, Search, UserMinus, Mail, List, ListCollapse
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -60,11 +60,37 @@ const POLL_INTERVAL_MS = 1100;
 
 // Helper to mask last name
 const maskName = (fullName: string): string => {
-  const parts = fullName.trim().split(' ');
-  if (parts.length <= 1) return fullName;
+  const safeName = typeof fullName === 'string' ? fullName : '';
+  const trimmed = safeName.trim();
+  if (!trimmed) return safeName;
+  const parts = trimmed.split(/\s+/);
+  if (parts.length <= 1) return safeName;
   const firstName = parts[0];
-  const maskedLast = parts.slice(1).map(p => p[0] + '•'.repeat(Math.max(0, p.length - 1))).join(' ');
-  return `${firstName} ${maskedLast}`;
+  const maskPart = (part: string, revealFirst: boolean): string => {
+    if (!part) return part;
+    if (!revealFirst) {
+      return '•'.repeat(part.length);
+    }
+    const firstAlphaIndex = part.search(/[A-Za-z0-9]/);
+    if (firstAlphaIndex === -1) {
+      return '•'.repeat(part.length);
+    }
+    if (firstAlphaIndex === 0) {
+      return part[0] + '•'.repeat(Math.max(0, part.length - 1));
+    }
+    return (
+      '•'.repeat(firstAlphaIndex) +
+      part[firstAlphaIndex] +
+      '•'.repeat(Math.max(0, part.length - firstAlphaIndex - 1))
+    );
+  };
+  if (parts.length === 2) {
+    const maskedLast = maskPart(parts[1], true);
+    return `${firstName} ${maskedLast}`;
+  }
+  const secondMasked = maskPart(parts[1], true);
+  const hiddenTail = parts.slice(2).map((part) => maskPart(part, false)).join('');
+  return `${firstName} ${secondMasked}${hiddenTail}`;
 };
 
 // Helper to mask email
@@ -97,6 +123,8 @@ const ModeratorView = () => {
   const [showAllDetails, setShowAllDetails] = useState(false);
   const [revealedNames, setRevealedNames] = useState<Set<string>>(new Set());
   const [revealedEmails, setRevealedEmails] = useState<Set<string>>(new Set());
+  const [compactView, setCompactView] = useState(false);
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
 
   // Manual add attendee
   const [showAddForm, setShowAddForm] = useState(false);
@@ -110,6 +138,17 @@ const ModeratorView = () => {
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious' | 'excused'>('all');
+
+  const toggleCompactExpand = useCallback((recordId: string) => {
+    if (!compactView) return;
+    setExpandedRecordId((prev) => (prev === recordId ? null : recordId));
+  }, [compactView]);
+
+  useEffect(() => {
+    if (!compactView) {
+      setExpandedRecordId(null);
+    }
+  }, [compactView]);
 
   const handleStatusFilter = (next: 'all' | 'verified' | 'suspicious' | 'excused') => {
     setStatusFilter((prev) => (prev === next && next !== 'all' ? 'all' : next));
@@ -696,6 +735,16 @@ const ModeratorView = () => {
                           Live
                         </Label>
                       </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setCompactView((prev) => !prev)}
+                        aria-pressed={compactView}
+                        title={compactView ? 'Switch to normal view' : 'Switch to compact view'}
+                      >
+                        {compactView ? <List className="w-4 h-4" /> : <ListCollapse className="w-4 h-4" />}
+                        <span className="sr-only">{compactView ? 'Normal view' : 'Compact view'}</span>
+                      </Button>
                     </div>
                   </div>
 
@@ -755,6 +804,17 @@ const ModeratorView = () => {
                     {showAllDetails ? 'Hide' : 'Details'}
                   </Button>
                 )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCompactView((prev) => !prev)}
+                  className="gap-2"
+                  aria-pressed={compactView}
+                  title={compactView ? 'Switch to normal view' : 'Switch to compact view'}
+                >
+                  {compactView ? <List className="w-4 h-4" /> : <ListCollapse className="w-4 h-4" />}
+                  {compactView ? 'Normal view' : 'Compact view'}
+                </Button>
               </div>
             </div>
 
@@ -867,13 +927,22 @@ const ModeratorView = () => {
 
               return (
                 <div className="relative">
-                  <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                    {filteredAttendance.map((record) => (
+                  <div className={`max-h-[600px] overflow-y-auto ${compactView ? 'space-y-1' : 'space-y-2'}`}>
+                    {filteredAttendance.map((record) => {
+                    const isExpanded = compactView && expandedRecordId === record.id;
+                    return (
                     <Card key={record.id} className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}>
-                      <CardContent className="py-3">
+                      <CardContent
+                        className={`${compactView && !isExpanded ? 'py-2 cursor-pointer' : 'py-3'}${compactView ? ' cursor-pointer' : ''}`}
+                        onClick={() => {
+                          if (compactView) {
+                            toggleCompactExpand(record.id);
+                          }
+                        }}
+                      >
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className={`flex items-center gap-2 ${compactView && !isExpanded ? 'mb-0.5' : 'mb-1'}`}>
                             <p 
                               className={`font-medium truncate ${canRevealName() && !showAllDetails && !revealedNames.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
                               onClick={() => canRevealName() && !showAllDetails && toggleRevealName(record.id)}
@@ -898,26 +967,34 @@ const ModeratorView = () => {
                               {record.status}
                             </Badge>
                           </div>
-                          {getDisplayEmail(record) !== null && (
-                            <p 
-                              className={`text-sm text-muted-foreground truncate ${canRevealEmail() && !showAllDetails && !revealedEmails.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
-                              onClick={() => canRevealEmail() && !showAllDetails && toggleRevealEmail(record.id)}
-                              title={canRevealEmail() && !showAllDetails && !revealedEmails.has(record.id) ? 'Click to reveal' : undefined}
-                            >
-                              {getDisplayEmail(record)}
-                            </p>
+                          {(!compactView || isExpanded) && (
+                            <>
+                              {getDisplayEmail(record) !== null && (
+                                <p 
+                                  className={`text-sm text-muted-foreground truncate flex items-center gap-1.5 ${canRevealEmail() && !showAllDetails && !revealedEmails.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
+                                  onClick={() => canRevealEmail() && !showAllDetails && toggleRevealEmail(record.id)}
+                                  title={canRevealEmail() && !showAllDetails && !revealedEmails.has(record.id) ? 'Click to reveal' : undefined}
+                                >
+                                  <Mail className="w-3 h-3 flex-shrink-0" />
+                                  {getDisplayEmail(record)}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1.5">
+                                  <Clock className="w-3 h-3" />
+                                  {format(new Date(record.recorded_at), 'p')}
+                                </span>
+                                {event?.location_check_enabled && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {record.location_provided ? 'Location verified' : 'No location'}
+                                  </span>
+                                )}
+                              </div>
+                            </>
                           )}
-                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                            <span>{format(new Date(record.recorded_at), 'p')}</span>
-                            {event?.location_check_enabled && (
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {record.location_provided ? 'Location verified' : 'No location'}
-                              </span>
-                            )}
-                          </div>
                           {record.suspicious_reason && (
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className={`flex items-center gap-2 ${compactView && !isExpanded ? 'mt-0.5' : 'mt-1'}`}>
                               <p className="text-xs text-warning flex items-center gap-1 break-words">
                                 <AlertTriangle className="w-3 h-3" />
                                 {record.suspicious_reason}
@@ -929,7 +1006,8 @@ const ModeratorView = () => {
                                   variant="ghost"
                                   size="sm"
                                   className="h-5 px-1.5 text-xs gap-1"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     window.open(`https://www.google.com/maps?q=${record.location_lat},${record.location_lng}`, '_blank');
                                   }}
                                   title="Show on Google Maps"
@@ -941,7 +1019,14 @@ const ModeratorView = () => {
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div
+                          className="flex items-center gap-1"
+                          onClick={(event) => {
+                            if (compactView) {
+                              event.stopPropagation();
+                            }
+                          }}
+                        >
                           {record.status === 'excused' && (
                             <Button
                               variant="ghost"
@@ -994,7 +1079,8 @@ const ModeratorView = () => {
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                    );
+                  })}
                     <div className="hidden sm:block h-10" aria-hidden="true" />
                   </div>
                   <div className="pointer-events-none absolute bottom-0 left-0 right-0 hidden h-10 bg-gradient-to-t from-[hsl(var(--page-bg-end))] via-[hsl(var(--page-bg-end)/0.7)] to-transparent sm:block" />

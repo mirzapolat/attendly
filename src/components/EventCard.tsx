@@ -368,7 +368,7 @@ const EventCard = ({
           {...cardProps}
         >
           <div className="pointer-events-none absolute -top-16 -right-10 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-12 -left-10 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
           <CardContent className="relative z-10 flex h-full flex-col gap-4 p-5">
             <div className="flex items-start justify-between gap-3">
               {scheduleLabel && (
@@ -467,7 +467,7 @@ const EventCard = ({
         {...cardProps}
       >
         <div className="pointer-events-none absolute -left-16 -top-12 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
-        <div className="pointer-events-none absolute -right-16 -bottom-14 h-28 w-28 rounded-full bg-emerald-500/10 blur-2xl" />
+        <div className="pointer-events-none absolute -right-16 -bottom-14 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
         <CardContent className="relative z-10 flex flex-col gap-3 p-3">
           <div className="flex items-center justify-between gap-2">
             {scheduleLabel ? (

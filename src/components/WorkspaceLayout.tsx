@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
@@ -14,6 +14,14 @@ const WorkspaceLayout = ({ children, title }: WorkspaceLayoutProps) => {
   const { user, loading: authLoading } = useAuth();
   const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
   const navigate = useNavigate();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('attendly:sidebar-collapsed') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('attendly:sidebar-collapsed', String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -36,11 +44,14 @@ const WorkspaceLayout = ({ children, title }: WorkspaceLayoutProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="h-screen bg-gradient-subtle overflow-hidden flex flex-col">
       <WorkspaceHeader title={title} />
-      <div className="flex flex-col md:flex-row min-h-[calc(100vh-4rem)]">
-        <WorkspaceSidebar />
-        <main className="flex-1">
+      <div className="flex flex-1 min-h-0 flex-col md:flex-row">
+        <WorkspaceSidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed((prev) => !prev)}
+        />
+        <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
           <div className="container mx-auto px-6 py-8">{children}</div>
         </main>
       </div>

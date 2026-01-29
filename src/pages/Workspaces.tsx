@@ -176,8 +176,10 @@ const Workspaces = () => {
     const hasLogo = Boolean(logo);
 
     const content = (
-      <Card className="bg-gradient-card hover:shadow-md transition-shadow">
-        <CardContent className="p-5 flex items-center gap-4">
+      <Card className="group relative overflow-hidden bg-gradient-card border border-border/80 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_18px_40px_-30px_hsl(var(--primary)/0.35)] cursor-pointer">
+        <div className="pointer-events-none absolute -top-16 -right-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-12 -left-10 h-20 w-20 rounded-full bg-emerald-500/10 blur-2xl" />
+        <CardContent className="relative z-10 p-5 flex items-center gap-4">
           <div
             className={`h-12 w-12 shrink-0 rounded-xl flex items-center justify-center text-sm font-semibold ${
               hasLogo ? 'overflow-hidden' : 'text-primary-foreground'
@@ -211,7 +213,7 @@ const Workspaces = () => {
         type="button"
         key={id}
         onClick={() => handleSelectWorkspace(id)}
-        className="text-left"
+        className="text-left w-full"
       >
         {content}
       </button>

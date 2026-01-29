@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Settings as SettingsIcon, User, Trash2, Save } from 'lucide-react';
+import { Settings as SettingsIcon, User, Trash2, Save } from 'lucide-react';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
 import { useConfirm } from '@/hooks/useConfirm';
+import WorkspaceLayout from '@/components/WorkspaceLayout';
 
 const profileSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -157,30 +158,26 @@ const Settings = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse-subtle">Loading...</div>
-      </div>
+      <WorkspaceLayout title="Account settings">
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-pulse-subtle">Loading...</div>
+        </div>
+      </WorkspaceLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
-      <header className="bg-background/80 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="container mx-auto px-6 h-16 flex items-center">
-          <Button asChild variant="glass" size="sm" className="rounded-full px-3">
-            <Link to="/dashboard">
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Back</span>
-            </Link>
-          </Button>
+    <WorkspaceLayout title="Account settings">
+      <div className="max-w-3xl">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <SettingsIcon className="w-6 h-6" />
+            Account settings
+          </h1>
+          <p className="text-muted-foreground">
+            Manage your profile details and security preferences.
+          </p>
         </div>
-      </header>
-
-      <main className="container mx-auto px-6 py-8 max-w-2xl">
-        <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
-          <SettingsIcon className="w-6 h-6" />
-          Account Settings
-        </h1>
 
         {/* Profile */}
         <Card className="bg-gradient-card mb-6">
@@ -252,7 +249,7 @@ const Settings = () => {
                 )}
               </div>
 
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" disabled={saving} className="gap-2">
                 <Save className="w-4 h-4" />
                 {saving ? 'Saving...' : 'Save Changes'}
               </Button>
@@ -261,7 +258,7 @@ const Settings = () => {
         </Card>
 
         {/* Danger Zone */}
-        <Card className="bg-gradient-card border-destructive/50">
+        <Card className="border-destructive/40 bg-destructive/5">
           <CardHeader>
             <CardTitle className="text-destructive flex items-center gap-2">
               <Trash2 className="w-5 h-5" />
@@ -276,8 +273,8 @@ const Settings = () => {
               Once you delete your account, there is no going back. All your events, 
               owned workspaces, events, seasons, and attendance records will be permanently removed.
             </p>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleDelete}
               disabled={deleting}
             >
@@ -286,8 +283,8 @@ const Settings = () => {
             </Button>
           </CardContent>
         </Card>
-      </main>
-    </div>
+      </div>
+    </WorkspaceLayout>
   );
 };
 

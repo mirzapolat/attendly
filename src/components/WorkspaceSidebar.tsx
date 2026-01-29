@@ -1,8 +1,9 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
-import { CalendarDays, Home, Layers, Settings, Users } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Home, Layers, Settings, Users } from 'lucide-react';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { themeColors } from '@/hooks/useThemeColor';
+import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/home', label: 'Home', icon: Home },
@@ -14,7 +15,12 @@ const navItems = [
 
 const SIDEBAR_SCROLL_KEY = 'attendly:sidebar-scroll';
 
-const WorkspaceSidebar = () => {
+interface WorkspaceSidebarProps {
+  collapsed?: boolean;
+  onToggle?: () => void;
+}
+
+const WorkspaceSidebar = ({ collapsed = false, onToggle }: WorkspaceSidebarProps) => {
   const { currentWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const location = useLocation();
@@ -71,15 +77,41 @@ const WorkspaceSidebar = () => {
   }, [location.pathname]);
 
   return (
-    <aside className="border-r border-border bg-background/60 md:w-60">
-      <div 
-        className="group flex items-center gap-3 px-6 py-6 cursor-pointer hover:bg-muted/50 transition-colors rounded-lg"
+    <aside
+      className={cn(
+        "relative border-r border-border bg-background/60 transition-[width] duration-300 ease-out md:overflow-visible md:self-start md:flex md:flex-col md:h-full md:min-h-0",
+        collapsed ? "md:w-[82px]" : "md:w-60",
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onToggle?.()}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        className={cn(
+          "sidebar-toggle hidden md:flex items-center justify-center absolute -right-3 top-6 h-8 w-8 rounded-full border border-border bg-background/80 text-muted-foreground shadow-md transition-all duration-200 hover:text-foreground hover:shadow-lg backdrop-blur z-20",
+          collapsed
+            ? "translate-x-1 bg-background/95 text-foreground border-border shadow-lg ring-2 ring-primary/25"
+            : "translate-x-0",
+        )}
+      >
+        {collapsed ? (
+          <ChevronRight className="h-4 w-4 sidebar-toggle-icon" />
+        ) : (
+          <ChevronLeft className="h-4 w-4 sidebar-toggle-icon" />
+        )}
+      </button>
+      <div
+        className={cn(
+          "group flex items-center gap-3 px-6 py-6 cursor-pointer hover:bg-muted/50 transition-colors rounded-lg md:shrink-0",
+          collapsed && "md:px-3 md:justify-center md:gap-0",
+        )}
         onClick={() => navigate('/workspaces')}
       >
         <div
-          className={`h-12 w-12 shrink-0 rounded-xl flex items-center justify-center text-sm font-semibold group-hover:animate-wiggle ${
-            hasLogo ? 'overflow-hidden' : 'text-primary-foreground'
-          }`}
+          className={cn(
+            "h-12 w-12 shrink-0 rounded-xl flex items-center justify-center text-sm font-semibold group-hover:animate-wiggle",
+            hasLogo ? "overflow-hidden" : "text-primary-foreground",
+          )}
           style={hasLogo ? undefined : { backgroundColor: color?.hex ?? 'hsl(var(--primary))' }}
         >
           {hasLogo ? (
@@ -92,7 +124,12 @@ const WorkspaceSidebar = () => {
             initials
           )}
         </div>
-        <div className="min-w-0">
+        <div
+          className={cn(
+            "min-w-0 transition-all duration-200",
+            collapsed && "md:w-0 md:opacity-0 md:translate-x-2 md:overflow-hidden md:pointer-events-none",
+          )}
+        >
           <p
             className="font-semibold leading-snug break-words"
             style={{
@@ -109,24 +146,39 @@ const WorkspaceSidebar = () => {
       </div>
       <nav 
         ref={navRef}
-        className="flex md:flex-col gap-1 px-6 md:px-3 pb-6 overflow-x-auto scrollbar-none"
+        className={cn(
+          "flex md:flex-col gap-1 px-6 pb-6 overflow-x-auto scrollbar-none transition-all duration-200 md:overflow-y-auto md:overflow-x-hidden md:pr-2 md:flex-1 md:min-h-0",
+          collapsed ? "md:px-2" : "md:px-3",
+        )}
       >
         {navItems.map((item) => {
           const Icon = item.icon;
+          const isSettings = item.icon === Settings;
           return (
             <NavLink
               key={item.to}
               to={item.to}
+              title={collapsed ? item.label : undefined}
               className={({ isActive }) =>
-                `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap",
+                  collapsed && "md:justify-center md:gap-0 md:px-2",
                   isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                }`
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                  isSettings && "gear-trigger",
+                )
               }
             >
-              <Icon className="w-4 h-4" />
-              {item.label}
+              <Icon className={`w-4 h-4${isSettings ? ' gear-icon' : ''}`} />
+              <span
+                className={cn(
+                  "transition-all duration-200",
+                  collapsed && "md:w-0 md:opacity-0 md:translate-x-2 md:overflow-hidden",
+                )}
+              >
+                {item.label}
+              </span>
             </NavLink>
           );
         })}

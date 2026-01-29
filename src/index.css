@@ -285,13 +285,72 @@
     transform: translateZ(0);
   }
 
-  .animate-qr-refresh {
+.animate-qr-refresh {
     animation: qrRefresh 450ms ease-out;
-    will-change: transform, opacity, filter;
-  }
+    will-change: opacity, filter;
+}
 
   .animate-pulse-subtle {
     animation: pulseSub 2s ease-in-out infinite;
+  }
+
+  .github-cat-button {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .github-cat-track {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .github-cat {
+    position: absolute;
+    left: 0;
+    top: 68%;
+    width: 28px;
+    height: 18px;
+    color: var(--lp-accent);
+    opacity: 0.85;
+    transform: translate(-140%, -50%);
+    filter: drop-shadow(0 3px 6px rgba(20, 40, 32, 0.2));
+    animation: gh-cat-walk 6.2s ease-in-out infinite;
+  }
+
+  .github-cat svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    animation: gh-cat-bob 520ms ease-in-out infinite;
+  }
+
+  .github-cat .cat-tail {
+    transform-origin: 10% 70%;
+    animation: gh-cat-tail 640ms ease-in-out infinite;
+  }
+
+  .github-cat .cat-paw {
+    animation: gh-cat-paw 420ms ease-in-out infinite;
+  }
+
+  .github-cat-button:hover .github-cat,
+  .github-cat-button:focus-visible .github-cat {
+    animation-duration: 4.4s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .github-cat {
+      animation: none;
+      opacity: 0;
+    }
+
+    .github-cat svg,
+    .github-cat .cat-tail,
+    .github-cat .cat-paw {
+      animation: none;
+    }
   }
 
   .animate-wiggle {
@@ -301,6 +360,109 @@
   .animate-button-press {
     animation: buttonPress 260ms ease-out;
     will-change: transform;
+  }
+
+  .gear-icon {
+    transition: transform 260ms ease;
+    transform-origin: center;
+  }
+
+  .gear-trigger:hover .gear-icon,
+  .gear-trigger:focus-visible .gear-icon {
+    transform: rotate(90deg);
+  }
+
+  .bell-icon {
+    transform-origin: top center;
+  }
+
+  .bell-trigger:hover .bell-icon,
+  .bell-trigger:focus-visible .bell-icon {
+    animation: bell-ring 900ms ease-in-out;
+  }
+
+  .logout-icon {
+    transform-origin: center;
+  }
+
+  .logout-trigger:hover .logout-icon,
+  .logout-trigger:focus-visible .logout-icon {
+    animation: logout-swish 600ms ease-in-out;
+  }
+
+  .sidebar-toggle:hover .sidebar-toggle-icon,
+  .sidebar-toggle:focus-visible .sidebar-toggle-icon {
+    animation: sidebar-icon-squeeze 420ms ease-in-out;
+  }
+
+  .start-event-icon,
+  .stop-event-icon {
+    transform-origin: center;
+  }
+
+  .start-event-trigger:hover .start-event-icon,
+  .start-event-trigger:focus-visible .start-event-icon {
+    animation: start-pop 520ms ease-out;
+  }
+
+  .stop-event-trigger:hover .stop-event-icon,
+  .stop-event-trigger:focus-visible .stop-event-icon {
+    animation: stop-brake 520ms ease-in-out;
+  }
+
+  .icon-trigger:hover .icon-slide-left,
+  .icon-trigger:focus-visible .icon-slide-left {
+    animation: icon-slide-left 360ms ease-out;
+  }
+
+  .icon-trigger:hover .icon-bounce,
+  .icon-trigger:focus-visible .icon-bounce {
+    animation: icon-bounce 420ms ease-out;
+  }
+
+  .icon-trigger:hover .icon-drop,
+  .icon-trigger:focus-visible .icon-drop {
+    animation: icon-drop 360ms ease-out;
+  }
+
+  .icon-trigger:hover .icon-pop,
+  .icon-trigger:focus-visible .icon-pop {
+    animation: icon-pop 360ms ease-out;
+  }
+
+  .icon-trigger:hover .icon-blink,
+  .icon-trigger:focus-visible .icon-blink {
+    animation: icon-blink 360ms ease-in-out;
+  }
+
+  .icon-trigger:hover .icon-list,
+  .icon-trigger:focus-visible .icon-list {
+    animation: icon-list 360ms ease-in-out;
+  }
+
+  .icon-trigger:hover .icon-copy,
+  .icon-trigger:focus-visible .icon-copy {
+    animation: icon-copy 360ms ease-out;
+  }
+
+  .icon-trigger:hover .icon-tilt,
+  .icon-trigger:focus-visible .icon-tilt {
+    animation: icon-tilt 420ms ease-in-out;
+  }
+
+  .icon-trigger:hover .icon-warn,
+  .icon-trigger:focus-visible .icon-warn {
+    animation: icon-warn 420ms ease-in-out;
+  }
+
+  .icon-trigger:hover .icon-shake,
+  .icon-trigger:focus-visible .icon-shake {
+    animation: icon-shake 420ms ease-in-out;
+  }
+
+  .icon-trigger:hover .icon-pin,
+  .icon-trigger:focus-visible .icon-pin {
+    animation: icon-pin 420ms ease-out;
   }
 
   .confetti-piece {
@@ -370,17 +532,14 @@
 @keyframes qrRefresh {
   0% {
     opacity: 0.9;
-    transform: scale(0.995);
     filter: blur(0.6px);
   }
   60% {
     opacity: 1;
-    transform: scale(1);
     filter: blur(0.2px);
   }
   100% {
     opacity: 1;
-    transform: scale(1);
     filter: blur(0px);
   }
 }
@@ -433,6 +592,222 @@
   }
 }
 
+@keyframes bell-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  15% {
+    transform: rotate(12deg);
+  }
+  30% {
+    transform: rotate(-10deg);
+  }
+  45% {
+    transform: rotate(8deg);
+  }
+  60% {
+    transform: rotate(-6deg);
+  }
+  75% {
+    transform: rotate(4deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes logout-swish {
+  0% {
+    transform: translateX(0) rotate(0deg);
+  }
+  35% {
+    transform: translateX(4px) rotate(10deg);
+  }
+  60% {
+    transform: translateX(-2px) rotate(-6deg);
+  }
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+}
+
+@keyframes start-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes stop-brake {
+  0% {
+    transform: translateX(0) scale(1);
+  }
+  30% {
+    transform: translateX(-2px) scale(0.98);
+  }
+  60% {
+    transform: translateX(2px) scale(0.98);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes icon-slide-left {
+  0% {
+    transform: translateX(0);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes icon-bounce {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.06);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes icon-drop {
+  0% {
+    transform: translateY(0);
+  }
+  60% {
+    transform: translateY(2px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes icon-pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes icon-blink {
+  0% {
+    transform: scaleY(1);
+  }
+  45% {
+    transform: scaleY(0.4);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes icon-list {
+  0% {
+    transform: scaleY(1);
+  }
+  40% {
+    transform: scaleY(0.7);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes icon-copy {
+  0% {
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.08) rotate(8deg);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes icon-tilt {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-10deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes icon-warn {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  30% {
+    transform: rotate(8deg) scale(1.05);
+  }
+  60% {
+    transform: rotate(-6deg) scale(1.03);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes icon-shake {
+  0% {
+    transform: translateX(0);
+  }
+  30% {
+    transform: translateX(-2px);
+  }
+  60% {
+    transform: translateX(2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes icon-pin {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes sidebar-icon-squeeze {
+  0% {
+    transform: scaleY(1);
+  }
+  40% {
+    transform: scaleY(0.7);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
 @keyframes confetti-fall {
   0% {
     transform: translate3d(0, -10px, 0) rotate(0deg);
@@ -444,6 +819,56 @@
   100% {
     transform: translate3d(var(--confetti-drift, 0px), 100vh, 0) rotate(180deg);
     opacity: 0;
+  }
+}
+
+@keyframes gh-cat-walk {
+  0% {
+    transform: translate(-140%, -50%) rotate(-1deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.85;
+  }
+  45% {
+    transform: translate(20%, -58%) rotate(1deg);
+  }
+  70% {
+    transform: translate(80%, -48%) rotate(-1deg);
+  }
+  90% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(160%, -50%) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+@keyframes gh-cat-bob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+@keyframes gh-cat-tail {
+  0%, 100% {
+    transform: rotate(12deg);
+  }
+  50% {
+    transform: rotate(-18deg);
+  }
+}
+
+@keyframes gh-cat-paw {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(2px);
   }
 }
 

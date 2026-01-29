@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Trash2, Palette, Save } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useWorkspace } from '@/hooks/useWorkspace';
@@ -25,6 +25,8 @@ const WorkspaceSettings = () => {
   const [clearingEvents, setClearingEvents] = useState(false);
   const [clearingSeasons, setClearingSeasons] = useState(false);
   const [removingMembers, setRemovingMembers] = useState(false);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const logoPreviewRequestRef = useRef(0);
 
   useEffect(() => {
     if (currentWorkspace) {
@@ -33,6 +35,45 @@ const WorkspaceSettings = () => {
       setBrandColor(currentWorkspace.brand_color ?? 'default');
     }
   }, [currentWorkspace]);
+
+  useEffect(() => {
+    const trimmed = logoUrl.trim();
+    if (!trimmed) {
+      setLogoPreviewUrl(null);
+      return;
+    }
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(trimmed);
+    } catch {
+      setLogoPreviewUrl(null);
+      return;
+    }
+
+    const requestId = ++logoPreviewRequestRef.current;
+    setLogoPreviewUrl(null);
+
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => {
+      if (logoPreviewRequestRef.current === requestId) {
+        setLogoPreviewUrl(parsedUrl.toString());
+      }
+    };
+    img.onerror = () => {
+      if (logoPreviewRequestRef.current === requestId) {
+        setLogoPreviewUrl(null);
+      }
+    };
+    img.src = parsedUrl.toString();
+
+    return () => {
+      if (logoPreviewRequestRef.current === requestId) {
+        logoPreviewRequestRef.current += 1;
+      }
+    };
+  }, [logoUrl]);
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -238,15 +279,12 @@ const WorkspaceSettings = () => {
               <div className="space-y-2">
                 <Label htmlFor="workspaceLogo">Brand logo (URL)</Label>
                 <div className="flex items-center gap-3">
-                  {logoUrl.trim() && (
+                  {logoPreviewUrl && (
                     <div className="h-12 w-12 shrink-0 rounded-xl border border-border bg-muted/40 flex items-center justify-center overflow-hidden">
                       <img
-                        src={logoUrl.trim()}
+                        src={logoPreviewUrl}
                         alt="Logo preview"
                         className="h-full w-full object-cover"
-                        onError={(event) => {
-                          (event.currentTarget as HTMLImageElement).style.display = 'none';
-                        }}
                       />
                     </div>
                   )}

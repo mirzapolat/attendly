@@ -14,7 +14,7 @@ import { useConfirm } from '@/hooks/useConfirm';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, Clock, Play, Square, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2, Search, UserMinus, List, ListCollapse
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2, Search, UserMinus, List, ListCollapse, Mail
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EventSettings from '@/components/EventSettings';
@@ -75,11 +75,37 @@ const THEME_COLOR_STORAGE_KEY = 'attendly:theme-color';
 
 // Helper to mask last name (keep first name visible)
 const maskName = (fullName: string): string => {
-  const parts = fullName.trim().split(' ');
-  if (parts.length <= 1) return fullName;
+  const safeName = typeof fullName === 'string' ? fullName : '';
+  const trimmed = safeName.trim();
+  if (!trimmed) return safeName;
+  const parts = trimmed.split(/\s+/);
+  if (parts.length <= 1) return safeName;
   const firstName = parts[0];
-  const maskedLast = parts.slice(1).map(p => p[0] + '•'.repeat(Math.max(0, p.length - 1))).join(' ');
-  return `${firstName} ${maskedLast}`;
+  const maskPart = (part: string, revealFirst: boolean): string => {
+    if (!part) return part;
+    if (!revealFirst) {
+      return '•'.repeat(part.length);
+    }
+    const firstAlphaIndex = part.search(/[A-Za-z0-9]/);
+    if (firstAlphaIndex === -1) {
+      return '•'.repeat(part.length);
+    }
+    if (firstAlphaIndex === 0) {
+      return part[0] + '•'.repeat(Math.max(0, part.length - 1));
+    }
+    return (
+      '•'.repeat(firstAlphaIndex) +
+      part[firstAlphaIndex] +
+      '•'.repeat(Math.max(0, part.length - firstAlphaIndex - 1))
+    );
+  };
+  if (parts.length === 2) {
+    const maskedLast = maskPart(parts[1], true);
+    return `${firstName} ${maskedLast}`;
+  }
+  const secondMasked = maskPart(parts[1], true);
+  const hiddenTail = parts.slice(2).map((part) => maskPart(part, false)).join('');
+  return `${firstName} ${secondMasked}${hiddenTail}`;
 };
 
 // Helper to mask email
@@ -109,6 +135,7 @@ const EventDetail = () => {
   const [showAllDetails, setShowAllDetails] = useState(false);
   const [revealedNames, setRevealedNames] = useState<Set<string>>(new Set());
   const [revealedEmails, setRevealedEmails] = useState<Set<string>>(new Set());
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   
   // Manual add attendee
   const [showAddForm, setShowAddForm] = useState(false);
@@ -148,6 +175,17 @@ const EventDetail = () => {
   const [qrRefreshPulse, setQrRefreshPulse] = useState(false);
   const qrRefreshTimerRef = useRef<number | null>(null);
   const prevQrTokenRef = useRef<string | null>(null);
+
+  const toggleCompactExpand = useCallback((recordId: string) => {
+    if (!compactView) return;
+    setExpandedRecordId((prev) => (prev === recordId ? null : recordId));
+  }, [compactView]);
+
+  useEffect(() => {
+    if (!compactView) {
+      setExpandedRecordId(null);
+    }
+  }, [compactView]);
 
   const getFingerprintKey = (record: AttendanceRecord) =>
     (record.device_fingerprint_raw ?? record.device_fingerprint ?? '').trim();
@@ -997,8 +1035,9 @@ const EventDetail = () => {
                         size="icon"
                         onClick={() => deleteRecord(match.id)}
                         title="Delete record"
+                        className="icon-trigger"
                       >
-                        <Trash2 className="w-4 h-4 text-destructive" />
+                        <Trash2 className="w-4 h-4 text-destructive icon-shake" />
                       </Button>
                     </div>
                   </div>
@@ -1015,13 +1054,13 @@ const EventDetail = () => {
                   fingerprintBulkAction !== null ||
                   fingerprintMatches.every((record) => record.status !== 'suspicious')
                 }
-                className="gap-2"
+                className="gap-2 icon-trigger"
               >
                 {fingerprintBulkAction === 'clearing' ? (
                   'Verifying...'
                 ) : (
                   <>
-                    <CheckCircle className="h-4 w-4" />
+                    <CheckCircle className="h-4 w-4 icon-pop" />
                     Verify and close
                   </>
                 )}
@@ -1039,17 +1078,17 @@ const EventDetail = () => {
           </div>
         </DialogContent>
       </Dialog>
-      <header className="bg-background/80 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <header className="container mx-auto px-4 sm:px-6 pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/80 px-4 py-3 shadow-sm backdrop-blur-sm">
           <Button
             asChild
             variant="glass"
             size="sm"
-            className="rounded-full px-3"
+            className="rounded-full px-3 icon-trigger"
           >
             <Link to="/dashboard" onClick={handleDashboardClick}>
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Events</span>
+              <ArrowLeft className="w-4 h-4 icon-slide-left" />
+              <span className="hidden md:inline">Events</span>
             </Link>
           </Button>
           <div className="flex items-center gap-2">
@@ -1058,45 +1097,45 @@ const EventDetail = () => {
               size="sm"
               onClick={() => setShowModeration(true)}
               title="Moderation settings"
-              className="gap-2"
+              className="gap-2 icon-trigger"
             >
-              <Users2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Moderation</span>
+              <Users2 className="w-4 h-4 icon-bounce" />
+              <span className="hidden md:inline">Moderation</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowExcuseLinks(true)}
               title="Excuse links"
-              className="gap-2"
+              className="gap-2 icon-trigger"
             >
-              <UserMinus className="w-4 h-4" />
-              <span className="hidden sm:inline">Excuses</span>
+              <UserMinus className="w-4 h-4 icon-drop" />
+              <span className="hidden md:inline">Excuses</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowSettings(true)}
               title="Event settings"
-              className="gap-2"
+              className="gap-2 gear-trigger icon-trigger"
             >
-              <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Settings</span>
+              <Settings className="w-4 h-4 gear-icon" />
+              <span className="hidden md:inline">Settings</span>
             </Button>
             <Button
               variant={event.is_active ? 'destructive' : 'hero'}
               onClick={toggleActive}
-              className={`gap-2 ${startButtonPulse ? 'animate-button-press' : ''}`}
+              className={`gap-2 rounded-full ${startButtonPulse ? 'animate-button-press' : ''} ${event.is_active ? 'stop-event-trigger' : 'start-event-trigger'}`}
             >
               {event.is_active ? (
                 <>
-                  <Square className="w-4 h-4" />
-                  <span className="hidden sm:inline">Stop Event</span>
+                  <Square className="w-4 h-4 stop-event-icon" />
+                  <span className="hidden md:inline">Stop Event</span>
                 </>
               ) : (
                 <>
-                  <Play className="w-4 h-4" />
-                  <span className="hidden sm:inline">Start Event</span>
+                  <Play className="w-4 h-4 start-event-icon" />
+                  <span className="hidden md:inline">Start Event</span>
                 </>
               )}
             </Button>
@@ -1104,7 +1143,7 @@ const EventDetail = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 sm:px-6 py-8 overflow-x-hidden">
+      <main className="container mx-auto mt-1 px-4 sm:px-6 pt-4 sm:pt-8 pb-8 overflow-x-hidden">
         <div className="grid lg:grid-cols-2 gap-8">
           {/* QR Code Section */}
           <div className="min-w-0">
@@ -1170,9 +1209,9 @@ const EventDetail = () => {
                           size="sm"
                           onClick={handleCopyStaticLink}
                           disabled={copyingStaticLink}
-                          className="gap-2"
+                          className="gap-2 icon-trigger"
                         >
-                          <Copy className="h-4 w-4" />
+                          <Copy className="h-4 w-4 icon-copy" />
                           {copyingStaticLink ? 'Copying...' : 'Copy link'}
                         </Button>
                         <QRCodeExport
@@ -1193,9 +1232,9 @@ const EventDetail = () => {
                     <Button
                       onClick={toggleActive}
                       variant="hero"
-                      className={startButtonPulse ? 'animate-button-press' : undefined}
+                      className={`gap-2 rounded-full start-event-trigger ${startButtonPulse ? 'animate-button-press' : ''}`}
                     >
-                      <Play className="w-4 h-4" />
+                      <Play className="w-4 h-4 start-event-icon" />
                       Start Event
                     </Button>
                   </div>
@@ -1290,18 +1329,18 @@ const EventDetail = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setShowAddForm(!showAddForm)}
-                        className="gap-2 flex-1"
+                        className="gap-2 flex-1 icon-trigger"
                       >
-                        <UserPlus className="w-4 h-4" />
+                        <UserPlus className="w-4 h-4 icon-pop" />
                         Add
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setShowAllDetails(!showAllDetails)}
-                        className="gap-2 flex-1"
+                        className="gap-2 flex-1 icon-trigger"
                       >
-                        {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showAllDetails ? <EyeOff className="w-4 h-4 icon-blink" /> : <Eye className="w-4 h-4 icon-blink" />}
                         {showAllDetails ? 'Hide' : 'Details'}
                       </Button>
                     </div>
@@ -1318,8 +1357,9 @@ const EventDetail = () => {
                         onClick={() => setCompactView((prev) => !prev)}
                         aria-pressed={compactView}
                         title={compactView ? 'Switch to normal view' : 'Switch to compact view'}
+                        className="icon-trigger"
                       >
-                        {compactView ? <List className="w-4 h-4" /> : <ListCollapse className="w-4 h-4" />}
+                        {compactView ? <List className="w-4 h-4 icon-list" /> : <ListCollapse className="w-4 h-4 icon-list" />}
                         <span className="sr-only">{compactView ? 'Normal view' : 'Compact view'}</span>
                       </Button>
                     </div>
@@ -1354,18 +1394,18 @@ const EventDetail = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowAddForm(!showAddForm)}
-                  className="gap-2"
+                  className="gap-2 icon-trigger"
                 >
-                  <UserPlus className="w-4 h-4" />
+                  <UserPlus className="w-4 h-4 icon-pop" />
                   Add
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowAllDetails(!showAllDetails)}
-                  className="gap-2"
+                  className="gap-2 icon-trigger"
                 >
-                  {showAllDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showAllDetails ? <EyeOff className="w-4 h-4 icon-blink" /> : <Eye className="w-4 h-4 icon-blink" />}
                   {showAllDetails ? 'Hide' : 'Details'}
                 </Button>
                 <AttendeeActions
@@ -1378,11 +1418,11 @@ const EventDetail = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setCompactView((prev) => !prev)}
-                  className="gap-2"
+                  className="gap-2 icon-trigger"
                   aria-pressed={compactView}
                   title={compactView ? 'Switch to normal view' : 'Switch to compact view'}
                 >
-                  {compactView ? <List className="w-4 h-4" /> : <ListCollapse className="w-4 h-4" />}
+                  {compactView ? <List className="w-4 h-4 icon-list" /> : <ListCollapse className="w-4 h-4 icon-list" />}
                   <span className="sr-only">{compactView ? 'Normal view' : 'Compact view'}</span>
                 </Button>
               </div>
@@ -1437,12 +1477,12 @@ const EventDetail = () => {
                       onChange={(e) => setManualEmail(e.target.value)}
                     />
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => addManualAttendee('verified')} className="flex-1 gap-2">
-                        <CheckCircle className="w-4 h-4" />
+                      <Button size="sm" onClick={() => addManualAttendee('verified')} className="flex-1 gap-2 icon-trigger">
+                        <CheckCircle className="w-4 h-4 icon-pop" />
                         Attended
                       </Button>
-                      <Button size="sm" variant="warning" onClick={() => addManualAttendee('excused')} className="flex-1 gap-2">
-                        <UserMinus className="w-4 h-4" />
+                      <Button size="sm" variant="warning" onClick={() => addManualAttendee('excused')} className="flex-1 gap-2 icon-trigger">
+                        <UserMinus className="w-4 h-4 icon-drop" />
                         Excused
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => {
@@ -1494,12 +1534,24 @@ const EventDetail = () => {
               return (
                 <div className="relative">
                   <div className={`max-h-[600px] overflow-y-auto ${compactView ? 'space-y-1' : 'space-y-2'}`}>
-                    {filteredAttendance.map((record) => (
-                    <Card key={record.id} className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}>
-                      <CardContent className={compactView ? 'py-2' : 'py-3'}>
+                    {filteredAttendance.map((record) => {
+                      const isExpanded = compactView && expandedRecordId === record.id;
+                      return (
+                    <Card
+                      key={record.id}
+                      className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}
+                    >
+                      <CardContent
+                        className={`${compactView && !isExpanded ? 'py-2 cursor-pointer' : 'py-3'}${compactView ? ' cursor-pointer' : ''}`}
+                        onClick={() => {
+                          if (compactView) {
+                            toggleCompactExpand(record.id);
+                          }
+                        }}
+                      >
                         <div className="flex items-center justify-between gap-4">
                         <div className="flex-1 min-w-0">
-                          <div className={`flex items-center gap-2 ${compactView ? 'mb-0.5' : 'mb-1'}`}>
+                          <div className={`flex items-center gap-2 ${compactView && !isExpanded ? 'mb-0.5' : 'mb-1'}`}>
                             <p 
                               className={`font-medium truncate ${!showAllDetails && !revealedNames.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
                               onClick={() => !showAllDetails && toggleRevealName(record.id)}
@@ -1526,14 +1578,15 @@ const EventDetail = () => {
                               {record.status}
                             </Badge>
                           </div>
-                          {!compactView && (
+                          {(!compactView || isExpanded) && (
                             <>
                               <div className="flex items-center gap-1.5">
                                 <p 
-                                  className={`text-sm text-muted-foreground truncate flex-1 ${!showAllDetails && !revealedEmails.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
+                                  className={`text-sm text-muted-foreground truncate flex-1 flex items-center gap-1.5 ${!showAllDetails && !revealedEmails.has(record.id) ? 'cursor-pointer hover:text-primary' : ''}`}
                                   onClick={() => !showAllDetails && toggleRevealEmail(record.id)}
                                   title={!showAllDetails && !revealedEmails.has(record.id) ? 'Click to reveal' : undefined}
                                 >
+                                  <Mail className="w-3 h-3 flex-shrink-0" />
                                   {showAllDetails || revealedEmails.has(record.id) 
                                     ? record.attendee_email 
                                     : maskEmail(record.attendee_email)}
@@ -1542,19 +1595,22 @@ const EventDetail = () => {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-5 w-5 flex-shrink-0"
+                                    className="h-5 w-5 flex-shrink-0 icon-trigger"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleCopyEmail(record.attendee_email);
                                     }}
                                     title="Copy email"
                                   >
-                                    <Copy className="w-3 h-3" />
+                                    <Copy className="w-3 h-3 icon-copy" />
                                   </Button>
                                 )}
                               </div>
                               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                                <span>{format(new Date(record.recorded_at), 'p')}</span>
+                                <span className="flex items-center gap-1.5">
+                                  <Clock className="w-3 h-3" />
+                                  {format(new Date(record.recorded_at), 'p')}
+                                </span>
                                 {event?.location_check_enabled && (
                                   <span className="flex items-center gap-1">
                                     <MapPin className="w-3 h-3" />
@@ -1565,7 +1621,7 @@ const EventDetail = () => {
                             </>
                           )}
                           {record.suspicious_reason && (
-                            <div className={`flex items-center gap-2 ${compactView ? 'mt-0.5' : 'mt-1'}`}>
+                            <div className={`flex items-center gap-2 ${compactView && !isExpanded ? 'mt-0.5' : 'mt-1'}`}>
                               <p className="text-xs text-warning flex items-center gap-1 break-words">
                                 <AlertTriangle className="w-3 h-3" />
                                 {record.suspicious_reason}
@@ -1576,7 +1632,10 @@ const EventDetail = () => {
                                     variant="ghost"
                                     size="sm"
                                     className="h-5 px-1.5 text-xs"
-                                    onClick={() => openFingerprintMatches(record)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openFingerprintMatches(record);
+                                    }}
                                     title="Show matching fingerprint entries"
                                   >
                                     Show matches
@@ -1588,28 +1647,37 @@ const EventDetail = () => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-5 px-1.5 text-xs gap-1"
-                                  onClick={() => {
+                                  className="h-5 px-1.5 text-xs gap-1 icon-trigger"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     window.open(`https://www.google.com/maps?q=${record.location_lat},${record.location_lng}`, '_blank');
                                   }}
                                   title="Show on Google Maps"
                                 >
-                                  <MapPin className="w-3 h-3" />
+                                  <MapPin className="w-3 h-3 icon-pin" />
                                   Show on map
                                 </Button>
                               )}
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div
+                          className="flex items-center gap-1"
+                          onClick={(event) => {
+                            if (compactView) {
+                              event.stopPropagation();
+                            }
+                          }}
+                        >
                           {record.status === 'excused' && (
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => updateStatus(record.id, 'verified')}
                               title="Mark as attending"
+                              className="icon-trigger"
                             >
-                              <CheckCircle className="w-4 h-4 text-success" />
+                              <CheckCircle className="w-4 h-4 text-success icon-pop" />
                             </Button>
                           )}
                           {(record.status === 'verified' || record.status === 'cleared') && (
@@ -1618,8 +1686,9 @@ const EventDetail = () => {
                               size="icon"
                               onClick={() => updateStatus(record.id, 'excused')}
                               title="Mark as excused"
+                              className="icon-trigger"
                             >
-                              <UserMinus className="w-4 h-4 text-warning" />
+                              <UserMinus className="w-4 h-4 text-warning icon-drop" />
                             </Button>
                           )}
                           {record.status === 'suspicious' && (
@@ -1628,8 +1697,9 @@ const EventDetail = () => {
                               size="icon"
                               onClick={() => updateStatus(record.id, 'cleared')}
                               title="Clear flag"
+                              className="icon-trigger"
                             >
-                              <Shield className="w-4 h-4 text-success" />
+                              <Shield className="w-4 h-4 text-success icon-tilt" />
                             </Button>
                           )}
                           {record.status === 'cleared' && (
@@ -1638,8 +1708,9 @@ const EventDetail = () => {
                               size="icon"
                               onClick={() => updateStatus(record.id, 'suspicious')}
                               title="Flag as suspicious"
+                              className="icon-trigger"
                             >
-                              <AlertTriangle className="w-4 h-4 text-warning" />
+                              <AlertTriangle className="w-4 h-4 text-warning icon-warn" />
                             </Button>
                           )}
                           <Button
@@ -1647,14 +1718,16 @@ const EventDetail = () => {
                             size="icon"
                             onClick={() => deleteRecord(record.id)}
                             title="Delete record"
+                            className="icon-trigger"
                           >
-                            <Trash2 className="w-4 h-4 text-destructive" />
+                            <Trash2 className="w-4 h-4 text-destructive icon-shake" />
                           </Button>
                         </div>
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                      );
+                    })}
                     <div className="hidden sm:block h-10" aria-hidden="true" />
                   </div>
                   <div className="pointer-events-none absolute bottom-0 left-0 right-0 hidden h-10 bg-gradient-to-t from-[hsl(var(--page-bg-end))] via-[hsl(var(--page-bg-end)/0.7)] to-transparent sm:block" />

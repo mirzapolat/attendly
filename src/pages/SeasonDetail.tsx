@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useParams, Link } from 'react-router-dom';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import WorkspaceLayout from '@/components/WorkspaceLayout';
 import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X, Settings, FileText, AlertTriangle, Wand2, DoorOpen, MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -149,9 +149,7 @@ const levenshteinDistance = (a: string, b: string) => {
 
 const SeasonDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { user, loading: authLoading } = useAuth();
-  const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
-  const navigate = useNavigate();
+  const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
 
   const [season, setSeason] = useState<Season | null>(null);
@@ -191,22 +189,10 @@ const SeasonDetail = () => {
   const [weightEvent, setWeightEvent] = useState<Event | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
-  }, [user, authLoading, navigate]);
-
-  useEffect(() => {
-    if (!authLoading && user && !workspaceLoading && !currentWorkspace) {
-      navigate('/workspaces');
-    }
-  }, [authLoading, user, workspaceLoading, currentWorkspace, navigate]);
-
-  useEffect(() => {
-    if (user && id && currentWorkspace) {
+    if (id && currentWorkspace) {
       fetchData();
     }
-  }, [user, id, currentWorkspace]);
+  }, [id, currentWorkspace]);
 
   const fetchData = async () => {
     try {
@@ -881,31 +867,35 @@ const SeasonDetail = () => {
     toast({ title: 'Exported', description: 'Member list exported successfully' });
   };
 
-  if (authLoading || workspaceLoading || loading) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse-subtle">Loading...</div>
-      </div>
+      <WorkspaceLayout title="Season details">
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-pulse-subtle">Loading...</div>
+        </div>
+      </WorkspaceLayout>
     );
   }
 
   if (!season) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-4">Season not found</p>
-          <Link to="/seasons">
-            <Button>Back to Seasons</Button>
-          </Link>
+      <WorkspaceLayout title="Season details">
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <p className="text-muted-foreground mb-4">Season not found</p>
+            <Link to="/seasons">
+              <Button>Back to Seasons</Button>
+            </Link>
+          </div>
         </div>
-      </div>
+      </WorkspaceLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
-      <header className="bg-background/80 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+    <WorkspaceLayout title={season.name}>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/80 px-4 py-3 shadow-sm backdrop-blur-sm">
           <Button asChild variant="glass" size="sm" className="rounded-full px-3">
             <Link to="/seasons">
               <ArrowLeft className="w-4 h-4" />
@@ -925,14 +915,14 @@ const SeasonDetail = () => {
                 style={shouldFlashSanitize ? { animationDuration: '3s' } : undefined}
               >
                 <Wand2 className="w-4 h-4" />
-                Sanitize data
+                <span className="hidden sm:inline">Sanitize data</span>
               </Button>
             </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
                   <Download className="w-4 h-4" />
-                  Export
+                  <span className="hidden sm:inline">Export</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -951,81 +941,54 @@ const SeasonDetail = () => {
               variant="outline"
               size="icon"
               title="Season settings"
+              className="gear-trigger"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-4 h-4 gear-icon" />
             </Button>
           </div>
         </div>
-      </header>
 
-      <main className="container mx-auto px-6 pt-8 pb-24">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <BarChart3 className="w-6 h-6" />
-            {season.name}
-          </h1>
+        <div>
+        <div className="mb-8 space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <BarChart3 className="w-6 h-6" />
+              {season.name}
+            </h1>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/70 pl-1 pr-3 py-1 shadow-sm">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Calendar className="h-3.5 w-3.5" />
+                </span>
+                <span className="font-semibold">{events.length}</span>
+                <span className="text-muted-foreground">Events</span>
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/70 pl-1 pr-3 py-1 shadow-sm">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Users className="h-3.5 w-3.5" />
+                </span>
+                <span className="font-semibold">{uniqueAttendees}</span>
+                <span className="text-muted-foreground">Unique members</span>
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/70 pl-1 pr-3 py-1 shadow-sm">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <UserCheck className="h-3.5 w-3.5" />
+                </span>
+                <span className="font-semibold">{totalWeightedAttendance}</span>
+                <span className="text-muted-foreground">Total attendance</span>
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/70 pl-1 pr-3 py-1 shadow-sm">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                </span>
+                <span className="font-semibold">{avgAttendance}</span>
+                <span className="text-muted-foreground">Avg per event</span>
+              </span>
+            </div>
+          </div>
           {season.description && (
-            <p className="text-muted-foreground mt-1">{season.description}</p>
+            <p className="text-muted-foreground">{season.description}</p>
           )}
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-gradient-card">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{events.length}</p>
-                  <p className="text-sm text-muted-foreground">Events</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Users className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{uniqueAttendees}</p>
-                  <p className="text-sm text-muted-foreground">Unique Members</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <UserCheck className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{totalWeightedAttendance}</p>
-                  <p className="text-sm text-muted-foreground">Total Attendance</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{avgAttendance}</p>
-                  <p className="text-sm text-muted-foreground">Avg per Event</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {events.length === 0 ? (
@@ -1291,7 +1254,7 @@ const SeasonDetail = () => {
             </div>
           )}
         </div>
-      </main>
+      </div>
 
       {/* Member Detail Modal */}
       <Dialog open={!!selectedMember} onOpenChange={(open) => !open && setSelectedMember(null)}>
@@ -1648,6 +1611,7 @@ const SeasonDetail = () => {
         </DialogContent>
       </Dialog>
     </div>
+  </WorkspaceLayout>
   );
 };
 

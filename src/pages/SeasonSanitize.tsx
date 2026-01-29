@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Mail, Users } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, Check, Mail, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useToast } from '@/hooks/use-toast';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -135,9 +134,7 @@ const getSuggestionKey = (emailA: string, emailB: string) =>
 const SeasonSanitize = () => {
   usePageTitle('Season Sanitization - Attendly');
   const { id } = useParams<{ id: string }>();
-  const { user, loading: authLoading } = useAuth();
-  const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
-  const navigate = useNavigate();
+  const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
 
   const [season, setSeason] = useState<Season | null>(null);
@@ -162,22 +159,10 @@ const SeasonSanitize = () => {
   const [resolvingConflicts, setResolvingConflicts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
-  }, [user, authLoading, navigate]);
-
-  useEffect(() => {
-    if (!authLoading && user && !workspaceLoading && !currentWorkspace) {
-      navigate('/workspaces');
-    }
-  }, [authLoading, user, workspaceLoading, currentWorkspace, navigate]);
-
-  useEffect(() => {
-    if (user && id && currentWorkspace) {
+    if (id && currentWorkspace) {
       fetchData();
     }
-  }, [user, id, currentWorkspace]);
+  }, [id, currentWorkspace]);
 
 
   const fetchData = async () => {
@@ -688,30 +673,69 @@ const SeasonSanitize = () => {
     toast({ title: 'Name updated' });
   };
 
-  if (authLoading || workspaceLoading || loading) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse-subtle">Loading...</div>
-      </div>
+      <WorkspaceLayout title="Season sanitization">
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-pulse-subtle">Loading...</div>
+        </div>
+      </WorkspaceLayout>
     );
   }
 
   if (!season) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-4">Season not found</p>
-          <Link to="/seasons">
-            <Button>Back to Seasons</Button>
-          </Link>
+      <WorkspaceLayout title="Season sanitization">
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <p className="text-muted-foreground mb-4">Season not found</p>
+            <Link to="/seasons">
+              <Button>Back to Seasons</Button>
+            </Link>
+          </div>
         </div>
-      </div>
+      </WorkspaceLayout>
     );
   }
 
   return (
     <WorkspaceLayout title="Season sanitization">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/80 px-4 py-3 shadow-sm backdrop-blur-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to={`/seasons/${season.id}`}>
+              <Button variant="glass" size="sm" className="rounded-full px-3">
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Back to season</span>
+              </Button>
+            </Link>
+            {step === 'names' && (
+              <Button
+                variant="outline"
+                onClick={() => setStep('emails')}
+                className="rounded-full"
+              >
+                Back to email typos
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {step === 'emails' ? (
+              <Button onClick={() => setStep('names')} className="gap-2 rounded-full">
+                Continue to name conflicts
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            ) : (
+              <Link to={`/seasons/${season.id}`}>
+                <Button variant="hero" className="rounded-full">
+                  <Check className="h-5 w-5 sm:hidden" strokeWidth={2.6} />
+                  <span className="hidden sm:inline">Finish</span>
+                </Button>
+              </Link>
+            )}
+          </div>
+        </div>
+
         <div>
           <p className="text-sm text-muted-foreground">Season sanitization</p>
           <h1 className="text-2xl font-bold">{season.name}</h1>
@@ -719,15 +743,8 @@ const SeasonSanitize = () => {
             Fix email typos and name conflicts so analytics stay accurate.
           </p>
         </div>
-        <Link to={`/seasons/${season.id}`}>
-          <Button variant="glass" size="sm" className="rounded-full px-3">
-            <ArrowLeft className="w-4 h-4" />
-            Back to season
-          </Button>
-        </Link>
-      </div>
 
-      <div className="flex items-center gap-3 mb-8 text-sm">
+        <div className="flex items-center gap-3 mb-8 text-sm">
         <span
           className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${
             step === 'emails' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground'
@@ -749,10 +766,10 @@ const SeasonSanitize = () => {
         <span className={step === 'names' ? 'font-semibold' : 'text-muted-foreground'}>
           Name conflicts
         </span>
-      </div>
+        </div>
 
-      {step === 'emails' ? (
-        <div className="space-y-8">
+        {step === 'emails' ? (
+          <div className="space-y-8">
           <Card className="bg-gradient-card">
             <CardContent className="py-6 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
@@ -982,15 +999,9 @@ const SeasonSanitize = () => {
             </CardContent>
           </Card>
 
-          <div className="flex justify-end">
-            <Button onClick={() => setStep('names')}>
-              Continue to name conflicts
-              <ArrowRight className="w-4 h-4" />
-            </Button>
           </div>
-        </div>
-      ) : (
-        <div className="space-y-6">
+        ) : (
+          <div className="space-y-6">
           <Card className="bg-gradient-card">
             <CardContent className="py-6 space-y-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1051,16 +1062,9 @@ const SeasonSanitize = () => {
             </CardContent>
           </Card>
 
-          <div className="flex items-center justify-between gap-3">
-            <Button variant="outline" onClick={() => setStep('emails')}>
-              Back to email typos
-            </Button>
-            <Link to={`/seasons/${season.id}`}>
-              <Button variant="hero">Finish</Button>
-            </Link>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </WorkspaceLayout>
   );
 };

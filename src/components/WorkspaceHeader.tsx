@@ -259,8 +259,8 @@ const WorkspaceHeader = ({
         <div className="flex items-center gap-2">
           <DropdownMenu onOpenChange={handleNotificationsOpen}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative" title="Notifications">
-                <Bell className="w-5 h-5" />
+              <Button variant="ghost" size="icon" className="relative bell-trigger shadow-none hover:shadow-none" title="Notifications">
+                <Bell className="w-5 h-5 bell-icon" />
                 {pendingInvites.length + acceptedInvites.length + workspaceNotifications.length > 0 && (
                   <span className="absolute -top-1 -right-1 h-4 min-w-[1rem] rounded-full bg-primary text-primary-foreground text-[10px] px-1 flex items-center justify-center">
                     {pendingInvites.length + acceptedInvites.length + workspaceNotifications.length}
@@ -342,12 +342,12 @@ const WorkspaceHeader = ({
             </DropdownMenuContent>
           </DropdownMenu>
           <Link to="/settings">
-            <Button variant="ghost" size="icon" title="Settings">
-              <Settings className="w-5 h-5" />
-            </Button>
+          <Button variant="ghost" size="icon" title="Settings" className="gear-trigger shadow-none hover:shadow-none">
+            <Settings className="w-5 h-5 gear-icon" />
+          </Button>
           </Link>
-          <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign out">
-            <LogOut className="w-5 h-5" />
+          <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign out" className="logout-trigger shadow-none hover:shadow-none">
+            <LogOut className="w-5 h-5 logout-icon" />
           </Button>
         </div>
       </div>
