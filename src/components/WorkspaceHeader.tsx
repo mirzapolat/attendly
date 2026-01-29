@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Bell, LogOut, QrCode, Settings } from 'lucide-react';
+import { Bell, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useConfirm } from '@/hooks/useConfirm';
+import AccountMenu from '@/components/AccountMenu';
 import { getNotificationLastSeenKey } from '@/constants/storageKeys';
 
 interface WorkspaceInvite {
@@ -62,11 +61,9 @@ const WorkspaceHeader = ({
   showChangeWorkspace = true,
   withContainer = false,
 }: WorkspaceHeaderProps) => {
-  const { user, signOut } = useAuth();
-  const { clearWorkspace, refresh } = useWorkspace();
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { refresh } = useWorkspace();
   const { toast } = useToast();
-  const confirm = useConfirm();
   const [pendingInvites, setPendingInvites] = useState<WorkspaceInvite[]>([]);
   const [acceptedInvites, setAcceptedInvites] = useState<AcceptedInvite[]>([]);
   const [workspaceNotifications, setWorkspaceNotifications] = useState<WorkspaceNotification[]>([]);
@@ -228,20 +225,6 @@ const WorkspaceHeader = ({
     }
   };
 
-  const handleSignOut = async () => {
-    const confirmed = await confirm({
-      title: 'Sign out?',
-      description: 'Are you sure you want to sign out?',
-      confirmText: 'Sign out',
-      cancelText: 'Cancel',
-    });
-    if (!confirmed) return;
-
-    await signOut();
-    clearWorkspace();
-    navigate('/');
-  };
-
   const headerTitle = 'Attendly';
 
   return (
@@ -340,14 +323,7 @@ const WorkspaceHeader = ({
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Link to="/settings">
-          <Button variant="ghost" size="icon" title="Settings" className="gear-trigger shadow-none hover:shadow-none">
-            <Settings className="w-5 h-5 gear-icon" />
-          </Button>
-          </Link>
-          <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign out" className="logout-trigger shadow-none hover:shadow-none">
-            <LogOut className="w-5 h-5 logout-icon" />
-          </Button>
+          <AccountMenu />
         </div>
       </div>
     </header>

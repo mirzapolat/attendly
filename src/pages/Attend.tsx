@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -479,6 +479,13 @@ const Attend = () => {
             <p className="text-muted-foreground">
               Thank you for checking in to {event?.name}.
             </p>
+            <div className="mt-6">
+              <Link to="/">
+                <Button variant="outline" size="sm">
+                  Try Attendly
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

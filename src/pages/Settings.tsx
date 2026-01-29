@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Settings as SettingsIcon, User, Trash2, Save } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, User, Trash2, Save } from 'lucide-react';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
 import { useConfirm } from '@/hooks/useConfirm';
@@ -158,7 +158,7 @@ const Settings = () => {
 
   if (authLoading || loading) {
     return (
-      <WorkspaceLayout title="Account settings">
+      <WorkspaceLayout title="Account settings" requireWorkspace={false} showSidebar={false}>
         <div className="flex items-center justify-center py-20">
           <div className="animate-pulse-subtle">Loading...</div>
         </div>
@@ -167,16 +167,27 @@ const Settings = () => {
   }
 
   return (
-    <WorkspaceLayout title="Account settings">
-      <div className="max-w-3xl">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <SettingsIcon className="w-6 h-6" />
-            Account settings
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your profile details and security preferences.
-          </p>
+    <WorkspaceLayout title="Account settings" requireWorkspace={false} showSidebar={false}>
+      <div className="mx-auto w-full max-w-3xl">
+        <div className="mb-6 flex flex-wrap items-start gap-4">
+          <Button
+            variant="glass"
+            size="sm"
+            className="rounded-full px-3 icon-trigger"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="w-4 h-4 icon-slide-left" />
+            Back
+          </Button>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <SettingsIcon className="w-6 h-6" />
+              Account settings
+            </h1>
+            <p className="text-muted-foreground">
+              Manage your profile details and security preferences.
+            </p>
+          </div>
         </div>
 
         {/* Profile */}
