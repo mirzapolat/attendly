@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { QrCode, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
 
 const signInSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -94,7 +95,7 @@ const Auth = () => {
             });
           }
         } else {
-          localStorage.setItem('attendly:welcome', 'signup');
+          localStorage.setItem(STORAGE_KEYS.welcome, 'signup');
           // Check if session was established (email confirmation disabled) or not (enabled)
           if (data?.session) {
             toast({
@@ -169,11 +170,8 @@ const Auth = () => {
     });
   };
 
-  if (mode === 'signin') {
-    usePageTitle('Sign In to Attendly');
-  } else {
-    usePageTitle('Sign Up to Attendly');
-  }
+  const pageTitle = mode === 'signin' ? 'Sign In to Attendly' : 'Sign Up to Attendly';
+  usePageTitle(pageTitle);
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex flex-col">

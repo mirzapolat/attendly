@@ -146,11 +146,11 @@ const Settings = () => {
         title: 'Account deleted',
         description: 'Your account has been permanently deleted.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'An error occurred',
+        description: sanitizeError(error),
       });
       setDeleting(false);
     }

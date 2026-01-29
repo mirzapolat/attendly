@@ -12,6 +12,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { maskEmail, maskName } from '@/utils/privacy';
+import { parseSupabaseFunctionError } from '@/utils/supabaseFunctions';
 import { 
   QrCode, Users, MapPin, Calendar, Clock,
   AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Radio, Search, UserMinus, Mail, List, ListCollapse
@@ -57,49 +59,6 @@ interface KnownAttendee {
 }
 
 const POLL_INTERVAL_MS = 1100;
-
-// Helper to mask last name
-const maskName = (fullName: string): string => {
-  const safeName = typeof fullName === 'string' ? fullName : '';
-  const trimmed = safeName.trim();
-  if (!trimmed) return safeName;
-  const parts = trimmed.split(/\s+/);
-  if (parts.length <= 1) return safeName;
-  const firstName = parts[0];
-  const maskPart = (part: string, revealFirst: boolean): string => {
-    if (!part) return part;
-    if (!revealFirst) {
-      return '•'.repeat(part.length);
-    }
-    const firstAlphaIndex = part.search(/[A-Za-z0-9]/);
-    if (firstAlphaIndex === -1) {
-      return '•'.repeat(part.length);
-    }
-    if (firstAlphaIndex === 0) {
-      return part[0] + '•'.repeat(Math.max(0, part.length - 1));
-    }
-    return (
-      '•'.repeat(firstAlphaIndex) +
-      part[firstAlphaIndex] +
-      '•'.repeat(Math.max(0, part.length - firstAlphaIndex - 1))
-    );
-  };
-  if (parts.length === 2) {
-    const maskedLast = maskPart(parts[1], true);
-    return `${firstName} ${maskedLast}`;
-  }
-  const secondMasked = maskPart(parts[1], true);
-  const hiddenTail = parts.slice(2).map((part) => maskPart(part, false)).join('');
-  return `${firstName} ${secondMasked}${hiddenTail}`;
-};
-
-// Helper to mask email
-const maskEmail = (email: string): string => {
-  const [local, domain] = email.split('@');
-  if (!domain) return email;
-  const maskedLocal = local[0] + '•'.repeat(Math.max(0, local.length - 1));
-  return `${maskedLocal}@${domain}`;
-};
 
 const ModeratorView = () => {
   const { eventId, token } = useParams<{ eventId: string; token: string }>();
@@ -157,23 +116,6 @@ const ModeratorView = () => {
   const pageTitle = event?.name ? `${event.name} - Moderator View` : 'Moderator View - Attendly';
   usePageTitle(pageTitle);
 
-  const parseFunctionError = async (error: unknown): Promise<{ reason?: string; status?: number }> => {
-    if (!error || typeof error !== 'object') return {};
-    const maybeError = error as { context?: Response; status?: number };
-    const status = maybeError.status ?? maybeError.context?.status;
-
-    if (!maybeError.context) {
-      return { status };
-    }
-
-    try {
-      const body = await maybeError.context.clone().json();
-      return { reason: body?.reason, status };
-    } catch {
-      return { status };
-    }
-  };
-
   const resolveUnauthorizedMessage = (reason?: string | null): string => {
     switch (reason) {
       case 'link_expired':
@@ -217,7 +159,7 @@ const ModeratorView = () => {
       });
 
       if (error) {
-        const parsed = await parseFunctionError(error);
+        const parsed = await parseSupabaseFunctionError(error);
         const reason = parsed.reason ?? (parsed.status === 404 ? 'function_not_found' : null);
         console.error('moderator-state invoke error', error);
         setAuthorized(false);

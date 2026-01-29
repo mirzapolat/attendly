@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useWorkspace } from '@/hooks/useWorkspace';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
 
 type ThemeColor = {
   id: string;
@@ -16,9 +17,6 @@ interface ThemeColorContextType {
 }
 
 const ThemeColorContext = createContext<ThemeColorContextType | undefined>(undefined);
-const WORKSPACE_STORAGE_KEY = 'attendly:workspace';
-const THEME_COLOR_STORAGE_KEY = 'attendly:theme-color';
-
 export const themeColors: ThemeColor[] = [
   { id: 'default', name: 'Emerald', hex: '#10b77f' },
   { id: 'teal', name: 'Teal', hex: '#498467' },
@@ -97,21 +95,21 @@ const readStoredThemeColor = (workspaceId?: string | null) => {
     return null;
   }
   if (workspaceId) {
-    const scoped = localStorage.getItem(`${THEME_COLOR_STORAGE_KEY}:${workspaceId}`);
+    const scoped = localStorage.getItem(`${STORAGE_KEYS.themeColor}:${workspaceId}`);
     if (scoped) {
       return scoped;
     }
   }
-  return localStorage.getItem(THEME_COLOR_STORAGE_KEY);
+  return localStorage.getItem(STORAGE_KEYS.themeColor);
 };
 
 const persistThemeColor = (colorId: string, workspaceId?: string | null) => {
   if (typeof window === 'undefined') {
     return;
   }
-  localStorage.setItem(THEME_COLOR_STORAGE_KEY, colorId);
+  localStorage.setItem(STORAGE_KEYS.themeColor, colorId);
   if (workspaceId) {
-    localStorage.setItem(`${THEME_COLOR_STORAGE_KEY}:${workspaceId}`, colorId);
+    localStorage.setItem(`${STORAGE_KEYS.themeColor}:${workspaceId}`, colorId);
   }
 };
 
@@ -146,7 +144,7 @@ export const ThemeColorProvider = ({ children }: { children: ReactNode }) => {
     if (typeof window === 'undefined') {
       return 'default';
     }
-    const storedWorkspaceId = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+    const storedWorkspaceId = localStorage.getItem(STORAGE_KEYS.workspaceId);
     return readStoredThemeColor(storedWorkspaceId) ?? 'default';
   });
 
@@ -173,7 +171,7 @@ export const ThemeColorProvider = ({ children }: { children: ReactNode }) => {
   const setThemeColor = async (colorId: string) => {
     setThemeColorState(colorId);
     const fallbackWorkspaceId =
-      typeof window === 'undefined' ? null : localStorage.getItem(WORKSPACE_STORAGE_KEY);
+      typeof window === 'undefined' ? null : localStorage.getItem(STORAGE_KEYS.workspaceId);
     persistThemeColor(colorId, currentWorkspace?.id ?? fallbackWorkspaceId);
     
     if (currentWorkspace) {

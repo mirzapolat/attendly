@@ -12,6 +12,8 @@ import { format } from 'date-fns';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
+import { parseSupabaseFunctionError } from '@/utils/supabaseFunctions';
 
 interface Event {
   id: string;
@@ -38,8 +40,6 @@ const attendeeSchema = z.object({
 type SubmitState = 'form' | 'loading' | 'success' | 'error' | 'expired' | 'already-submitted' | 'inactive' | 'time-expired';
 
 const FORM_TIME_LIMIT_MS = 2 * 60 * 1000; // 2 minutes
-const DEVICE_ID_KEY = 'attendly:device-id';
-
 const generateDeviceId = () => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();
@@ -49,20 +49,20 @@ const generateDeviceId = () => {
 
 const getStoredDeviceId = (): string => {
   try {
-    const existing = localStorage.getItem(DEVICE_ID_KEY);
+    const existing = localStorage.getItem(STORAGE_KEYS.deviceId);
     if (existing) return existing;
     const next = generateDeviceId();
-    localStorage.setItem(DEVICE_ID_KEY, next);
+    localStorage.setItem(STORAGE_KEYS.deviceId, next);
     return next;
   } catch {
     // Fall back to session storage if local storage is unavailable.
   }
 
   try {
-    const existing = sessionStorage.getItem(DEVICE_ID_KEY);
+    const existing = sessionStorage.getItem(STORAGE_KEYS.deviceId);
     if (existing) return existing;
     const next = generateDeviceId();
-    sessionStorage.setItem(DEVICE_ID_KEY, next);
+    sessionStorage.setItem(STORAGE_KEYS.deviceId, next);
     return next;
   } catch {
     // Final fallback to in-memory id.
@@ -216,7 +216,7 @@ const Attend = () => {
       } else if (reason === 'expired') {
         setSubmitState('expired');
       } else {
-        const parsed = error ? await parseFunctionError(error) : {};
+        const parsed = error ? await parseSupabaseFunctionError(error) : {};
         const normalizedReason =
           reason ?? parsed.reason ?? (parsed.status === 404 ? 'function_not_found' : null);
         setStartErrorMessage(resolveStartErrorMessage(normalizedReason));
@@ -274,23 +274,6 @@ const Attend = () => {
         return 'Invalid attendance link. Please rescan the QR code.';
       default:
         return 'Please rescan the QR code and try again.';
-    }
-  };
-
-  const parseFunctionError = async (error: unknown): Promise<{ reason?: string; status?: number }> => {
-    if (!error || typeof error !== 'object') return {};
-    const maybeError = error as { context?: Response; status?: number };
-    const status = maybeError.status ?? maybeError.context?.status;
-
-    if (!maybeError.context) {
-      return { status };
-    }
-
-    try {
-      const body = await maybeError.context.clone().json();
-      return { reason: body?.reason, status };
-    } catch {
-      return { status };
     }
   };
 

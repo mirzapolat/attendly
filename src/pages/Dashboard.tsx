@@ -36,6 +36,7 @@ import { sanitizeError } from '@/utils/errorHandler';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import WorkspaceLayout from '@/components/WorkspaceLayout';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
 
 interface Event {
   id: string;
@@ -70,7 +71,7 @@ const Dashboard = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'calendar'>(() => {
     if (typeof window === 'undefined') return 'grid';
-    const saved = window.localStorage.getItem('attendly:events-view');
+    const saved = window.localStorage.getItem(STORAGE_KEYS.eventsView);
     return saved === 'list' || saved === 'grid' || saved === 'calendar' ? saved : 'grid';
   });
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
@@ -96,12 +97,12 @@ const Dashboard = () => {
   }, [draggingEventId, seasons.length]);
 
   useEffect(() => {
-    localStorage.removeItem('attendly:welcome');
+    localStorage.removeItem(STORAGE_KEYS.welcome);
   }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem('attendly:events-view', viewMode);
+    window.localStorage.setItem(STORAGE_KEYS.eventsView, viewMode);
   }, [viewMode]);
 
   const fetchData = async () => {

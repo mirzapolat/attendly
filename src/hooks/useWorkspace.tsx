@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
 
 export type Workspace = {
   id: string;
@@ -24,8 +25,6 @@ interface WorkspaceContextType {
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
-
-const STORAGE_KEY = 'attendly:workspace';
 
 export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
@@ -70,10 +69,10 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     if (!currentWorkspaceId) {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STORAGE_KEYS.workspaceId);
       return;
     }
-    localStorage.setItem(STORAGE_KEY, currentWorkspaceId);
+    localStorage.setItem(STORAGE_KEYS.workspaceId, currentWorkspaceId);
   }, [currentWorkspaceId, user, hydrated]);
 
   const refresh = async () => {
@@ -118,7 +117,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     const resolved = (workspaceData ?? []) as Workspace[];
     setWorkspaces(resolved);
 
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEYS.workspaceId);
     if (stored && resolved.some((workspace) => workspace.id === stored)) {
       setCurrentWorkspaceId(stored);
     } else {
@@ -134,7 +133,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
 
   const clearWorkspace = () => {
     setCurrentWorkspaceId(null);
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEYS.workspaceId);
   };
 
   return (

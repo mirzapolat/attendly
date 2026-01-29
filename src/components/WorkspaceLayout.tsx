@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import WorkspaceHeader from '@/components/WorkspaceHeader';
 import WorkspaceSidebar from '@/components/WorkspaceSidebar';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
 
 interface WorkspaceLayoutProps {
   children: ReactNode;
@@ -16,11 +17,11 @@ const WorkspaceLayout = ({ children, title }: WorkspaceLayoutProps) => {
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
-    return localStorage.getItem('attendly:sidebar-collapsed') === 'true';
+    return localStorage.getItem(STORAGE_KEYS.sidebarCollapsed) === 'true';
   });
 
   useEffect(() => {
-    localStorage.setItem('attendly:sidebar-collapsed', String(sidebarCollapsed));
+    localStorage.setItem(STORAGE_KEYS.sidebarCollapsed, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
   useEffect(() => {

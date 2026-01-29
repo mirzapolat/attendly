@@ -5,6 +5,8 @@ import { useWorkspace } from '@/hooks/useWorkspace';
 import { applyThemeColor } from '@/hooks/useThemeColor';
 import { supabase } from '@/integrations/supabase/client';
 import { getRuntimeEnv } from '@/lib/runtimeEnv';
+import { STORAGE_KEYS, getResumeEventKey } from '@/constants/storageKeys';
+import { maskEmail, maskName } from '@/utils/privacy';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -67,54 +69,9 @@ interface KnownAttendee {
 
 const POLL_INTERVAL_MS = 1100;
 const RESUME_WINDOW_MS = 15000;
-const RESUME_KEY_PREFIX = 'attendly:resume-event:';
 const ROTATION_GRACE_MS = 7000;
 const ROTATION_MIN_SECONDS = 2;
 const ROTATION_MAX_SECONDS = 60;
-const THEME_COLOR_STORAGE_KEY = 'attendly:theme-color';
-
-// Helper to mask last name (keep first name visible)
-const maskName = (fullName: string): string => {
-  const safeName = typeof fullName === 'string' ? fullName : '';
-  const trimmed = safeName.trim();
-  if (!trimmed) return safeName;
-  const parts = trimmed.split(/\s+/);
-  if (parts.length <= 1) return safeName;
-  const firstName = parts[0];
-  const maskPart = (part: string, revealFirst: boolean): string => {
-    if (!part) return part;
-    if (!revealFirst) {
-      return '•'.repeat(part.length);
-    }
-    const firstAlphaIndex = part.search(/[A-Za-z0-9]/);
-    if (firstAlphaIndex === -1) {
-      return '•'.repeat(part.length);
-    }
-    if (firstAlphaIndex === 0) {
-      return part[0] + '•'.repeat(Math.max(0, part.length - 1));
-    }
-    return (
-      '•'.repeat(firstAlphaIndex) +
-      part[firstAlphaIndex] +
-      '•'.repeat(Math.max(0, part.length - firstAlphaIndex - 1))
-    );
-  };
-  if (parts.length === 2) {
-    const maskedLast = maskPart(parts[1], true);
-    return `${firstName} ${maskedLast}`;
-  }
-  const secondMasked = maskPart(parts[1], true);
-  const hiddenTail = parts.slice(2).map((part) => maskPart(part, false)).join('');
-  return `${firstName} ${secondMasked}${hiddenTail}`;
-};
-
-// Helper to mask email
-const maskEmail = (email: string): string => {
-  const [local, domain] = email.split('@');
-  if (!domain) return email;
-  const maskedLocal = local[0] + '•'.repeat(Math.max(0, local.length - 1));
-  return `${maskedLocal}@${domain}`;
-};
 
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -398,8 +355,8 @@ const EventDetail = () => {
       const nextColor = data?.brand_color ?? 'default';
       applyThemeColor(nextColor);
       if (typeof window !== 'undefined') {
-        localStorage.setItem(THEME_COLOR_STORAGE_KEY, nextColor);
-        localStorage.setItem(`${THEME_COLOR_STORAGE_KEY}:${workspaceId}`, nextColor);
+        localStorage.setItem(STORAGE_KEYS.themeColor, nextColor);
+        localStorage.setItem(`${STORAGE_KEYS.themeColor}:${workspaceId}`, nextColor);
       }
     },
     [currentWorkspace?.brand_color, currentWorkspace?.id]
@@ -480,7 +437,7 @@ const EventDetail = () => {
       }
 
       try {
-        sessionStorage.setItem(`${RESUME_KEY_PREFIX}${id}`, String(Date.now()));
+        sessionStorage.setItem(getResumeEventKey(id), String(Date.now()));
       } catch {
         // Ignore storage failures; resume is best-effort.
       }
@@ -712,7 +669,7 @@ const EventDetail = () => {
 
   useEffect(() => {
     if (!event || !id) return;
-    const resumeKey = `${RESUME_KEY_PREFIX}${id}`;
+    const resumeKey = getResumeEventKey(id);
 
     if (event.is_active) {
       try {
@@ -901,6 +858,7 @@ const EventDetail = () => {
     try {
       await navigator.clipboard.writeText(staticQrUrl);
     } catch (error) {
+      void error;
     } finally {
       setCopyingStaticLink(false);
     }
@@ -910,6 +868,7 @@ const EventDetail = () => {
     try {
       await navigator.clipboard.writeText(email);
     } catch (error) {
+      void error;
     }
   };
 

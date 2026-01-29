@@ -14,6 +14,7 @@ import { useWorkspace } from '@/hooks/useWorkspace';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useConfirm } from '@/hooks/useConfirm';
+import { getNotificationLastSeenKey } from '@/constants/storageKeys';
 
 interface WorkspaceInvite {
   id: string;
@@ -71,17 +72,15 @@ const WorkspaceHeader = ({
   const [workspaceNotifications, setWorkspaceNotifications] = useState<WorkspaceNotification[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
 
-  const getLastSeenKey = (userId: string) => `attendly:notifications:lastSeen:${userId}`;
-
   const getLastSeen = (userId: string) => {
     if (typeof window === 'undefined') return 0;
-    const stored = localStorage.getItem(getLastSeenKey(userId));
+    const stored = localStorage.getItem(getNotificationLastSeenKey(userId));
     return stored ? Number.parseInt(stored, 10) : 0;
   };
 
   const setLastSeen = (userId: string, timestamp: number) => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(getLastSeenKey(userId), timestamp.toString());
+    localStorage.setItem(getNotificationLastSeenKey(userId), timestamp.toString());
   };
 
   useEffect(() => {

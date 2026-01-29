@@ -4,6 +4,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Home, Layers, Settings, Users 
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { themeColors } from '@/hooks/useThemeColor';
 import { cn } from '@/lib/utils';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
 
 const navItems = [
   { to: '/home', label: 'Home', icon: Home },
@@ -12,8 +13,6 @@ const navItems = [
   { to: '/members', label: 'Members', icon: Users },
   { to: '/workspace-settings', label: 'Workspace Settings', icon: Settings },
 ];
-
-const SIDEBAR_SCROLL_KEY = 'attendly:sidebar-scroll';
 
 interface WorkspaceSidebarProps {
   collapsed?: boolean;
@@ -44,7 +43,7 @@ const WorkspaceSidebar = ({ collapsed = false, onToggle }: WorkspaceSidebarProps
     const nav = navRef.current;
     if (!nav) return;
 
-    const saved = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+    const saved = sessionStorage.getItem(STORAGE_KEYS.sidebarScroll);
     if (saved) {
       const parsed = Number(saved);
       if (Number.isFinite(parsed)) {
@@ -55,7 +54,7 @@ const WorkspaceSidebar = ({ collapsed = false, onToggle }: WorkspaceSidebarProps
 
     const handleScroll = () => {
       scrollPositionRef.current = nav.scrollLeft;
-      sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(nav.scrollLeft));
+      sessionStorage.setItem(STORAGE_KEYS.sidebarScroll, String(nav.scrollLeft));
     };
 
     nav.addEventListener('scroll', handleScroll);
@@ -67,7 +66,7 @@ const WorkspaceSidebar = ({ collapsed = false, onToggle }: WorkspaceSidebarProps
     const nav = navRef.current;
     if (!nav) return;
 
-    const saved = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+    const saved = sessionStorage.getItem(STORAGE_KEYS.sidebarScroll);
     const scrollLeft = saved ? Number(saved) : scrollPositionRef.current;
 
     // Use requestAnimationFrame to ensure DOM has updated
