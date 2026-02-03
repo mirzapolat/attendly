@@ -612,8 +612,7 @@ const ModeratorView = () => {
           <div className="min-w-0">
             <Card className="bg-gradient-card">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 min-w-0">
-                  <QrCode className="w-5 h-5 shrink-0" />
+                <CardTitle className="min-w-0">
                   <span className="min-w-0 truncate">{event.name}</span>
                 </CardTitle>
                 {event.description && (
@@ -623,6 +622,8 @@ const ModeratorView = () => {
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
                     {format(new Date(event.event_date), 'PPP')}
+                  </span>
+                  <span className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
                     {format(new Date(event.event_date), 'HH:mm')}
                   </span>
