@@ -1574,7 +1574,7 @@ const EventDetail = () => {
                 </CardContent>
               </Card>
               <Card 
-                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] filter-cloudy-warning ${statusFilter === 'suspicious' ? 'ring-2 ring-warning filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)]' : ''}`}
+                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--destructive)/0.45)] filter-cloudy-destructive ${statusFilter === 'suspicious' ? 'ring-2 ring-destructive filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--destructive)/0.45)]' : ''}`}
                 onClick={(event) => handleStatusFilter('suspicious', event)}
                 style={getCloudOriginStyle('suspicious')}
               >
@@ -1582,7 +1582,7 @@ const EventDetail = () => {
                   <span key={cloudBursts.suspicious.id} className="filter-cloud-burst" />
                 )}
                 <CardContent className="py-4 text-center relative z-10">
-                  <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-warning" />
+                  <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-destructive" />
                   <p className="text-2xl font-bold">{suspiciousCount}</p>
                   <p className="text-xs text-muted-foreground">Suspicious</p>
                 </CardContent>

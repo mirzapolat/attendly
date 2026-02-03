@@ -76,8 +76,6 @@ const consumeRememberCookie = (): { name: string; email: string } | null => {
   const raw = getCookieValue(REMEMBER_COOKIE);
   if (!raw) return null;
 
-  clearRememberCookie();
-
   try {
     const decoded = decodeURIComponent(raw);
     const parsed = JSON.parse(decoded) as { name?: string; email?: string };
@@ -416,6 +414,7 @@ const Attend = () => {
           throw error ?? new Error(reason || 'Unknown error');
         }
       } else {
+        clearRememberCookie();
         setSubmitState('success');
       }
     } catch (error: unknown) {

@@ -257,6 +257,10 @@
     --cloudy-color: hsl(var(--warning));
   }
 
+  .filter-cloudy-destructive {
+    --cloudy-color: hsl(var(--destructive));
+  }
+
   .shadow-glow {
     box-shadow: var(--shadow-glow);
   }
