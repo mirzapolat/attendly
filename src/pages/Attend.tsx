@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, type CSSProperties } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { applyThemeColor, useThemeColor } from '@/hooks/useThemeColor';
-import { CheckCircle, XCircle, MapPin, Loader2, QrCode, AlertTriangle, Clock, Calendar } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle, XCircle, MapPin, Loader2, QrCode, AlertTriangle, Clock, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { z } from 'zod';
@@ -40,6 +40,60 @@ const attendeeSchema = z.object({
 type SubmitState = 'form' | 'loading' | 'success' | 'error' | 'expired' | 'already-submitted' | 'inactive' | 'time-expired';
 
 const FORM_TIME_LIMIT_MS = 2 * 60 * 1000; // 2 minutes
+const REMEMBER_COOKIE = 'attendly:remember-attendee';
+const REMEMBER_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
+
+const getCookieValue = (key: string): string | null => {
+  if (typeof document === 'undefined') return null;
+  const cookieString = document.cookie;
+  if (!cookieString) return null;
+
+  const entries = cookieString.split('; ');
+  for (const entry of entries) {
+    const separatorIndex = entry.indexOf('=');
+    if (separatorIndex === -1) continue;
+    const name = entry.slice(0, separatorIndex);
+    if (name === key) {
+      return entry.slice(separatorIndex + 1);
+    }
+  }
+
+  return null;
+};
+
+const buildCookieAttributes = () => {
+  const secure =
+    typeof window !== 'undefined' && window.location && window.location.protocol === 'https:';
+  return `Path=/; SameSite=Lax${secure ? '; Secure' : ''}`;
+};
+
+const clearRememberCookie = () => {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${REMEMBER_COOKIE}=; Max-Age=0; ${buildCookieAttributes()}`;
+};
+
+const consumeRememberCookie = (): { name: string; email: string } | null => {
+  const raw = getCookieValue(REMEMBER_COOKIE);
+  if (!raw) return null;
+
+  clearRememberCookie();
+
+  try {
+    const decoded = decodeURIComponent(raw);
+    const parsed = JSON.parse(decoded) as { name?: string; email?: string };
+    if (!parsed?.name || !parsed?.email) return null;
+    return { name: parsed.name, email: parsed.email };
+  } catch {
+    return null;
+  }
+};
+
+const storeRememberCookie = (payload: { name: string; email: string }) => {
+  if (typeof document === 'undefined') return;
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  document.cookie = `${REMEMBER_COOKIE}=${encoded}; Max-Age=${REMEMBER_MAX_AGE_SECONDS}; ${buildCookieAttributes()}`;
+};
+
 const generateDeviceId = () => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();
@@ -93,9 +147,32 @@ const Attend = () => {
   const [locationDenied, setLocationDenied] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number>(FORM_TIME_LIMIT_MS);
   const [eventThemeColor, setEventThemeColor] = useState<string | null>(null);
+  const [rememberSaved, setRememberSaved] = useState(false);
+  const [showRememberConfetti, setShowRememberConfetti] = useState(false);
+  const [prefilledFromRemember, setPrefilledFromRemember] = useState(false);
 
   const timerRef = useRef<number | null>(null);
   const pendingLocationSubmitRef = useRef(false);
+  const rememberConfettiTimerRef = useRef<number | null>(null);
+
+  const rememberConfettiPieces = useMemo(() => {
+    const colors = [
+      'hsl(var(--accent))',
+      'hsl(var(--accent) / 0.85)',
+      'hsl(var(--accent) / 0.7)',
+      'hsl(var(--accent) / 0.55)',
+      'hsl(var(--accent) / 0.9)',
+    ];
+    return Array.from({ length: 12 }, (_, index) => ({
+      id: index,
+      left: Math.random() * 100,
+      size: 3 + Math.random() * 4,
+      color: colors[index % colors.length],
+      duration: 1200 + Math.random() * 700,
+      delay: Math.random() * 200,
+      drift: (Math.random() - 0.5) * 90,
+    }));
+  }, []);
 
   useEffect(() => {
     if (!sessionExpiresAt || submitState === 'success' || submitState === 'already-submitted') {
@@ -167,6 +244,16 @@ const Attend = () => {
     setLocationDenied(false);
     setTimeRemaining(FORM_TIME_LIMIT_MS);
     setEventThemeColor(null);
+    setRememberSaved(false);
+    setShowRememberConfetti(false);
+    setPrefilledFromRemember(false);
+
+    const remembered = consumeRememberCookie();
+    if (remembered) {
+      setName(remembered.name);
+      setEmail(remembered.email);
+      setPrefilledFromRemember(true);
+    }
 
     let cancelled = false;
     const initialize = async () => {
@@ -180,6 +267,15 @@ const Attend = () => {
       cancelled = true;
     };
   }, [id, token]);
+
+  useEffect(() => {
+    return () => {
+      if (rememberConfettiTimerRef.current) {
+        window.clearTimeout(rememberConfettiTimerRef.current);
+        rememberConfettiTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const initializeFingerprint = async (): Promise<{ fingerprint: string; raw: string }> => {
     const deviceId = getStoredDeviceId();
@@ -377,6 +473,36 @@ const Attend = () => {
     await submitAttendance();
   };
 
+  const handleRememberMe = () => {
+    try {
+      const payload = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+      };
+      attendeeSchema.parse(payload);
+      storeRememberCookie(payload);
+      setRememberSaved(true);
+      setShowRememberConfetti(true);
+      if (rememberConfettiTimerRef.current) {
+        window.clearTimeout(rememberConfettiTimerRef.current);
+      }
+      rememberConfettiTimerRef.current = window.setTimeout(() => {
+        setShowRememberConfetti(false);
+        rememberConfettiTimerRef.current = null;
+      }, 2000);
+      toast({
+        title: 'Saved for next time',
+        description: 'Your details will be prefilled the next time you open an attendance link.',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Unable to save',
+        description: 'Please enter a valid name and email before saving.',
+      });
+    }
+  };
+
   // Render states
   if (submitState === 'loading' && !event) {
     return (
@@ -472,6 +598,22 @@ const Attend = () => {
   if (submitState === 'success') {
     return (
       <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
+        {showRememberConfetti && (
+          <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden="true">
+            {rememberConfettiPieces.map((piece) => {
+              const confettiStyle = {
+                left: `${piece.left}%`,
+                width: `${piece.size}px`,
+                height: `${piece.size}px`,
+                backgroundColor: piece.color,
+                animationDuration: `${piece.duration}ms`,
+                animationDelay: `${piece.delay}ms`,
+                ['--confetti-drift' as string]: `${piece.drift}px`,
+              } as CSSProperties;
+              return <span key={piece.id} className="confetti-piece" style={confettiStyle} />;
+            })}
+          </div>
+        )}
         <Card className="max-w-md w-full bg-gradient-card text-center">
           <CardContent className="py-12">
             <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
@@ -479,9 +621,18 @@ const Attend = () => {
             <p className="text-muted-foreground">
               Thank you for checking in to {event?.name}.
             </p>
-            <div className="mt-6">
+            <div className="mt-6 flex flex-col gap-2">
+              <Button
+                size="sm"
+                className="w-full bg-accent text-accent-foreground border-accent/40 hover:bg-accent/90"
+                onClick={handleRememberMe}
+                disabled={rememberSaved}
+              >
+                {rememberSaved && <Check />}
+                {rememberSaved ? 'Saved for next time' : 'Remember me'}
+              </Button>
               <Link to="/">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="w-full">
                   Try Attendly
                 </Button>
               </Link>
@@ -543,6 +694,11 @@ const Attend = () => {
             </span>
             <span className="text-sm">remaining</span>
           </div>
+          {prefilledFromRemember && (
+            <div className="mb-4 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-center text-sm text-foreground">
+              On your request, your details were prefilled from your last saved check-in. 🎉
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -609,10 +765,13 @@ const Attend = () => {
                   Submitting...
                 </>
               ) : (
-                'Confirm Attendance'
+                <>
+                  <span>Confirm Attendance</span>
+                  <ArrowRight />
+                </>
               )}
             </Button>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground text-center">
               By submitting, you consent to your name and email being stored. If enabled for this event, location and
               device fingerprint data may also be processed.
             </p>

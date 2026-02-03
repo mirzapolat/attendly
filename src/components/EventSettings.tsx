@@ -61,6 +61,14 @@ const formatRadius = (radius: number) => {
   return `${formatter.format(radius)}m`;
 };
 
+const toLocalInputValue = (value: string) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const local = new Date(parsed);
+  local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+  return local.toISOString().slice(0, 16);
+};
+
 const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
   const { toast } = useToast();
   const { currentWorkspace } = useWorkspace();
@@ -71,9 +79,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
   const [name, setName] = useState(event.name);
   const [description, setDescription] = useState(event.description ?? '');
   const [showDescription, setShowDescription] = useState(Boolean(event.description));
-  const [eventDate, setEventDate] = useState(
-    new Date(event.event_date).toISOString().slice(0, 16)
-  );
+  const [eventDate, setEventDate] = useState(() => toLocalInputValue(event.event_date));
   const [locationName, setLocationName] = useState(event.location_name);
   const [locationLat, setLocationLat] = useState(event.location_lat);
   const [locationLng, setLocationLng] = useState(event.location_lng);
