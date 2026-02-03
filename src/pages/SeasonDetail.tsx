@@ -161,6 +161,7 @@ const SeasonDetail = () => {
   // Member list state
   const [memberSearch, setMemberSearch] = useState('');
   const [memberSortAsc, setMemberSortAsc] = useState(false);
+  const [memberSearchOpen, setMemberSearchOpen] = useState(false);
 
   // Member detail modal state
   const [selectedMember, setSelectedMember] = useState<MemberStats | null>(null);
@@ -1047,25 +1048,46 @@ const SeasonDetail = () => {
                     <CardTitle className="text-lg">Member Attendance</CardTitle>
                     <CardDescription>Click on a member to see details</CardDescription>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setMemberSortAsc(!memberSortAsc)}
-                    className="gap-1"
-                  >
-                    <ArrowUpDown className="w-4 h-4" />
-                    {memberSortAsc ? 'Asc' : 'Desc'}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={memberSearchOpen ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => {
+                        setMemberSearchOpen((prev) => {
+                          const next = !prev;
+                          if (!next) {
+                            setMemberSearch('');
+                          }
+                          return next;
+                        });
+                      }}
+                      className="gap-1"
+                      aria-label={memberSearchOpen ? 'Hide member search' : 'Show member search'}
+                    >
+                      <Search className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setMemberSortAsc(!memberSortAsc)}
+                      className="gap-1"
+                    >
+                      <ArrowUpDown className="w-4 h-4" />
+                      {memberSortAsc ? 'Asc' : 'Desc'}
+                    </Button>
+                  </div>
                 </div>
-                <div className="relative mt-2">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by name or email..."
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
+                {memberSearchOpen && (
+                  <div className="relative mt-2">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name or email..."
+                      value={memberSearch}
+                      onChange={(e) => setMemberSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 {filteredMemberStats.length === 0 ? (

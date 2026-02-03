@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Mail, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useToast } from '@/hooks/use-toast';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -134,6 +135,7 @@ const getSuggestionKey = (emailA: string, emailB: string) =>
 const SeasonSanitize = () => {
   usePageTitle('Season Sanitization - Attendly');
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
 
