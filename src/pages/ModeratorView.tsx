@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -59,6 +59,9 @@ interface KnownAttendee {
 }
 
 const POLL_INTERVAL_MS = 1100;
+const ATTENDANCE_LIST_BOTTOM_GAP = 24;
+const ATTENDANCE_LIST_MIN_HEIGHT = 240;
+const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
 
 const ModeratorView = () => {
   const { eventId, token } = useParams<{ eventId: string; token: string }>();
@@ -91,6 +94,8 @@ const ModeratorView = () => {
   const [manualEmail, setManualEmail] = useState('');
   const [suggestions, setSuggestions] = useState<KnownAttendee[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const attendanceListRef = useRef<HTMLDivElement | null>(null);
+  const [attendanceListMaxHeight, setAttendanceListMaxHeight] = useState<number | null>(null);
 
   const [liveUpdatesEnabled, setLiveUpdatesEnabled] = useState(true);
 
@@ -108,6 +113,27 @@ const ModeratorView = () => {
       setExpandedRecordId(null);
     }
   }, [compactView]);
+
+  const updateAttendanceListMaxHeight = useCallback(() => {
+    if (!attendanceListRef.current) return;
+    if (!window.matchMedia(DESKTOP_MEDIA_QUERY).matches) {
+      setAttendanceListMaxHeight(null);
+      return;
+    }
+    const { top } = attendanceListRef.current.getBoundingClientRect();
+    const nextMaxHeight = Math.max(ATTENDANCE_LIST_MIN_HEIGHT, window.innerHeight - top - ATTENDANCE_LIST_BOTTOM_GAP);
+    setAttendanceListMaxHeight(nextMaxHeight);
+  }, []);
+
+  useLayoutEffect(() => {
+    updateAttendanceListMaxHeight();
+  }, [updateAttendanceListMaxHeight, showAddForm, attendance.length]);
+
+  useEffect(() => {
+    const handleResize = () => updateAttendanceListMaxHeight();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [updateAttendanceListMaxHeight]);
 
   const handleStatusFilter = (next: 'all' | 'verified' | 'suspicious' | 'excused') => {
     setStatusFilter((prev) => (prev === next && next !== 'all' ? 'all' : next));
@@ -517,9 +543,9 @@ const ModeratorView = () => {
           <div className="min-w-0">
             <Card className="bg-gradient-card">
               <CardHeader>
-                <CardTitle className="flex items-start gap-2 flex-wrap min-w-0">
-                  <QrCode className="w-5 h-5" />
-                  <span className="min-w-0 break-words">{event.name}</span>
+                <CardTitle className="flex items-center gap-2 min-w-0">
+                  <QrCode className="w-5 h-5 shrink-0" />
+                  <span className="min-w-0 truncate">{event.name}</span>
                 </CardTitle>
                 {event.description && (
                   <p className="text-sm text-muted-foreground mt-1 break-words">{event.description}</p>
@@ -869,7 +895,11 @@ const ModeratorView = () => {
 
               return (
                 <div className="relative">
-                  <div className={`max-h-[600px] overflow-y-auto ${compactView ? 'space-y-1' : 'space-y-2'}`}>
+                  <div
+                    ref={attendanceListRef}
+                    style={attendanceListMaxHeight ? { maxHeight: attendanceListMaxHeight } : undefined}
+                    className={`lg:max-h-[600px] overflow-y-auto ${compactView ? 'space-y-1' : 'space-y-2'}`}
+                  >
                     {filteredAttendance.map((record) => {
                     const isExpanded = compactView && expandedRecordId === record.id;
                     return (

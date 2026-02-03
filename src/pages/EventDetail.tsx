@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo, type CSSProperties, type MouseEvent } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo, useLayoutEffect, type CSSProperties, type MouseEvent } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
@@ -72,6 +72,9 @@ const RESUME_WINDOW_MS = 15000;
 const ROTATION_GRACE_MS = 7000;
 const ROTATION_MIN_SECONDS = 2;
 const ROTATION_MAX_SECONDS = 60;
+const ATTENDANCE_LIST_BOTTOM_GAP = 24;
+const ATTENDANCE_LIST_MIN_HEIGHT = 240;
+const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
 
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -100,6 +103,9 @@ const EventDetail = () => {
   const [manualEmail, setManualEmail] = useState('');
   const [suggestions, setSuggestions] = useState<KnownAttendee[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsWrapRef = useRef<HTMLDivElement | null>(null);
+  const attendanceListRef = useRef<HTMLDivElement | null>(null);
+  const [attendanceListMaxHeight, setAttendanceListMaxHeight] = useState<number | null>(null);
   const [copyingStaticLink, setCopyingStaticLink] = useState(false);
   const [fingerprintDialogOpen, setFingerprintDialogOpen] = useState(false);
   const [fingerprintDialogKey, setFingerprintDialogKey] = useState<string | null>(null);
@@ -143,6 +149,39 @@ const EventDetail = () => {
       setExpandedRecordId(null);
     }
   }, [compactView]);
+
+  const updateAttendanceListMaxHeight = useCallback(() => {
+    if (!attendanceListRef.current) return;
+    if (!window.matchMedia(DESKTOP_MEDIA_QUERY).matches) {
+      setAttendanceListMaxHeight(null);
+      return;
+    }
+    const { top } = attendanceListRef.current.getBoundingClientRect();
+    const nextMaxHeight = Math.max(ATTENDANCE_LIST_MIN_HEIGHT, window.innerHeight - top - ATTENDANCE_LIST_BOTTOM_GAP);
+    setAttendanceListMaxHeight(nextMaxHeight);
+  }, []);
+
+  useLayoutEffect(() => {
+    updateAttendanceListMaxHeight();
+  }, [updateAttendanceListMaxHeight, showAddForm, attendance.length]);
+
+  useEffect(() => {
+    const handleResize = () => updateAttendanceListMaxHeight();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [updateAttendanceListMaxHeight]);
+
+  useEffect(() => {
+    if (!showSuggestions) return;
+    const handleOutsideClick = (event: globalThis.MouseEvent) => {
+      if (!suggestionsWrapRef.current) return;
+      if (!suggestionsWrapRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showSuggestions]);
 
   const getFingerprintKey = (record: AttendanceRecord) =>
     (record.device_fingerprint_raw ?? record.device_fingerprint ?? '').trim();
@@ -549,8 +588,8 @@ const EventDetail = () => {
   }, []);
 
   // Fetch known attendees from same season for autocomplete
-  const fetchSuggestions = async (searchName: string) => {
-    if (!event || searchName.length < 2) {
+  const fetchSuggestions = async (searchTerm: string) => {
+    if (!event || searchTerm.length < 2) {
       setSuggestions([]);
       return;
     }
@@ -585,7 +624,7 @@ const EventDetail = () => {
       .from('attendance_records')
       .select('attendee_name, attendee_email')
       .in('event_id', eventIds)
-      .ilike('attendee_name', `%${searchName}%`);
+      .or(`attendee_name.ilike.%${searchTerm}%,attendee_email.ilike.%${searchTerm}%`);
 
     if (attendees) {
       // Dedupe by email
@@ -1108,9 +1147,9 @@ const EventDetail = () => {
           <div className="min-w-0">
             <Card className="bg-gradient-card">
               <CardHeader>
-                <CardTitle className="flex items-start gap-2 flex-wrap min-w-0">
-                  <QrCode className="w-5 h-5" />
-                  <span className="min-w-0 break-words">{event.name}</span>
+                <CardTitle className="flex items-center gap-2 min-w-0">
+                  <QrCode className="w-5 h-5 shrink-0" />
+                  <span className="min-w-0 truncate">{event.name}</span>
                 </CardTitle>
                 {event.description && (
                   <p className="text-sm text-muted-foreground mt-1 break-words">{event.description}</p>
@@ -1288,7 +1327,7 @@ const EventDetail = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setShowAddForm(!showAddForm)}
-                        className="gap-2 flex-1 icon-trigger"
+                        className={`gap-2 flex-1 icon-trigger ${showAddForm ? 'border-2 border-accent hover:border-accent' : ''}`}
                       >
                         <UserPlus className="w-4 h-4 icon-pop" />
                         Add
@@ -1353,7 +1392,7 @@ const EventDetail = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowAddForm(!showAddForm)}
-                  className="gap-2 icon-trigger"
+                  className={`gap-2 icon-trigger ${showAddForm ? 'border-2 border-accent hover:border-accent' : ''}`}
                 >
                   <UserPlus className="w-4 h-4 icon-pop" />
                   Add
@@ -1403,38 +1442,56 @@ const EventDetail = () => {
               <Card className="bg-gradient-card mb-4">
                 <CardContent className="py-4">
                   <div className="space-y-3">
-                    <div className="relative">
+                    <div ref={suggestionsWrapRef} className="space-y-3">
+                      <div className="relative">
+                        <Input
+                          placeholder="Name"
+                          value={manualName}
+                          onChange={(e) => {
+                            setManualName(e.target.value);
+                            setShowSuggestions(true);
+                            fetchSuggestions(e.target.value);
+                          }}
+                          onFocus={() => setShowSuggestions(true)}
+                        />
+                        {showSuggestions && suggestions.length > 0 && (
+                          <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
+                              <span>Suggestions</span>
+                              <button
+                                type="button"
+                                className="font-semibold text-accent hover:text-accent/80"
+                                onClick={() => setShowSuggestions(false)}
+                              >
+                                Hide
+                              </button>
+                            </div>
+                            {suggestions.map((s, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                className="w-full px-3 py-2 text-left hover:bg-muted transition-colors border-b border-border last:border-0"
+                                onClick={() => selectSuggestion(s)}
+                              >
+                                <p className="font-medium text-sm">{s.attendee_name}</p>
+                                <p className="text-xs text-muted-foreground">{s.attendee_email}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <Input
-                        placeholder="Name"
-                        value={manualName}
+                        placeholder="Email"
+                        type="email"
+                        value={manualEmail}
                         onChange={(e) => {
-                          setManualName(e.target.value);
+                          setManualEmail(e.target.value);
                           setShowSuggestions(true);
                           fetchSuggestions(e.target.value);
                         }}
                         onFocus={() => setShowSuggestions(true)}
                       />
-                      {showSuggestions && suggestions.length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                          {suggestions.map((s, idx) => (
-                            <button
-                              key={idx}
-                              className="w-full px-3 py-2 text-left hover:bg-muted transition-colors border-b border-border last:border-0"
-                              onClick={() => selectSuggestion(s)}
-                            >
-                              <p className="font-medium text-sm">{s.attendee_name}</p>
-                              <p className="text-xs text-muted-foreground">{s.attendee_email}</p>
-                            </button>
-                          ))}
-                        </div>
-                      )}
                     </div>
-                    <Input
-                      placeholder="Email"
-                      type="email"
-                      value={manualEmail}
-                      onChange={(e) => setManualEmail(e.target.value)}
-                    />
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => addManualAttendee('verified')} className="flex-1 gap-2 icon-trigger">
                         <CheckCircle className="w-4 h-4 icon-pop" />
@@ -1449,6 +1506,7 @@ const EventDetail = () => {
                         setManualName('');
                         setManualEmail('');
                         setSuggestions([]);
+                        setShowSuggestions(false);
                       }}>
                         Cancel
                       </Button>
@@ -1492,7 +1550,11 @@ const EventDetail = () => {
 
               return (
                 <div className="relative">
-                  <div className={`max-h-[600px] overflow-y-auto ${compactView ? 'space-y-1' : 'space-y-2'}`}>
+                  <div
+                    ref={attendanceListRef}
+                    style={attendanceListMaxHeight ? { maxHeight: attendanceListMaxHeight } : undefined}
+                    className={`lg:max-h-[600px] overflow-y-auto ${compactView ? 'space-y-1' : 'space-y-2'}`}
+                  >
                     {filteredAttendance.map((record) => {
                       const isExpanded = compactView && expandedRecordId === record.id;
                       return (

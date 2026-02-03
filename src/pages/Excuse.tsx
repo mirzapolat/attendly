@@ -222,6 +222,10 @@ const Excuse = () => {
               <Button onClick={submitExcuse} className="w-full">
                 Submit Excuse
               </Button>
+              <p className="text-xs text-muted-foreground">
+                By submitting, you consent to your name and email being stored. If enabled for this event, location and
+                device fingerprint data may also be processed.
+              </p>
             </div>
           )}
 
