@@ -75,7 +75,7 @@ const NewEvent = () => {
 
   // Security features
   const [rotatingQrEnabled, setRotatingQrEnabled] = useState(true);
-  const [rotatingQrSeconds, setRotatingQrSeconds] = useState(3);
+  const [rotatingQrSeconds, setRotatingQrSeconds] = useState(6);
   const [showRotationSettings, setShowRotationSettings] = useState(false);
   const [deviceFingerprintEnabled, setDeviceFingerprintEnabled] = useState(true);
   const [fingerprintCollisionStrict, setFingerprintCollisionStrict] = useState(true);

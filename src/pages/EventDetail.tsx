@@ -1241,7 +1241,7 @@ const EventDetail = () => {
             </Card>
 
             {/* Stats - clickable filters */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+            <div className="grid grid-cols-2 min-[560px]:grid-cols-4 gap-4 mt-4">
               <Card 
                 className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--primary)/0.45)] filter-cloudy-primary ${statusFilter === 'all' ? 'ring-2 ring-primary filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--primary)/0.45)]' : ''}`}
                 onClick={(event) => handleStatusFilter('all', event)}

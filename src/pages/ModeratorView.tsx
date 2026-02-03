@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useLayoutEffect } from 'react';
+import { useEffect, useState, useCallback, useRef, useLayoutEffect, type CSSProperties, type MouseEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -101,7 +101,16 @@ const ModeratorView = () => {
 
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'suspicious' | 'excused'>('all');
+  type StatusFilter = 'all' | 'verified' | 'suspicious' | 'excused';
+  type CloudBurst = { x: number; y: number; id: number; strength: number };
+
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [cloudBursts, setCloudBursts] = useState<Record<StatusFilter, CloudBurst | null>>({
+    all: null,
+    verified: null,
+    suspicious: null,
+    excused: null,
+  });
 
   const toggleCompactExpand = useCallback((recordId: string) => {
     if (!compactView) return;
@@ -135,8 +144,47 @@ const ModeratorView = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, [updateAttendanceListMaxHeight]);
 
-  const handleStatusFilter = (next: 'all' | 'verified' | 'suspicious' | 'excused') => {
+  const triggerCloudBurst = (event: MouseEvent<HTMLElement>, filter: StatusFilter) => {
+    const target = event.currentTarget;
+    const rect = target.getBoundingClientRect();
+    const x = rect.width ? ((event.clientX - rect.left) / rect.width) * 100 : 50;
+    const y = rect.height ? ((event.clientY - rect.top) / rect.height) * 100 : 50;
+    const clampedX = Math.min(100, Math.max(0, x));
+    const clampedY = Math.min(100, Math.max(0, y));
+    const normalizedX = (clampedX - 50) / 50;
+    const normalizedY = (clampedY - 50) / 50;
+    const distance = Math.sqrt(normalizedX ** 2 + normalizedY ** 2);
+    const strength = Math.min(1, distance / Math.SQRT2);
+
+    setCloudBursts((prev) => {
+      const current = prev[filter];
+      return {
+        ...prev,
+        [filter]: {
+          x: clampedX,
+          y: clampedY,
+          strength,
+          id: (current?.id ?? 0) + 1,
+        },
+      };
+    });
+  };
+
+  const handleStatusFilter = (next: StatusFilter, event?: MouseEvent<HTMLElement>) => {
+    if (event) {
+      triggerCloudBurst(event, next);
+    }
     setStatusFilter((prev) => (prev === next && next !== 'all' ? 'all' : next));
+  };
+
+  const getCloudOriginStyle = (filter: StatusFilter): CSSProperties | undefined => {
+    const burst = cloudBursts[filter];
+    if (!burst) return undefined;
+    return {
+      ['--cloudy-origin-x' as string]: `${burst.x}%`,
+      ['--cloudy-origin-y' as string]: `${burst.y}%`,
+      ['--cloudy-strength' as string]: `${burst.strength}`,
+    };
   };
 
   const pageTitle = event?.name ? `${event.name} - Moderator View` : 'Moderator View - Attendly';
@@ -521,18 +569,39 @@ const ModeratorView = () => {
   const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
   const excusedCount = attendance.filter(a => a.status === 'excused').length;
   const attendedCount = attendance.length - excusedCount;
+  const totalCloudStyle = (() => {
+    const baseStyle = getCloudOriginStyle('all') ?? {};
+    if (statusFilter === 'all' && !cloudBursts.all) {
+      return {
+        ...baseStyle,
+        ['--cloudy-opacity' as string]: '0.06',
+        ['--cloudy-opacity-secondary' as string]: '0.03',
+      } as CSSProperties;
+    }
+    return baseStyle as CSSProperties;
+  })();
   const qrLogoSettings = event?.brand_logo_url
     ? { src: event.brand_logo_url, height: 56, width: 56, excavate: true }
     : undefined;
 
   return (
     <div className="min-h-screen bg-gradient-subtle overflow-x-hidden">
-      <header className="bg-background/80 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <header className="container mx-auto px-4 sm:px-6 pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/80 px-4 py-3 shadow-sm backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-primary" />
             <span className="font-semibold">Moderator View</span>
-            <Badge variant="secondary">Limited Access</Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="live-updates-header"
+              checked={liveUpdatesEnabled}
+              onCheckedChange={handleLiveUpdatesToggle}
+            />
+            <Label htmlFor="live-updates-header" className="flex items-center gap-1 text-sm cursor-pointer">
+              <Radio className={`w-3 h-3 ${liveUpdatesEnabled ? 'text-success animate-pulse' : 'text-muted-foreground'}`} />
+              Live
+            </Label>
           </div>
         </div>
       </header>
@@ -604,42 +673,58 @@ const ModeratorView = () => {
             </Card>
 
             {/* Stats - clickable filters */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+            <div className="grid grid-cols-2 min-[560px]:grid-cols-4 gap-4 mt-4">
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--primary)/0.45)] ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
-                onClick={() => handleStatusFilter('all')}
+                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--primary)/0.45)] filter-cloudy-primary ${statusFilter === 'all' ? 'ring-2 ring-primary filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--primary)/0.45)]' : ''}`}
+                onClick={(event) => handleStatusFilter('all', event)}
+                style={totalCloudStyle}
               >
-                <CardContent className="py-4 text-center">
+                {cloudBursts.all && (
+                  <span key={cloudBursts.all.id} className="filter-cloud-burst" />
+                )}
+                <CardContent className="py-4 text-center relative z-10">
                   <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
                   <p className="text-2xl font-bold">{attendance.length}</p>
                   <p className="text-xs text-muted-foreground">Total</p>
                 </CardContent>
               </Card>
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] ${statusFilter === 'excused' ? 'ring-2 ring-warning filter-cloudy filter-cloudy-warning' : ''}`}
-                onClick={() => handleStatusFilter('excused')}
+                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] filter-cloudy-warning ${statusFilter === 'excused' ? 'ring-2 ring-warning filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)]' : ''}`}
+                onClick={(event) => handleStatusFilter('excused', event)}
+                style={getCloudOriginStyle('excused')}
               >
-                <CardContent className="py-4 text-center">
+                {cloudBursts.excused && (
+                  <span key={cloudBursts.excused.id} className="filter-cloud-burst" />
+                )}
+                <CardContent className="py-4 text-center relative z-10">
                   <UserMinus className="w-5 h-5 mx-auto mb-1 text-warning" />
                   <p className="text-2xl font-bold">{excusedCount}</p>
                   <p className="text-xs text-muted-foreground">Excused</p>
                 </CardContent>
               </Card>
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)] ${statusFilter === 'verified' ? 'ring-2 ring-success filter-cloudy filter-cloudy-success' : ''}`}
-                onClick={() => handleStatusFilter('verified')}
+                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)] filter-cloudy-success ${statusFilter === 'verified' ? 'ring-2 ring-success filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)]' : ''}`}
+                onClick={(event) => handleStatusFilter('verified', event)}
+                style={getCloudOriginStyle('verified')}
               >
-                <CardContent className="py-4 text-center">
+                {cloudBursts.verified && (
+                  <span key={cloudBursts.verified.id} className="filter-cloud-burst" />
+                )}
+                <CardContent className="py-4 text-center relative z-10">
                   <CheckCircle className="w-5 h-5 mx-auto mb-1 text-success" />
                   <p className="text-2xl font-bold">{verifiedCount}</p>
                   <p className="text-xs text-muted-foreground">Verified</p>
                 </CardContent>
               </Card>
               <Card 
-                className={`bg-gradient-card cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] ${statusFilter === 'suspicious' ? 'ring-2 ring-warning filter-cloudy filter-cloudy-warning' : ''}`}
-                onClick={() => handleStatusFilter('suspicious')}
+                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] filter-cloudy-warning ${statusFilter === 'suspicious' ? 'ring-2 ring-warning filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)]' : ''}`}
+                onClick={(event) => handleStatusFilter('suspicious', event)}
+                style={getCloudOriginStyle('suspicious')}
               >
-                <CardContent className="py-4 text-center">
+                {cloudBursts.suspicious && (
+                  <span key={cloudBursts.suspicious.id} className="filter-cloud-burst" />
+                )}
+                <CardContent className="py-4 text-center relative z-10">
                   <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-warning" />
                   <p className="text-2xl font-bold">{suspiciousCount}</p>
                   <p className="text-xs text-muted-foreground">Suspicious</p>
@@ -691,29 +776,16 @@ const ModeratorView = () => {
                         </Button>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          id="live-updates-mobile"
-                          checked={liveUpdatesEnabled}
-                          onCheckedChange={handleLiveUpdatesToggle}
-                        />
-                        <Label htmlFor="live-updates-mobile" className="flex items-center gap-1 text-sm cursor-pointer">
-                          <Radio className={`w-3 h-3 ${liveUpdatesEnabled ? 'text-success animate-pulse' : 'text-muted-foreground'}`} />
-                          Live
-                        </Label>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setCompactView((prev) => !prev)}
-                        aria-pressed={compactView}
-                        title={compactView ? 'Switch to normal view' : 'Switch to compact view'}
-                      >
-                        {compactView ? <List className="w-4 h-4" /> : <ListCollapse className="w-4 h-4" />}
-                        <span className="sr-only">{compactView ? 'Normal view' : 'Compact view'}</span>
-                      </Button>
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setCompactView((prev) => !prev)}
+                      aria-pressed={compactView}
+                      title={compactView ? 'Switch to normal view' : 'Switch to compact view'}
+                    >
+                      {compactView ? <List className="w-4 h-4" /> : <ListCollapse className="w-4 h-4" />}
+                      <span className="sr-only">{compactView ? 'Normal view' : 'Compact view'}</span>
+                    </Button>
                   </div>
 
                   <div className="relative">
@@ -741,17 +813,6 @@ const ModeratorView = () => {
                 </span>
               </h2>
               <div className="flex gap-2 flex-wrap items-center">
-                <div className="flex items-center gap-2 mr-2">
-                  <Switch
-                    id="live-updates-desktop"
-                    checked={liveUpdatesEnabled}
-                    onCheckedChange={handleLiveUpdatesToggle}
-                  />
-                  <Label htmlFor="live-updates-desktop" className="flex items-center gap-1 text-sm cursor-pointer">
-                    <Radio className={`w-3 h-3 ${liveUpdatesEnabled ? 'text-success animate-pulse' : 'text-muted-foreground'}`} />
-                    Live
-                  </Label>
-                </div>
                 <Button
                   variant="outline"
                   size="sm"
