@@ -59,7 +59,7 @@ interface KnownAttendee {
 }
 
 const POLL_INTERVAL_MS = 1100;
-const ATTENDANCE_LIST_BOTTOM_GAP = 24;
+const ATTENDANCE_LIST_BOTTOM_GAP = 64;
 const ATTENDANCE_LIST_MIN_HEIGHT = 240;
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
 
