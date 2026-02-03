@@ -38,6 +38,8 @@ interface Event {
   is_active: boolean;
   current_qr_token: string | null;
   qr_token_expires_at: string | null;
+  qr_host_device_id: string | null;
+  qr_host_lease_expires_at: string | null;
   rotating_qr_enabled: boolean;
   rotating_qr_interval_seconds?: number | null;
   device_fingerprint_enabled: boolean;
@@ -72,6 +74,8 @@ const RESUME_WINDOW_MS = 15000;
 const ROTATION_GRACE_MS = 7000;
 const ROTATION_MIN_SECONDS = 2;
 const ROTATION_MAX_SECONDS = 60;
+const QR_HOST_LEASE_MS = 20000;
+const QR_HOST_HEARTBEAT_MS = 10000;
 const ATTENDANCE_LIST_BOTTOM_GAP = 64;
 const ATTENDANCE_LIST_MIN_HEIGHT = 240;
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
@@ -90,6 +94,11 @@ const EventDetail = () => {
   const [qrToken, setQrToken] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(3);
   const intervalRef = useRef<number | null>(null);
+  const countdownIntervalRef = useRef<number | null>(null);
+  const hostHeartbeatRef = useRef<number | null>(null);
+  const hostDeviceIdRef = useRef<string | null>(null);
+  const hostClaimInFlightRef = useRef(false);
+  const [isQrHost, setIsQrHost] = useState(false);
   
   // Privacy controls
   const [showAllDetails, setShowAllDetails] = useState(false);
@@ -306,7 +315,6 @@ const EventDetail = () => {
   }, []);
 
   const justCreated = Boolean((location.state as { justCreated?: boolean } | null)?.justCreated);
-  const shouldWarnOnLeave = Boolean(event?.is_active && event?.rotating_qr_enabled);
   const brandLogoUrl = currentWorkspace?.brand_logo_url ?? null;
   const qrLogoSettings = brandLogoUrl
     ? { src: brandLogoUrl, height: 56, width: 56, excavate: true }
@@ -315,6 +323,29 @@ const EventDetail = () => {
     ROTATION_MAX_SECONDS,
     Math.max(ROTATION_MIN_SECONDS, Number(event?.rotating_qr_interval_seconds ?? 3)),
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (hostDeviceIdRef.current) return;
+    try {
+      const existing = sessionStorage.getItem(STORAGE_KEYS.qrHostTabId);
+      if (existing) {
+        hostDeviceIdRef.current = existing;
+        return;
+      }
+      const next =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `tab-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      sessionStorage.setItem(STORAGE_KEYS.qrHostTabId, next);
+      hostDeviceIdRef.current = next;
+    } catch {
+      hostDeviceIdRef.current =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `tab-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+  }, []);
 
   useEffect(() => {
     if (!event) return;
@@ -337,6 +368,156 @@ const EventDetail = () => {
       }
     };
   }, [event]);
+
+  const isLeaseExpired = useCallback((leaseExpiresAt?: string | null) => {
+    if (!leaseExpiresAt) return true;
+    const expiresMs = Date.parse(leaseExpiresAt);
+    if (Number.isNaN(expiresMs)) return true;
+    return Date.now() >= expiresMs;
+  }, []);
+
+  const hostTabId = hostDeviceIdRef.current;
+  const isActiveHost = Boolean(
+    event?.is_active &&
+      event?.rotating_qr_enabled &&
+      isQrHost &&
+      hostTabId &&
+      event?.qr_host_device_id === hostTabId &&
+      !isLeaseExpired(event?.qr_host_lease_expires_at),
+  );
+  const shouldWarnOnLeave = Boolean(isActiveHost);
+
+  const claimQrHost = useCallback(async () => {
+    if (!id) return false;
+    const deviceId = hostDeviceIdRef.current;
+    if (!deviceId) return false;
+    if (hostClaimInFlightRef.current) return false;
+    hostClaimInFlightRef.current = true;
+    try {
+      const leaseExpiresAt = new Date(Date.now() + QR_HOST_LEASE_MS).toISOString();
+      const nowIso = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('events')
+        .update({
+          qr_host_device_id: deviceId,
+          qr_host_lease_expires_at: leaseExpiresAt,
+        })
+        .eq('id', id)
+        .or(`qr_host_device_id.is.null,qr_host_lease_expires_at.lt.${nowIso},qr_host_device_id.eq.${deviceId}`)
+        .select('qr_host_device_id, qr_host_lease_expires_at')
+        .maybeSingle();
+
+      if (error || !data) {
+        setIsQrHost(false);
+        return false;
+      }
+
+      const isHost = data.qr_host_device_id === deviceId;
+      setIsQrHost(isHost);
+      if (isHost) {
+        setEvent((prev) =>
+          prev
+            ? {
+                ...prev,
+                qr_host_device_id: data.qr_host_device_id,
+                qr_host_lease_expires_at: data.qr_host_lease_expires_at,
+              }
+            : prev,
+        );
+      }
+      return isHost;
+    } finally {
+      hostClaimInFlightRef.current = false;
+    }
+  }, [id]);
+
+  const refreshQrHostLease = useCallback(async () => {
+    if (!id) return false;
+    const deviceId = hostDeviceIdRef.current;
+    if (!deviceId) return false;
+    const leaseExpiresAt = new Date(Date.now() + QR_HOST_LEASE_MS).toISOString();
+    const { data, error } = await supabase
+      .from('events')
+      .update({ qr_host_lease_expires_at: leaseExpiresAt })
+      .eq('id', id)
+      .eq('qr_host_device_id', deviceId)
+      .select('qr_host_device_id, qr_host_lease_expires_at')
+      .maybeSingle();
+
+    if (error || !data) {
+      return false;
+    }
+
+    const stillHost = data.qr_host_device_id === deviceId;
+    if (stillHost) {
+      setEvent((prev) =>
+        prev
+          ? {
+              ...prev,
+              qr_host_device_id: data.qr_host_device_id,
+              qr_host_lease_expires_at: data.qr_host_lease_expires_at,
+            }
+          : prev,
+      );
+    }
+    return stillHost;
+  }, [id]);
+
+  useEffect(() => {
+    if (!event?.is_active || !event?.rotating_qr_enabled) {
+      setIsQrHost(false);
+      return;
+    }
+    const deviceId = hostDeviceIdRef.current;
+    if (!deviceId) return;
+    const isSelfHost =
+      event.qr_host_device_id === deviceId && !isLeaseExpired(event.qr_host_lease_expires_at);
+    if (isSelfHost) {
+      setIsQrHost(true);
+      return;
+    }
+    if (!event.qr_host_device_id || isLeaseExpired(event.qr_host_lease_expires_at)) {
+      void claimQrHost();
+      return;
+    }
+    setIsQrHost(false);
+  }, [
+    event?.is_active,
+    event?.rotating_qr_enabled,
+    event?.qr_host_device_id,
+    event?.qr_host_lease_expires_at,
+    claimQrHost,
+    isLeaseExpired,
+  ]);
+
+  useEffect(() => {
+    if (!isQrHost || !event?.is_active || !event?.rotating_qr_enabled) {
+      if (hostHeartbeatRef.current) {
+        window.clearInterval(hostHeartbeatRef.current);
+        hostHeartbeatRef.current = null;
+      }
+      return;
+    }
+
+    const heartbeat = async () => {
+      const stillHost = await refreshQrHostLease();
+      if (!stillHost) {
+        setIsQrHost(false);
+      }
+    };
+
+    void heartbeat();
+    hostHeartbeatRef.current = window.setInterval(() => {
+      void heartbeat();
+    }, QR_HOST_HEARTBEAT_MS);
+
+    return () => {
+      if (hostHeartbeatRef.current) {
+        window.clearInterval(hostHeartbeatRef.current);
+        hostHeartbeatRef.current = null;
+      }
+    };
+  }, [event?.is_active, event?.rotating_qr_enabled, isQrHost, refreshQrHostLease]);
 
   useEffect(() => {
     if (!event?.is_active || !event?.rotating_qr_enabled) {
@@ -454,10 +635,16 @@ const EventDetail = () => {
     if (!user || !id) return;
     fetchEvent();
     fetchAttendance();
+    const eventIntervalId = window.setInterval(() => {
+      void fetchEvent();
+    }, POLL_INTERVAL_MS);
     const intervalId = window.setInterval(() => {
       void fetchAttendance({ silent: true });
     }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(intervalId);
+    return () => {
+      window.clearInterval(eventIntervalId);
+      window.clearInterval(intervalId);
+    };
   }, [user, id, fetchEvent, fetchAttendance]);
 
   useEffect(() => {
@@ -471,7 +658,7 @@ const EventDetail = () => {
     };
 
     const handlePageHide = () => {
-      if (!id || !session?.access_token) {
+      if (!id || !session?.access_token || !hostTabId) {
         return;
       }
 
@@ -493,9 +680,11 @@ const EventDetail = () => {
         is_active: false,
         current_qr_token: null,
         qr_token_expires_at: null,
+        qr_host_device_id: null,
+        qr_host_lease_expires_at: null,
       });
 
-      void fetch(`${supabaseUrl}/rest/v1/events?id=eq.${id}`, {
+      void fetch(`${supabaseUrl}/rest/v1/events?id=eq.${id}&qr_host_device_id=eq.${hostTabId}`, {
         method: 'PATCH',
         headers: {
           apikey: supabaseKey,
@@ -514,10 +703,14 @@ const EventDetail = () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handlePageHide);
     };
-  }, [shouldWarnOnLeave, id, session?.access_token]);
+  }, [shouldWarnOnLeave, id, session?.access_token, hostTabId]);
 
   const stopEventForExit = async () => {
     if (!event?.is_active || !id) {
+      return true;
+    }
+
+    if (!hostTabId) {
       return true;
     }
 
@@ -527,14 +720,27 @@ const EventDetail = () => {
         is_active: false,
         current_qr_token: null,
         qr_token_expires_at: null,
+        qr_host_device_id: null,
+        qr_host_lease_expires_at: null,
       })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('qr_host_device_id', hostTabId);
 
     if (error) {
       return false;
     }
 
-    setEvent((prev) => (prev ? { ...prev, is_active: false } : null));
+    setEvent((prev) =>
+      prev
+        ? {
+            ...prev,
+            is_active: false,
+            qr_host_device_id: null,
+            qr_host_lease_expires_at: null,
+          }
+        : null,
+    );
+    setIsQrHost(false);
     return true;
   };
 
@@ -668,7 +874,9 @@ const EventDetail = () => {
   };
 
   const updateQRCode = useCallback(async () => {
-    if (!event?.is_active || !event?.rotating_qr_enabled) return;
+    if (!event?.is_active || !event?.rotating_qr_enabled || !isQrHost) return;
+    const deviceId = hostDeviceIdRef.current;
+    if (!deviceId) return;
 
     const newToken = generateToken();
     const expiresAt = new Date(Date.now() + rotationSeconds * 1000 + ROTATION_GRACE_MS).toISOString();
@@ -679,14 +887,15 @@ const EventDetail = () => {
         current_qr_token: newToken,
         qr_token_expires_at: expiresAt,
       })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('qr_host_device_id', deviceId);
 
     setQrToken(newToken);
     setTimeLeft(rotationSeconds);
-  }, [id, event?.is_active, event?.rotating_qr_enabled, generateToken, rotationSeconds]);
+  }, [id, event?.is_active, event?.rotating_qr_enabled, generateToken, rotationSeconds, isQrHost]);
 
   useEffect(() => {
-    if (event?.is_active && event?.rotating_qr_enabled) {
+    if (event?.is_active && event?.rotating_qr_enabled && isQrHost) {
       updateQRCode();
       intervalRef.current = window.setInterval(() => {
         updateQRCode();
@@ -700,11 +909,62 @@ const EventDetail = () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         clearInterval(countdownInterval);
       };
-    } else if (event?.is_active && !event?.rotating_qr_enabled) {
-      // Static QR - set once
-      setQrToken('static');
     }
-  }, [event?.is_active, event?.rotating_qr_enabled, updateQRCode, rotationSeconds]);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, [event?.is_active, event?.rotating_qr_enabled, updateQRCode, rotationSeconds, isQrHost]);
+
+  useEffect(() => {
+    if (!event) return;
+    if (event.is_active && !event.rotating_qr_enabled) {
+      setQrToken('static');
+      return;
+    }
+    if (!event.is_active) {
+      setQrToken('');
+      return;
+    }
+    if (!isQrHost && event.rotating_qr_enabled) {
+      setQrToken(event.current_qr_token ?? '');
+      setTimeLeft(rotationSeconds);
+    }
+  }, [
+    event?.current_qr_token,
+    event?.is_active,
+    event?.rotating_qr_enabled,
+    isQrHost,
+    rotationSeconds,
+  ]);
+
+  useEffect(() => {
+    if (isQrHost) {
+      if (countdownIntervalRef.current) {
+        window.clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+      return;
+    }
+    if (event?.is_active && event?.rotating_qr_enabled) {
+      if (countdownIntervalRef.current) {
+        window.clearInterval(countdownIntervalRef.current);
+      }
+      countdownIntervalRef.current = window.setInterval(() => {
+        setTimeLeft((prev) => (prev > 1 ? prev - 1 : rotationSeconds));
+      }, 1000);
+      return () => {
+        if (countdownIntervalRef.current) {
+          window.clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
+      };
+    }
+    if (countdownIntervalRef.current) {
+      window.clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+  }, [event?.is_active, event?.rotating_qr_enabled, event?.current_qr_token, isQrHost, rotationSeconds]);
 
   useEffect(() => {
     if (!event || !id) return;
@@ -791,12 +1051,18 @@ const EventDetail = () => {
     const resumeEvent = async () => {
       const newToken = generateToken();
       const expiresAt = new Date(Date.now() + rotationSeconds * 1000 + ROTATION_GRACE_MS).toISOString();
+      const deviceId = hostDeviceIdRef.current;
+      const leaseExpiresAt = deviceId
+        ? new Date(Date.now() + QR_HOST_LEASE_MS).toISOString()
+        : null;
       const { error } = await supabase
         .from('events')
         .update({
           is_active: true,
           current_qr_token: newToken,
           qr_token_expires_at: expiresAt,
+          qr_host_device_id: deviceId ?? null,
+          qr_host_lease_expires_at: leaseExpiresAt,
         })
         .eq('id', id);
 
@@ -811,11 +1077,14 @@ const EventDetail = () => {
               is_active: true,
               current_qr_token: newToken,
               qr_token_expires_at: expiresAt,
+              qr_host_device_id: deviceId ?? null,
+              qr_host_lease_expires_at: leaseExpiresAt,
             }
           : prev
       );
       setQrToken(newToken);
       setTimeLeft(rotationSeconds);
+      setIsQrHost(Boolean(deviceId));
     };
 
     void resumeEvent();
@@ -830,9 +1099,12 @@ const EventDetail = () => {
     if (newStatus) {
       triggerStartButtonPulse();
     }
+    const deviceId = hostDeviceIdRef.current;
     const expiresAt = newStatus
       ? new Date(Date.now() + rotationSeconds * 1000 + ROTATION_GRACE_MS).toISOString()
       : null;
+    const leaseExpiresAt =
+      newStatus && deviceId ? new Date(Date.now() + QR_HOST_LEASE_MS).toISOString() : null;
     
     const { error } = await supabase
       .from('events')
@@ -840,11 +1112,23 @@ const EventDetail = () => {
         is_active: newStatus,
         current_qr_token: newStatus ? generateToken() : null,
         qr_token_expires_at: expiresAt,
+        qr_host_device_id: newStatus ? deviceId ?? null : null,
+        qr_host_lease_expires_at: newStatus ? leaseExpiresAt : null,
       })
       .eq('id', id);
 
     if (!error) {
-      setEvent((prev) => prev ? { ...prev, is_active: newStatus } : null);
+      setEvent((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_active: newStatus,
+              qr_host_device_id: newStatus ? deviceId ?? null : null,
+              qr_host_lease_expires_at: newStatus ? leaseExpiresAt : null,
+            }
+          : null,
+      );
+      setIsQrHost(Boolean(newStatus && deviceId));
     }
   };
 
@@ -1197,9 +1481,13 @@ const EventDetail = () => {
                         <span>Static QR Code</span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Attendees scan this code to mark attendance
-                    </p>
+                    {event.rotating_qr_enabled && (
+                      <div className="mt-2 flex items-center justify-center">
+                        <Badge variant={isActiveHost ? 'default' : 'secondary'} className="text-[10px] uppercase tracking-wide">
+                          {isActiveHost ? 'Host' : 'Viewer'}
+                        </Badge>
+                      </div>
+                    )}
                     {!event.rotating_qr_enabled && (
                       <div className="mt-4 flex items-center justify-center gap-2">
                         <Button

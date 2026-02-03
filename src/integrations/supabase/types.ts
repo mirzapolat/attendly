@@ -122,6 +122,8 @@ export type Database = {
           moderator_show_email: boolean
           moderator_show_full_name: boolean
           name: string
+          qr_host_device_id: string | null
+          qr_host_lease_expires_at: string | null
           qr_token_expires_at: string | null
           rotating_qr_enabled: boolean | null
           rotating_qr_interval_seconds: number | null
@@ -148,6 +150,8 @@ export type Database = {
           moderator_show_email?: boolean
           moderator_show_full_name?: boolean
           name: string
+          qr_host_device_id?: string | null
+          qr_host_lease_expires_at?: string | null
           qr_token_expires_at?: string | null
           rotating_qr_enabled?: boolean | null
           rotating_qr_interval_seconds?: number | null
@@ -174,6 +178,8 @@ export type Database = {
           moderator_show_email?: boolean
           moderator_show_full_name?: boolean
           name?: string
+          qr_host_device_id?: string | null
+          qr_host_lease_expires_at?: string | null
           qr_token_expires_at?: string | null
           rotating_qr_enabled?: boolean | null
           rotating_qr_interval_seconds?: number | null

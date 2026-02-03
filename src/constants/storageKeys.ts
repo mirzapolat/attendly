@@ -3,6 +3,7 @@ export const STORAGE_KEYS = {
   themeColor: 'attendly:theme-color',
   resumeEventPrefix: 'attendly:resume-event:',
   deviceId: 'attendly:device-id',
+  qrHostTabId: 'attendly:qr-host-tab-id',
   eventsView: 'attendly:events-view',
   welcome: 'attendly:welcome',
   notificationsLastSeenPrefix: 'attendly:notifications:lastSeen:',

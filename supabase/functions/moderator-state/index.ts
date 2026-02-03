@@ -50,6 +50,17 @@ const shouldRotateToken = (token: string | null, now: number, intervalMs: number
   return now - timestamp >= intervalMs;
 };
 
+const isHostLeaseActive = (
+  deviceId: string | null,
+  leaseExpiresAt: string | null,
+  now: number,
+): boolean => {
+  if (!deviceId || !leaseExpiresAt) return false;
+  const expiresMs = Date.parse(leaseExpiresAt);
+  if (Number.isNaN(expiresMs)) return false;
+  return now < expiresMs;
+};
+
 const isLinkExpired = (expiresAt: string | null, now: number): boolean => {
   if (!expiresAt) return false;
   const expiresMs = Date.parse(expiresAt);
@@ -171,6 +182,8 @@ serve(async (req) => {
           "qr_token_expires_at",
           "rotating_qr_enabled",
           "rotating_qr_interval_seconds",
+          "qr_host_device_id",
+          "qr_host_lease_expires_at",
           "moderation_enabled",
           "moderator_show_full_name",
           "moderator_show_email",
@@ -201,11 +214,17 @@ serve(async (req) => {
     );
     const rotationIntervalMs = rotationSeconds * 1000;
     const tokenValidityMs = rotationIntervalMs + TOKEN_GRACE_MS;
+    const hasActiveHost = isHostLeaseActive(
+      event.qr_host_device_id ?? null,
+      event.qr_host_lease_expires_at ?? null,
+      now,
+    );
 
     let nextEvent = event;
     if (
       event.is_active &&
       event.rotating_qr_enabled &&
+      !hasActiveHost &&
       shouldRotateToken(event.current_qr_token, now, rotationIntervalMs)
     ) {
       const { data: rotatedEvent, error: rotateError } = await admin
