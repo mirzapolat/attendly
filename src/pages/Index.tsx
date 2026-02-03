@@ -6,7 +6,6 @@ import {
     ArrowRight,
     BarChart3,
     Calendar,
-    Github,
     Layers,
     Mail,
     MapPin,
@@ -120,21 +119,6 @@ const Index = () => {
                             </a>
                         </div>
                         <div className="flex items-center gap-3">
-                            <a
-                                href="https://github.com/mirzapolat/attendly"
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]"
-                                    aria-label="Attendly on GitHub"
-                                    title="Attendly on GitHub"
-                                >
-                                    <Github className="h-4 w-4" />
-                                </Button>
-                            </a>
                             <Link to="/auth">
                                 <Button variant="outline" className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]">
                                     Sign In
@@ -422,15 +406,6 @@ const Index = () => {
                                     onClick={() => setMenuOpen(false)}
                                 >
                                     Workflow
-                                </a>
-                                <a
-                                    href="https://github.com/mirzapolat/attendly"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
-                                    onClick={() => setMenuOpen(false)}
-                                >
-                                    GitHub
                                 </a>
                             </div>
                             <div className="mt-auto flex w-full flex-col gap-3">
