@@ -113,7 +113,7 @@ const WorkspaceSettings = () => {
     setSaving(false);
     toast({
       title: 'Workspace updated',
-      description: 'Your workspace settings have been saved.',
+      description: 'Your settings have been saved.',
     });
   };
 

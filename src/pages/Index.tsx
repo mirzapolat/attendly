@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
     ArrowRight,
+    LogIn,
     Menu,
     QrCode,
     Radio,
@@ -17,7 +18,7 @@ const Index = () => {
     const [menuOpen, setMenuOpen] = useState(false);
 
     return (
-        <div className="min-h-screen landing-minimal bg-[color:var(--lp-bg)] text-[color:var(--lp-ink)] overflow-hidden">
+        <div className="relative min-h-screen landing-minimal bg-[color:var(--lp-bg)] text-[color:var(--lp-ink)] overflow-hidden flex flex-col">
             <div className="pointer-events-none absolute -top-32 right-0 h-80 w-80 rounded-full blur-3xl opacity-40" style={{
                 background: 'radial-gradient(circle, var(--lp-accent-soft) 0%, transparent 70%)',
             }} />
@@ -31,7 +32,7 @@ const Index = () => {
                         <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
                             <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
                         </div>
-                        <span className="text-lg font-semibold tracking-tight">Attendly by Mirza Polat</span>
+                        <span className="text-base font-semibold tracking-tight sm:text-lg">Attendly</span>
                     </div>
                     <div className="hidden items-center gap-6 text-sm md:flex">
                         <div className="flex items-center gap-3">
@@ -47,7 +48,7 @@ const Index = () => {
                             </Link>
                             <Link to="/auth?mode=signup">
                                 <Button variant="hero" className="gap-2">
-                                    Start now
+                                    Sign up
                                     <ArrowRight className="h-4 w-4" />
                                 </Button>
                             </Link>
@@ -68,8 +69,8 @@ const Index = () => {
                 </div>
             </header>
 
-            <main className="relative z-10">
-                <section className="px-4 sm:px-6 pb-16 pt-16 md:pt-24">
+            <main className="relative z-10 flex-1 flex items-center">
+                <section className="w-full px-4 sm:px-6 py-12 md:py-16">
                     <div className="container mx-auto grid gap-12 lg:grid-cols-[1.1fr_0.9fr] items-center">
                         <div>
                             <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.3em] text-[color:var(--lp-muted)] animate-fade-in">
@@ -87,7 +88,7 @@ const Index = () => {
                             <div className="mt-8 flex flex-wrap gap-3 animate-slide-up" style={{ animationDelay: '200ms' }}>
                                 <Link to="/auth?mode=signup">
                                     <Button variant="hero" size="lg">
-                                        Try it yourself -&gt;
+                                        Start now -&gt;
                                     </Button>
                                 </Link>
                                 <Link to="/features">
@@ -98,7 +99,7 @@ const Index = () => {
                             </div>
                         </div>
 
-                        <div className="relative">
+                        <div className="relative mt-6 sm:mt-0 hidden md:block">
                             <Card className="border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] shadow-[var(--lp-shadow)]">
                                 <CardContent className="p-6">
                                     <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-[color:var(--lp-muted)]">
@@ -126,7 +127,7 @@ const Index = () => {
                                         ))}
                                     </div>
                                     <div className="mt-6 grid grid-cols-3 gap-2 text-xs text-[color:var(--lp-muted)]">
-                                        {['Moderation', 'Excuse links', 'Conflict review'].map((item) => (
+                                        {['Moderation', 'Excuse links', 'Analytics'].map((item) => (
                                             <div
                                                 key={item}
                                                 className="rounded-xl border border-[color:var(--lp-border)] bg-[color:var(--lp-bg)] px-3 py-2 text-center"
@@ -137,7 +138,7 @@ const Index = () => {
                                     </div>
                                 </CardContent>
                             </Card>
-                            <div className="absolute -bottom-6 -left-6 flex items-center gap-2 rounded-2xl border border-[color:var(--lp-border)] bg-[color:var(--lp-accent-soft)] px-4 py-3 text-xs text-[color:var(--lp-ink)] shadow-[var(--lp-shadow)]">
+                            <div className="absolute -bottom-6 left-2 sm:-left-6 flex items-center gap-2 rounded-2xl border border-[color:var(--lp-border)] bg-[color:var(--lp-accent-soft)] px-4 py-3 text-xs text-[color:var(--lp-ink)] shadow-[var(--lp-shadow)]">
                                 <Radio className="h-4 w-4 text-[color:var(--lp-accent)]" />
                                 <span className="text-[10px] uppercase tracking-[0.3em]">Live</span>
                             </div>
@@ -145,45 +146,9 @@ const Index = () => {
                     </div>
                 </section>
 
-                <section className="px-4 sm:px-6 pb-20">
-                    <div className="container mx-auto">
-                        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                            <div className="rounded-3xl border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] p-8">
-                                <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--lp-muted)]">Delegation</p>
-                                <h2 className="mt-3 text-2xl md:text-3xl font-semibold">Spread the workload safely</h2>
-                                <p className="mt-4 text-[color:var(--lp-muted)]">
-                                    Use moderation links to let trusted helpers manage check-ins.
-                                    Excuse links handle exceptions automatically so you stay focused on the event.
-                                </p>
-                                <div className="mt-6 flex flex-wrap gap-2 text-xs">
-                                    {['Moderator view', 'Excuse automation', 'Limited permissions'].map((item) => (
-                                        <span key={item} className="rounded-full border border-[color:var(--lp-border)] bg-[color:var(--lp-bg)] px-3 py-1">
-                                            {item}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="rounded-3xl border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] p-8">
-                                <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--lp-muted)]">Data hygiene</p>
-                                <h2 className="mt-3 text-2xl md:text-3xl font-semibold">Clean data from the start</h2>
-                                <p className="mt-4 text-[color:var(--lp-muted)]">
-                                    Email typo detection and name conflict resolution keep your reports reliable.
-                                </p>
-                                <div className="mt-6 flex flex-wrap gap-2 text-xs">
-                                    {['Email typo detection', 'Name conflicts', 'Geo verification'].map((item) => (
-                                        <span key={item} className="rounded-full border border-[color:var(--lp-border)] bg-[color:var(--lp-bg)] px-3 py-1">
-                                            {item}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
             </main>
 
-            <footer className="border-t border-[color:var(--lp-border)] px-4 sm:px-6 py-8">
+            <footer className="mt-auto px-4 sm:px-6 pt-8 pb-8">
                 <div className="container mx-auto flex flex-col items-center gap-4 text-xs text-[color:var(--lp-muted)]">
                     <p>Built with ❤️ by Mirza Polat. Attendance data should feel trustworthy.</p>
                     <div className="flex items-center gap-4">
@@ -206,7 +171,7 @@ const Index = () => {
                                     <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
                                         <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
                                     </div>
-                                    <span className="text-lg font-semibold tracking-tight">Attendly</span>
+                                    <span className="text-base font-semibold tracking-tight sm:text-lg">Attendly</span>
                                 </div>
                                 <Button
                                     variant="outline"
@@ -219,26 +184,32 @@ const Index = () => {
                                     <X className="h-5 w-5" />
                                 </Button>
                             </div>
-                            <div className="mt-12 flex max-w-sm flex-col gap-5 text-lg">
-                                <Link
-                                    to="/features"
-                                    className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
-                                    onClick={() => setMenuOpen(false)}
-                                >
-                                    Features
-                                </Link>
-                            </div>
-                            <div className="mt-auto flex w-full flex-col gap-3">
-                                <Link to="/auth" onClick={() => setMenuOpen(false)}>
-                                    <Button variant="outline" size="lg" className="w-full border-[color:var(--lp-border)] text-[color:var(--lp-ink)]">
+                            <div className="mt-8 flex w-full gap-3">
+                                <Link to="/auth" className="flex-1" onClick={() => setMenuOpen(false)}>
+                                    <Button
+                                        variant="outline"
+                                        size="lg"
+                                        className="w-full gap-2 border-[color:var(--lp-border)] text-[color:var(--lp-ink)]"
+                                    >
+                                        <LogIn className="h-4 w-4" />
                                         Sign In
                                     </Button>
                                 </Link>
-                                <Link to="/auth?mode=signup" onClick={() => setMenuOpen(false)}>
+                                <Link to="/auth?mode=signup" className="flex-1" onClick={() => setMenuOpen(false)}>
                                     <Button variant="hero" size="lg" className="w-full gap-2">
-                                        Start now
+                                        Sign up
                                         <ArrowRight className="h-4 w-4" />
                                     </Button>
+                                </Link>
+                            </div>
+                            <div className="mt-10 flex w-full flex-col gap-5 text-lg pl-3">
+                                <Link
+                                    to="/features"
+                                    className="flex items-center gap-3 text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
+                                    onClick={() => setMenuOpen(false)}
+                                >
+                                    <Sparkles className="h-5 w-5 text-[color:var(--lp-accent)]" />
+                                    <span>Features</span>
                                 </Link>
                             </div>
                         </div>

@@ -1,17 +1,16 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Home, Layers, Settings, Users } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Layers, Settings, Users } from 'lucide-react';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { themeColors } from '@/hooks/useThemeColor';
 import { cn } from '@/lib/utils';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
 
 const navItems = [
-  { to: '/home', label: 'Home', icon: Home },
   { to: '/dashboard', label: 'Events', icon: CalendarDays },
   { to: '/seasons', label: 'Seasons', icon: Layers },
   { to: '/members', label: 'Members', icon: Users },
-  { to: '/workspace-settings', label: 'Workspace Settings', icon: Settings },
+  { to: '/workspace-settings', label: 'Settings', icon: Settings },
 ];
 
 interface WorkspaceSidebarProps {
