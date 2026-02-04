@@ -205,20 +205,19 @@ const Features = () => {
                             />
                             <div className="relative grid gap-10 lg:grid-cols-[1.05fr_0.95fr] items-start">
                                 <div>
-                                    <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.3em] text-[color:var(--lp-muted)] animate-fade-in">
+                                    <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.3em] text-[color:var(--lp-muted)]">
                                         <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-[color:var(--lp-accent)]" />
                                         <span className="whitespace-nowrap">Features</span>
                                     </div>
                                     <h1
-                                        className="mt-6 text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight animate-fade-in"
-                                        style={{ animationDelay: '80ms' }}
+                                        className="mt-6 text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight"
                                     >
                                         How Attendly saves you time every day
                                     </h1>
-                                    <p className="mt-6 text-lg text-[color:var(--lp-muted)] max-w-xl animate-fade-in" style={{ animationDelay: '140ms' }}>
+                                    <p className="mt-6 text-lg text-[color:var(--lp-muted)] max-w-xl">
                                         Attendly is build to make attendance management effortless and reliable. What is most important is that your attendance data feels trustworthy so you can focus on what matters most.
                                     </p>
-                                    <div className="mt-8 flex flex-wrap gap-3 animate-slide-up" style={{ animationDelay: '200ms' }}>
+                                    <div className="mt-8 flex flex-wrap gap-3">
                                         <Link to="/auth?mode=signup">
                                             <Button variant="hero" size="lg">
                                                 Sign up -&gt;
@@ -257,7 +256,7 @@ const Features = () => {
                     <div className="container mx-auto">
                         <div className="grid gap-10 md:gap-12">
                             {FEATURE_STEPS.map((step, index) => (
-                                <div key={step.title} className="animate-slide-up" style={{ animationDelay: `${index * 80}ms` }}>
+                                <div key={step.title}>
                                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                         <div>
                                             <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-3 py-1 text-xs uppercase tracking-[0.2em] text-[color:var(--lp-muted)]">

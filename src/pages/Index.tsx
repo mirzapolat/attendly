@@ -73,19 +73,19 @@ const Index = () => {
                 <section className="w-full px-4 sm:px-6 py-12 md:py-16">
                     <div className="container mx-auto grid gap-12 lg:grid-cols-[1.1fr_0.9fr] items-center">
                         <div>
-                            <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.3em] text-[color:var(--lp-muted)] animate-fade-in">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.3em] text-[color:var(--lp-muted)]">
                                 <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-[color:var(--lp-accent)]" />
                                 <span className="whitespace-nowrap">Save more time</span>
                             </div>
-                            <h1 className="mt-6 text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight animate-fade-in" style={{ animationDelay: '80ms' }}>
+                            <h1 className="mt-6 text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight">
                                 Attendance that stays honest{' '}
                                 <span className="text-[color:var(--lp-accent)]">without extra effort.</span>
                             </h1>
-                            <p className="mt-6 text-lg text-[color:var(--lp-muted)] max-w-xl animate-fade-in" style={{ animationDelay: '140ms' }}>
+                            <p className="mt-6 text-lg text-[color:var(--lp-muted)] max-w-xl">
                                 Organize teams in branded workspaces, run secure check-ins, and keep analytics clean.
                                 Catch email typos and name conflicts early while sharing moderation safely.
                             </p>
-                            <div className="mt-8 flex flex-wrap gap-3 animate-slide-up" style={{ animationDelay: '200ms' }}>
+                            <div className="mt-8 flex flex-wrap gap-3">
                                 <Link to="/auth?mode=signup">
                                     <Button variant="hero" size="lg">
                                         Start now -&gt;
