@@ -178,7 +178,7 @@ const Workspaces = () => {
     const content = (
       <Card className="group relative overflow-hidden bg-gradient-card border border-border/80 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_18px_40px_-30px_hsl(var(--primary)/0.35)] cursor-pointer">
         <div className="pointer-events-none absolute -top-16 -right-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-12 -left-10 h-20 w-20 rounded-full bg-emerald-500/10 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-12 -left-10 h-20 w-20 rounded-full bg-primary/10 blur-2xl" />
         <CardContent className="relative z-10 p-5 flex items-center gap-4">
           <div
             className={`h-12 w-12 shrink-0 rounded-xl flex items-center justify-center text-sm font-semibold ${
@@ -306,7 +306,7 @@ const Workspaces = () => {
                           className={`w-9 h-9 rounded-full border-2 transition-all ${
                             brandColor === color.id ? 'border-foreground scale-105' : 'border-transparent'
                           }`}
-                          style={{ backgroundColor: color.hex ?? `hsl(${color.hue ?? 160}, 84%, 39%)` }}
+                          style={{ backgroundColor: color.hex ?? `hsl(${color.hue ?? 161}, 59%, 62%)` }}
                           title={color.name}
                         />
                       ))}

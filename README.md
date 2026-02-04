@@ -11,9 +11,9 @@ front end and Supabase (Auth, Postgres, Realtime, Edge Functions) on the back en
 - Live event windows (start/stop attendance).
 - Moderator links with limited access and privacy controls.
 - Excuse links so attendees can self-mark as excused.
-- Seasons for grouping events and analytics dashboards.
+- Series for grouping events and analytics dashboards.
 - Name conflict resolution to keep member records clean.
-- Drag-and-drop event assignment to seasons.
+- Drag-and-drop event assignment to series.
 - CSV export/import for attendance records.
 - Theme personalization and account deletion flow.
 
@@ -85,12 +85,12 @@ docker run --rm -p 8080:80 \
 - `/events/:id`: event management + QR display.
 - `/attend/:id?token=...`: attendee check-in form.
 - `/excuse/:eventId/:token`: excused attendance form.
-- `/seasons/:id`: season analytics and member stats.
+- `/series/:id`: series analytics and member stats.
 - `/settings`: profile, theme, and account deletion.
 - `/moderate/:eventId/:token`: moderator view for attendance management.
 
 ## Project Structure
-- `src/pages`: route-level UI (auth, dashboard, events, seasons, attend, moderator, settings).
+- `src/pages`: route-level UI (auth, dashboard, events, series, attend, moderator, settings).
 - `src/components`: shared UI and event/moderation controls.
 - `src/integrations/supabase`: Supabase client and generated types.
 - `supabase/migrations`: database schema and RLS policies.
@@ -99,7 +99,7 @@ docker run --rm -p 8080:80 \
 
 ## Data Model (Supabase)
 - `profiles`: admin profiles and theme color.
-- `seasons`: groups of events.
+- `series`: groups of events.
 - `events`: core event info + QR/security flags + moderation settings.
 - `attendance_records`: attendee submissions + status + fingerprint + location.
 - `moderation_links`: shareable tokens for moderator access.

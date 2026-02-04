@@ -126,7 +126,7 @@ const Settings = () => {
     const confirmed = await confirm({
       title: 'Delete account?',
       description:
-        'This will permanently delete your owned workspaces, events, seasons, and attendance data. This action cannot be undone.',
+        'This will permanently delete your owned workspaces, events, series, and attendance data. This action cannot be undone.',
       confirmText: 'Delete account',
       variant: 'destructive',
     });
@@ -282,7 +282,7 @@ const Settings = () => {
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
               Once you delete your account, there is no going back. All your events, 
-              owned workspaces, events, seasons, and attendance records will be permanently removed.
+              owned workspaces, events, series, and attendance records will be permanently removed.
             </p>
             <Button
               variant="destructive"

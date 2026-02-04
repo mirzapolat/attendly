@@ -7,12 +7,12 @@ import {
     ArrowRight,
     LogIn,
     Menu,
-    QrCode,
     Radio,
     Sparkles,
     X,
 } from 'lucide-react';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import AttendlyLogo from '@/components/AttendlyLogo';
 
 const Index = () => {
     usePageTitle('Attendly by Mirza Polat');
@@ -30,8 +30,8 @@ const Index = () => {
             <header className="relative z-10 px-4 sm:px-6 pt-8">
                 <div className="container mx-auto flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
-                            <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
+                        <div className="h-11 w-11">
+                            <AttendlyLogo className="h-full w-full" />
                         </div>
                         <span className="text-base font-semibold tracking-tight sm:text-lg">Attendly</span>
                     </div>
@@ -181,8 +181,8 @@ const Index = () => {
                         <div className="container mx-auto flex h-full flex-col">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
-                                        <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
+                                    <div className="h-11 w-11">
+                                        <AttendlyLogo className="h-full w-full" />
                                     </div>
                                     <span className="text-base font-semibold tracking-tight sm:text-lg">Attendly</span>
                                 </div>

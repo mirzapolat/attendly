@@ -49,15 +49,15 @@ const App = () => (
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/workspaces" element={<Workspaces />} />
                   <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/seasons" element={<Seasons />} />
+                  <Route path="/series" element={<Seasons />} />
                   <Route path="/members" element={<Members />} />
                   <Route path="/workspace-settings" element={<WorkspaceSettings />} />
                   <Route path="/events/new" element={<NewEvent />} />
                   <Route path="/events/:id" element={<EventDetail />} />
                   <Route path="/attend/:id" element={<Attend />} />
                   <Route path="/excuse/:eventId/:token" element={<Excuse />} />
-                  <Route path="/seasons/:id" element={<SeasonDetail />} />
-                  <Route path="/seasons/:id/sanitize" element={<SeasonSanitize />} />
+                  <Route path="/series/:id" element={<SeasonDetail />} />
+                  <Route path="/series/:id/sanitize" element={<SeasonSanitize />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/moderate/:eventId/:token" element={<ModeratorView />} />
                   <Route path="/privacy" element={<Privacy />} />

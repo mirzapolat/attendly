@@ -133,7 +133,7 @@ const getSuggestionKey = (emailA: string, emailB: string) =>
   [emailA, emailB].sort().join('::');
 
 const SeasonSanitize = () => {
-  usePageTitle('Season Sanitization - Attendly');
+  usePageTitle('Series Sanitization - Attendly');
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { currentWorkspace } = useWorkspace();
@@ -176,7 +176,7 @@ const SeasonSanitize = () => {
       setLoading(true);
       const [seasonRes, eventsRes] = await Promise.all([
         supabase
-          .from('seasons')
+          .from('series')
           .select('*')
           .eq('id', id)
           .eq('workspace_id', currentWorkspace.id)
@@ -184,7 +184,7 @@ const SeasonSanitize = () => {
         supabase
           .from('events')
           .select('id, name, event_date')
-          .eq('season_id', id)
+          .eq('series_id', id)
           .eq('workspace_id', currentWorkspace.id)
           .order('event_date', { ascending: true }),
       ]);
@@ -200,9 +200,9 @@ const SeasonSanitize = () => {
 
       const eventIds = (eventsRes.data ?? []).map((event) => event.id);
       const { data: dismissedData, error: dismissedError } = await supabase
-        .from('season_sanitize_dismissals')
+        .from('series_sanitize_dismissals')
         .select('suggestion_id')
-        .eq('season_id', id);
+        .eq('series_id', id);
 
       if (dismissedError) {
         toast({
@@ -456,14 +456,14 @@ const SeasonSanitize = () => {
     if (!id) return;
 
     const { error } = await supabase
-      .from('season_sanitize_dismissals')
+      .from('series_sanitize_dismissals')
       .upsert(
         {
-          season_id: id,
+          series_id: id,
           suggestion_id: suggestion.id,
           dismissed_by: user?.id ?? null,
         },
-        { onConflict: 'season_id,suggestion_id' },
+        { onConflict: 'series_id,suggestion_id' },
       );
 
     if (error) {
@@ -484,9 +484,9 @@ const SeasonSanitize = () => {
     if (!id) return;
     setRestoreDismissalsLoading(true);
     const { error } = await supabase
-      .from('season_sanitize_dismissals')
+      .from('series_sanitize_dismissals')
       .delete()
-      .eq('season_id', id);
+      .eq('series_id', id);
 
     setRestoreDismissalsLoading(false);
 
@@ -677,7 +677,7 @@ const SeasonSanitize = () => {
 
   if (loading) {
     return (
-      <WorkspaceLayout title="Season sanitization">
+      <WorkspaceLayout title="Series sanitization">
         <div className="flex items-center justify-center py-20">
           <div className="animate-pulse-subtle">Loading...</div>
         </div>
@@ -687,12 +687,12 @@ const SeasonSanitize = () => {
 
   if (!season) {
     return (
-      <WorkspaceLayout title="Season sanitization">
+      <WorkspaceLayout title="Series sanitization">
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <p className="text-muted-foreground mb-4">Season not found</p>
-            <Link to="/seasons">
-              <Button>Back to Seasons</Button>
+            <p className="text-muted-foreground mb-4">Series not found</p>
+            <Link to="/series">
+              <Button>Back to Series</Button>
             </Link>
           </div>
         </div>
@@ -701,14 +701,14 @@ const SeasonSanitize = () => {
   }
 
   return (
-    <WorkspaceLayout title="Season sanitization">
+    <WorkspaceLayout title="Series sanitization">
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/80 px-4 py-3 shadow-sm backdrop-blur-sm">
           <div className="flex flex-wrap items-center gap-2">
-            <Link to={`/seasons/${season.id}`}>
+            <Link to={`/series/${season.id}`}>
               <Button variant="glass" size="sm" className="rounded-full px-3">
                 <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Back to season</span>
+                <span className="hidden sm:inline">Back to series</span>
               </Button>
             </Link>
             {step === 'names' && (
@@ -728,7 +728,7 @@ const SeasonSanitize = () => {
                 <ArrowRight className="w-4 h-4" />
               </Button>
             ) : (
-              <Link to={`/seasons/${season.id}`}>
+              <Link to={`/series/${season.id}`}>
                 <Button variant="hero" className="rounded-full">
                   <Check className="h-5 w-5 sm:hidden" strokeWidth={2.6} />
                   <span className="hidden sm:inline">Finish</span>
@@ -739,7 +739,7 @@ const SeasonSanitize = () => {
         </div>
 
         <div>
-          <p className="text-sm text-muted-foreground">Season sanitization</p>
+          <p className="text-sm text-muted-foreground">Series sanitization</p>
           <h1 className="text-2xl font-bold">{season.name}</h1>
           <p className="text-muted-foreground">
             Fix email typos and name conflicts so analytics stay accurate.
@@ -1013,7 +1013,7 @@ const SeasonSanitize = () => {
 
               {nameConflicts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No name conflicts found. Your season data looks consistent.
+                  No name conflicts found. Your series data looks consistent.
                 </p>
               ) : (
                 <div className="space-y-3">

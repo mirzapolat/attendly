@@ -122,7 +122,7 @@ const WorkspaceSettings = () => {
 
     const confirmed = await confirm({
       title: 'Delete workspace?',
-      description: 'This will remove all events and seasons in this workspace.',
+      description: 'This will remove all events and series in this workspace.',
       confirmText: 'Delete workspace',
       variant: 'destructive',
     });
@@ -187,16 +187,16 @@ const WorkspaceSettings = () => {
     if (!currentWorkspace || !isOwner) return;
 
     const confirmed = await confirm({
-      title: 'Delete all seasons?',
+      title: 'Delete all series?',
       description: 'Events will become unassigned.',
-      confirmText: 'Delete seasons',
+      confirmText: 'Delete series',
       variant: 'destructive',
     });
     if (!confirmed) return;
 
     setClearingSeasons(true);
     const { error } = await supabase
-      .from('seasons')
+      .from('series')
       .delete()
       .eq('workspace_id', currentWorkspace.id);
 
@@ -212,8 +212,8 @@ const WorkspaceSettings = () => {
 
     setClearingSeasons(false);
     toast({
-      title: 'Seasons deleted',
-      description: 'All seasons in this workspace have been removed.',
+      title: 'Series deleted',
+      description: 'All series in this workspace have been removed.',
     });
   };
 
@@ -308,7 +308,7 @@ const WorkspaceSettings = () => {
                       className={`w-9 h-9 rounded-full border-2 transition-all ${
                         brandColor === color.id ? 'border-foreground scale-105' : 'border-transparent'
                       } ${!isOwner ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      style={{ backgroundColor: color.hex ?? `hsl(${color.hue ?? 160}, 84%, 39%)` }}
+                      style={{ backgroundColor: color.hex ?? `hsl(${color.hue ?? 161}, 59%, 62%)` }}
                       title={color.name}
                       disabled={!isOwner}
                     />
@@ -354,7 +354,7 @@ const WorkspaceSettings = () => {
                   onClick={handleDeleteAllSeasons}
                   disabled={clearingSeasons}
                 >
-                  {clearingSeasons ? 'Deleting seasons...' : 'Delete all seasons'}
+                  {clearingSeasons ? 'Deleting series...' : 'Delete all series'}
                 </Button>
                 <Button
                   variant="outline"
@@ -373,7 +373,7 @@ const WorkspaceSettings = () => {
                   Delete workspace
                 </CardTitle>
                 <CardDescription>
-                  This will permanently remove the workspace, events, seasons, and attendance data.
+                  This will permanently remove the workspace, events, series, and attendance data.
                 </CardDescription>
               </CardHeader>
               <CardContent>

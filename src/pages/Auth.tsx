@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { QrCode, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
 import { OTPInput, SlotProps } from 'input-otp';
 import { cn } from '@/lib/utils';
+import AttendlyLogo from '@/components/AttendlyLogo';
 
 const signInSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -269,9 +270,7 @@ const Auth = () => {
           <div className="w-full max-w-md animate-scale-in">
             <div className="rounded-2xl border border-border bg-background/90 p-8 shadow-lg">
               <div className="text-center mb-6">
-                <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <QrCode className="w-7 h-7 text-primary-foreground" />
-                </div>
+                <AttendlyLogo className="mx-auto mb-4 h-12 w-12" />
                 <h1 className="text-2xl font-bold">Confirm your email</h1>
                 <p className="text-muted-foreground mt-2">
                   {signupAutoConfirmed
@@ -311,7 +310,7 @@ const Auth = () => {
                   <p className="text-sm text-destructive">{verificationError}</p>
                 )}
                 {verificationSuccess && (
-                  <p className="text-sm text-emerald-600">Email confirmed. You’re all set.</p>
+                  <p className="text-sm text-success">Email confirmed. You’re all set.</p>
                 )}
 
                 <Button type="submit" className="w-full" size="lg" disabled={verifying}>
@@ -370,9 +369,7 @@ const Auth = () => {
       <main className="flex-1 flex items-center justify-center px-6 pb-12">
         <div className="w-full max-w-sm animate-scale-in">
           <div className="text-center mb-8">
-            <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-              <QrCode className="w-7 h-7 text-primary-foreground" />
-            </div>
+            <AttendlyLogo className="mx-auto mb-4 h-12 w-12" />
             <h1 className="text-2xl font-bold">
               {mode === 'signin' ? 'Welcome back' : 'Create account'}
             </h1>

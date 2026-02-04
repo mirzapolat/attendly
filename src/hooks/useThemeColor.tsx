@@ -18,7 +18,7 @@ interface ThemeColorContextType {
 
 const ThemeColorContext = createContext<ThemeColorContextType | undefined>(undefined);
 export const themeColors: ThemeColor[] = [
-  { id: 'default', name: 'Emerald', hex: '#10b77f' },
+  { id: 'default', name: 'Emerald', hex: '#66d7b3' },
   { id: 'teal', name: 'Teal', hex: '#498467' },
   { id: 'cerulean', name: 'Cerulean', hex: '#006E90' },
   { id: 'cyan', name: 'Cyan', hex: '#10a9b7' },
@@ -90,6 +90,76 @@ const hexToHsl = (hex: string) => {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+const hslToRgb = (h: number, s: number, l: number) => {
+  const hue = ((h % 360) + 360) % 360;
+  const saturation = clamp(s, 0, 100) / 100;
+  const lightness = clamp(l, 0, 100) / 100;
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const hueSegment = hue / 60;
+  const x = chroma * (1 - Math.abs((hueSegment % 2) - 1));
+  let r = 0;
+  let g = 0;
+  let b = 0;
+
+  if (hueSegment >= 0 && hueSegment < 1) {
+    r = chroma;
+    g = x;
+  } else if (hueSegment >= 1 && hueSegment < 2) {
+    r = x;
+    g = chroma;
+  } else if (hueSegment >= 2 && hueSegment < 3) {
+    g = chroma;
+    b = x;
+  } else if (hueSegment >= 3 && hueSegment < 4) {
+    g = x;
+    b = chroma;
+  } else if (hueSegment >= 4 && hueSegment < 5) {
+    r = x;
+    b = chroma;
+  } else if (hueSegment >= 5 && hueSegment < 6) {
+    r = chroma;
+    b = x;
+  }
+
+  const m = lightness - chroma / 2;
+  return {
+    r: Math.round((r + m) * 255),
+    g: Math.round((g + m) * 255),
+    b: Math.round((b + m) * 255),
+  };
+};
+
+const relativeLuminance = ({ r, g, b }: { r: number; g: number; b: number }) => {
+  const toLinear = (value: number) => {
+    const channel = value / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  };
+  const rLin = toLinear(r);
+  const gLin = toLinear(g);
+  const bLin = toLinear(b);
+  return 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
+};
+
+const contrastRatio = (
+  foreground: { r: number; g: number; b: number },
+  background: { r: number; g: number; b: number }
+) => {
+  const L1 = relativeLuminance(foreground);
+  const L2 = relativeLuminance(background);
+  const lighter = Math.max(L1, L2);
+  const darker = Math.min(L1, L2);
+  return (lighter + 0.05) / (darker + 0.05);
+};
+
+const pickForeground = (h: number, s: number, l: number) => {
+  const background = hslToRgb(h, s, l);
+  const light = { r: 255, g: 255, b: 255 };
+  const dark = hslToRgb(220, 20, 10);
+  return contrastRatio(dark, background) >= contrastRatio(light, background)
+    ? '220 20% 10%'
+    : '0 0% 100%';
+};
+
 const readStoredThemeColor = (workspaceId?: string | null) => {
   if (typeof window === 'undefined') {
     return null;
@@ -116,17 +186,21 @@ const persistThemeColor = (colorId: string, workspaceId?: string | null) => {
 export const applyThemeColor = (colorId: string) => {
   const color = themeColors.find((c) => c.id === colorId) || themeColors[0];
   const hslFromHex = color.hex ? hexToHsl(color.hex) : null;
-  const hue = hslFromHex?.h ?? color.hue ?? themeColors[0].hue ?? 160;
-  const saturation = hslFromHex?.s ?? 84;
-  const lightness = hslFromHex?.l ?? 39;
+  const hue = hslFromHex?.h ?? color.hue ?? themeColors[0].hue ?? 161;
+  const saturation = hslFromHex?.s ?? 59;
+  const lightness = hslFromHex?.l ?? 62;
   const gradientEndLightness = clamp(lightness - 10, 0, 100);
+  const foreground = pickForeground(hue, saturation, lightness);
   const root = document.documentElement;
 
   // Light mode
   root.style.setProperty('--primary', `${hue} ${saturation}% ${lightness}%`);
+  root.style.setProperty('--primary-foreground', foreground);
   root.style.setProperty('--accent', `${hue} ${saturation}% ${lightness}%`);
+  root.style.setProperty('--accent-foreground', foreground);
   root.style.setProperty('--ring', `${hue} ${saturation}% ${lightness}%`);
   root.style.setProperty('--success', `${hue} ${saturation}% ${lightness}%`);
+  root.style.setProperty('--success-foreground', foreground);
   root.style.setProperty('--sidebar-ring', `${hue} ${saturation}% ${lightness}%`);
   root.style.setProperty('--sidebar-primary', `${hue} 5.9% 10%`);
 

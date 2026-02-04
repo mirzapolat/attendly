@@ -10,6 +10,7 @@ import { Calendar, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
+import AttendlyLogo from '@/components/AttendlyLogo';
 
 interface EventInfo {
   id: string;
@@ -156,7 +157,7 @@ const Excuse = () => {
       <Card className="w-full max-w-xl bg-gradient-card">
         <CardHeader>
           <div className="flex items-start gap-3">
-            {event?.brand_logo_url && (
+            {event?.brand_logo_url ? (
               <div className="w-12 h-12 rounded-xl overflow-hidden border border-border bg-background shrink-0">
                 <img
                   src={event.brand_logo_url}
@@ -165,6 +166,8 @@ const Excuse = () => {
                   loading="lazy"
                 />
               </div>
+            ) : (
+              <AttendlyLogo className="h-12 w-12 shrink-0" />
             )}
             <div className="space-y-1">
               <CardTitle>{event?.link_label?.trim() || 'Excused Attendance'}</CardTitle>

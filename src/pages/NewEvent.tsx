@@ -139,7 +139,7 @@ const NewEvent = () => {
   const fetchSeasons = async () => {
     if (!currentWorkspace) return;
     const { data } = await supabase
-      .from('seasons')
+      .from('series')
       .select('*')
       .eq('workspace_id', currentWorkspace.id);
     if (data) setSeasons(data);
@@ -212,7 +212,7 @@ const NewEvent = () => {
         location_lat: locationLat ?? 0,
         location_lng: locationLng ?? 0,
         location_radius_meters: radiusMeters,
-        season_id: seasonId !== 'none' ? seasonId : null,
+        series_id: seasonId !== 'none' ? seasonId : null,
         rotating_qr_enabled: rotatingQrEnabled,
         rotating_qr_interval_seconds: Math.min(
           ROTATION_MAX_SECONDS,
@@ -326,13 +326,13 @@ const NewEvent = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="season">Season (Optional)</Label>
+                <Label htmlFor="season">Series (Optional)</Label>
                 <Select value={seasonId} onValueChange={setSeasonId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a season" />
+                    <SelectValue placeholder="Select a series" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No Season</SelectItem>
+                    <SelectItem value="none">No Series</SelectItem>
                     {seasons.map((season) => (
                       <SelectItem key={season.id} value={season.id}>
                         {season.name}

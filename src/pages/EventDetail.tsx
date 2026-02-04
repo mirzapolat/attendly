@@ -302,7 +302,7 @@ const EventDetail = () => {
   };
 
   const confettiPieces = useMemo(() => {
-    const colors = ['#16a34a', '#22c55e', '#14b8a6', '#f59e0b', '#84cc16'];
+    const colors = ['#66d7b3', '#66d7b3', '#14b8a6', '#f59e0b', '#66d7b3'];
     return Array.from({ length: 18 }, (_, index) => ({
       id: index,
       left: Math.random() * 100,
@@ -793,30 +793,30 @@ const EventDetail = () => {
     return `${crypto.randomUUID()}_${timestamp}`;
   }, []);
 
-  // Fetch known attendees from same season for autocomplete
+  // Fetch known attendees from same series for autocomplete
   const fetchSuggestions = async (searchTerm: string) => {
     if (!event || searchTerm.length < 2) {
       setSuggestions([]);
       return;
     }
 
-    // First get the event's season_id
+    // First get the event's series_id
     const { data: eventData } = await supabase
       .from('events')
-      .select('season_id')
+      .select('series_id')
       .eq('id', id)
       .maybeSingle();
 
-    if (!eventData?.season_id) {
+    if (!eventData?.series_id) {
       setSuggestions([]);
       return;
     }
 
-    // Get all events in the same season
+    // Get all events in the same series
     const { data: seasonEvents } = await supabase
       .from('events')
       .select('id')
-      .eq('season_id', eventData.season_id);
+      .eq('series_id', eventData.series_id);
 
     if (!seasonEvents?.length) {
       setSuggestions([]);

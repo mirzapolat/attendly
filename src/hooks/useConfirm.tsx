@@ -39,9 +39,9 @@ const getAccentClasses = (variant: ConfirmOptions["variant"]) => {
     };
   }
   return {
-    accent: "from-emerald-500/15 via-emerald-500/10 to-transparent",
-    ring: "ring-emerald-500/10",
-    icon: "bg-emerald-500/15 text-emerald-600",
+    accent: "from-primary/15 via-primary/10 to-transparent",
+    ring: "ring-primary/10",
+    icon: "bg-primary/15 text-primary",
     action: "",
   };
 };

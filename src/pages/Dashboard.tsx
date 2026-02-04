@@ -43,7 +43,7 @@ interface Event {
   name: string;
   event_date: string;
   is_active: boolean;
-  season_id: string | null;
+  series_id: string | null;
   created_at: string;
 }
 
@@ -67,7 +67,7 @@ const Dashboard = () => {
   const [draggingEventId, setDraggingEventId] = useState<string | null>(null);
   const [draggingOverSeasonId, setDraggingOverSeasonId] = useState<string | null>(null);
   const [seasonPickerPage, setSeasonPickerPage] = useState(1);
-  const [sortBy, setSortBy] = useState<'date' | 'name' | 'attendance' | 'created' | 'season'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'name' | 'attendance' | 'created' | 'series'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'calendar'>(() => {
     if (typeof window === 'undefined') return 'grid';
@@ -116,7 +116,7 @@ const Dashboard = () => {
           .eq('workspace_id', currentWorkspace.id)
           .order('event_date', { ascending: false }),
         supabase
-          .from('seasons')
+          .from('series')
           .select('*')
           .eq('workspace_id', currentWorkspace.id)
           .order('created_at', { ascending: false }),
@@ -206,10 +206,10 @@ const Dashboard = () => {
         return (aDate < bDate ? -1 : 1) * direction;
       }
 
-      if (sortBy === 'season') {
-        const aSeason = a.season_id ? seasonNameMap.get(a.season_id) ?? null : null;
-        const bSeason = b.season_id ? seasonNameMap.get(b.season_id) ?? null : null;
-        const comparison = compareNullableString(aSeason, bSeason);
+      if (sortBy === 'series') {
+        const aSeries = a.series_id ? seasonNameMap.get(a.series_id) ?? null : null;
+        const bSeries = b.series_id ? seasonNameMap.get(b.series_id) ?? null : null;
+        const comparison = compareNullableString(aSeries, bSeries);
         if (comparison !== 0) return comparison * direction;
         return a.name.localeCompare(b.name) * direction;
       }
@@ -295,7 +295,7 @@ const Dashboard = () => {
   const handleAssignSeason = async (eventId: string, seasonId: string) => {
     dropHandledRef.current = true;
     const existingEvent = events.find((event) => event.id === eventId);
-    if (existingEvent?.season_id === seasonId) {
+    if (existingEvent?.series_id === seasonId) {
       setDraggingEventId(null);
       setDraggingOverSeasonId(null);
       draggingEventRef.current = null;
@@ -305,14 +305,14 @@ const Dashboard = () => {
     try {
       const { error } = await supabase
         .from('events')
-        .update({ season_id: seasonId, attendance_weight: 1 })
+        .update({ series_id: seasonId, attendance_weight: 1 })
         .eq('id', eventId);
 
       if (error) throw error;
 
       toast({
         title: 'Event updated',
-        description: `Event added to ${seasons.find((season) => season.id === seasonId)?.name ?? 'season'}.`,
+        description: `Event added to ${seasons.find((season) => season.id === seasonId)?.name ?? 'series'}.`,
       });
       setDraggingEventId(null);
       setDraggingOverSeasonId(null);
@@ -392,7 +392,7 @@ const Dashboard = () => {
                   <SelectItem value="name">Alphabetically</SelectItem>
                   <SelectItem value="attendance">Attendance amount</SelectItem>
                   <SelectItem value="created">Created date</SelectItem>
-                  <SelectItem value="season">Season assigned</SelectItem>
+                  <SelectItem value="series">Series assigned</SelectItem>
                 </SelectContent>
               </Select>
               <Button
@@ -851,7 +851,7 @@ const Dashboard = () => {
                 <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">
                   Drop to assign
                 </p>
-                <h3 className="text-lg font-semibold">Choose a season</h3>
+                <h3 className="text-lg font-semibold">Choose a series</h3>
               </div>
               <Button
                 variant="ghost"
@@ -870,7 +870,7 @@ const Dashboard = () => {
             </div>
             {seasons.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
-                No seasons available. Create one to organize events.
+                No series available. Create one to organize events.
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

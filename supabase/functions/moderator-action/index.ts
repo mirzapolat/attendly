@@ -94,7 +94,7 @@ serve(async (req) => {
     // Verify moderation is enabled for the event
     const { data: event, error: eventError } = await admin
       .from("events")
-      .select("id, moderation_enabled, season_id, moderator_show_full_name, moderator_show_email")
+      .select("id, moderation_enabled, series_id, moderator_show_full_name, moderator_show_email")
       .eq("id", eventId)
       .maybeSingle();
 
@@ -115,7 +115,7 @@ serve(async (req) => {
         );
       }
 
-      if (!event.season_id) {
+      if (!event.series_id) {
         return new Response(
           JSON.stringify({ success: true, attendees: [] }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -125,7 +125,7 @@ serve(async (req) => {
       const { data: seasonEvents, error: seasonError } = await admin
         .from("events")
         .select("id")
-        .eq("season_id", event.season_id);
+        .eq("series_id", event.series_id);
 
       if (seasonError || !seasonEvents?.length) {
         return new Response(

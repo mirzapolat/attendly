@@ -26,7 +26,7 @@ interface Season {
 
 interface EventSummary {
   id: string;
-  season_id: string | null;
+  series_id: string | null;
   event_date: string;
 }
 
@@ -64,7 +64,7 @@ const ClampedSeasonName = ({ name }: { name: string }) => {
 };
 
 const Seasons = () => {
-  usePageTitle('Seasons - Attendly');
+  usePageTitle('Series - Attendly');
   const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -94,13 +94,13 @@ const Seasons = () => {
     try {
       const [seasonsRes, eventsRes] = await Promise.all([
         supabase
-          .from('seasons')
+          .from('series')
           .select('id, name, description, created_at')
           .eq('workspace_id', currentWorkspace.id)
           .order('created_at', { ascending: false }),
         supabase
           .from('events')
-          .select('id, season_id, event_date')
+          .select('id, series_id, event_date')
           .eq('workspace_id', currentWorkspace.id),
       ]);
 
@@ -135,14 +135,14 @@ const Seasons = () => {
       toast({
         variant: 'destructive',
         title: 'Name too long',
-        description: 'Season name must be 40 characters or fewer.',
+        description: 'Series name must be 40 characters or fewer.',
       });
       return;
     }
 
     setSeasonCreating(true);
     try {
-      const { error } = await supabase.from('seasons').insert({
+      const { error } = await supabase.from('series').insert({
         workspace_id: currentWorkspace.id,
         name: trimmedName,
         description: seasonDescription.trim() || null,
@@ -150,7 +150,7 @@ const Seasons = () => {
 
       if (error) throw error;
 
-      toast({ title: 'Season created' });
+      toast({ title: 'Series created' });
       setSeasonName('');
       setSeasonDescription('');
       setSeasonDialogOpen(false);
@@ -168,18 +168,18 @@ const Seasons = () => {
 
   const handleDeleteSeason = async (seasonId: string) => {
     const confirmed = await confirm({
-      title: 'Delete season?',
+      title: 'Delete series?',
       description: 'Events assigned to it will remain, but become unassigned.',
-      confirmText: 'Delete season',
+      confirmText: 'Delete series',
       variant: 'destructive',
     });
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase.from('seasons').delete().eq('id', seasonId);
+      const { error } = await supabase.from('series').delete().eq('id', seasonId);
       if (error) throw error;
 
-      toast({ title: 'Season deleted' });
+      toast({ title: 'Series deleted' });
       fetchData();
     } catch (error) {
       toast({
@@ -207,8 +207,8 @@ const Seasons = () => {
   const eventCounts = useMemo(() => {
     const counts = new Map<string, number>();
     events.forEach((event) => {
-      if (!event.season_id) return;
-      counts.set(event.season_id, (counts.get(event.season_id) ?? 0) + 1);
+      if (!event.series_id) return;
+      counts.set(event.series_id, (counts.get(event.series_id) ?? 0) + 1);
     });
     return counts;
   }, [events]);
@@ -216,8 +216,8 @@ const Seasons = () => {
   const seasonDateRanges = useMemo(() => {
     const ranges = new Map<string, { earliest: string | null; latest: string | null }>();
     events.forEach((event) => {
-      if (!event.season_id) return;
-      const existing = ranges.get(event.season_id) ?? { earliest: null, latest: null };
+      if (!event.series_id) return;
+      const existing = ranges.get(event.series_id) ?? { earliest: null, latest: null };
       const eventDate = event.event_date;
       if (!existing.earliest || eventDate < existing.earliest) {
         existing.earliest = eventDate;
@@ -225,7 +225,7 @@ const Seasons = () => {
       if (!existing.latest || eventDate > existing.latest) {
         existing.latest = eventDate;
       }
-      ranges.set(event.season_id, existing);
+      ranges.set(event.series_id, existing);
     });
     return ranges;
   }, [events]);
@@ -296,17 +296,17 @@ const Seasons = () => {
     if (selectedSeasonIds.length === 0) return;
     const count = selectedSeasonIds.length;
     const confirmed = await confirm({
-      title: `Delete ${count} season${count === 1 ? '' : 's'}?`,
+      title: `Delete ${count} series?`,
       description: 'Events assigned to them will remain, but become unassigned.',
-      confirmText: 'Delete seasons',
+      confirmText: 'Delete series',
       variant: 'destructive',
     });
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase.from('seasons').delete().in('id', selectedSeasonIds);
+      const { error } = await supabase.from('series').delete().in('id', selectedSeasonIds);
       if (error) throw error;
-      toast({ title: 'Seasons deleted' });
+      toast({ title: 'Series deleted' });
       setSelectedSeasonIds([]);
       fetchData();
     } catch (error) {
@@ -319,26 +319,26 @@ const Seasons = () => {
   };
 
   return (
-    <WorkspaceLayout title="Seasons overview">
+    <WorkspaceLayout title="Series overview">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Seasons</h1>
-          <p className="text-muted-foreground">Organize events into seasons and track attendance.</p>
+          <h1 className="text-2xl font-bold">Series</h1>
+          <p className="text-muted-foreground">Organize events into series and track attendance.</p>
         </div>
         <Dialog open={seasonDialogOpen} onOpenChange={setSeasonDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="hero">
               <FolderOpen className="w-4 h-4" />
-              Create season
+              Create series
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create New Season</DialogTitle>
+              <DialogTitle>Create New Series</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreateSeason} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="seasonName">Season Name</Label>
+                <Label htmlFor="seasonName">Series Name</Label>
                 <Input
                   id="seasonName"
                   value={seasonName}
@@ -358,7 +358,7 @@ const Seasons = () => {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={seasonCreating || !seasonName.trim()}>
-                {seasonCreating ? 'Creating...' : 'Create Season'}
+                {seasonCreating ? 'Creating...' : 'Create Series'}
               </Button>
             </form>
           </DialogContent>
@@ -366,13 +366,13 @@ const Seasons = () => {
       </div>
 
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <h2 className="text-xl font-semibold">All seasons</h2>
+        <h2 className="text-xl font-semibold">All series</h2>
         {seasons.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search seasons..."
+                placeholder="Search series..."
                 value={seasonSearch}
                 onChange={(e) => setSeasonSearch(e.target.value)}
                 className="pl-9"
@@ -420,13 +420,13 @@ const Seasons = () => {
 
       {loading ? (
         <Card className="bg-gradient-card">
-          <CardContent className="py-8 text-center">Loading seasons...</CardContent>
+          <CardContent className="py-8 text-center">Loading series...</CardContent>
         </Card>
       ) : sortedSeasons.length === 0 ? (
         <Card className="bg-gradient-card">
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">
-              {seasonSearch ? 'No seasons match your search' : 'Create your first season to get started.'}
+              {seasonSearch ? 'No series match your search' : 'Create your first series to get started.'}
             </p>
           </CardContent>
         </Card>
@@ -451,11 +451,11 @@ const Seasons = () => {
                 className="px-4 py-3 transition-colors hover:bg-muted/30 cursor-pointer"
                 role="link"
                 tabIndex={0}
-                onClick={() => navigate(`/seasons/${season.id}`)}
+                onClick={() => navigate(`/series/${season.id}`)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    navigate(`/seasons/${season.id}`);
+                    navigate(`/series/${season.id}`);
                   }
                 }}
               >
@@ -475,14 +475,14 @@ const Seasons = () => {
                       }}
                       title={
                         selectedSeasonIds.includes(season.id)
-                          ? 'Unselect season'
-                          : 'Select season'
+                          ? 'Unselect series'
+                          : 'Select series'
                       }
                       aria-pressed={selectedSeasonIds.includes(season.id)}
                       aria-label={
                         selectedSeasonIds.includes(season.id)
-                          ? `Unselect season ${season.name}`
-                          : `Select season ${season.name}`
+                          ? `Unselect series ${season.name}`
+                          : `Select series ${season.name}`
                       }
                     >
                       <span
@@ -499,7 +499,7 @@ const Seasons = () => {
                       )}
                     </button>
                     <Link
-                      to={`/seasons/${season.id}`}
+                      to={`/series/${season.id}`}
                       className="min-w-0"
                       onClick={(event) => event.stopPropagation()}
                     >
@@ -534,7 +534,7 @@ const Seasons = () => {
                         event.stopPropagation();
                         handleDeleteSeason(season.id);
                       }}
-                      title="Delete season"
+                      title="Delete series"
                     >
                       <Trash2 className="w-4 h-4 text-destructive" />
                     </Button>

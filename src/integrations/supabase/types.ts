@@ -127,7 +127,7 @@ export type Database = {
           qr_token_expires_at: string | null
           rotating_qr_enabled: boolean | null
           rotating_qr_interval_seconds: number | null
-          season_id: string | null
+          series_id: string | null
           updated_at: string | null
           workspace_id: string
         }
@@ -155,7 +155,7 @@ export type Database = {
           qr_token_expires_at?: string | null
           rotating_qr_enabled?: boolean | null
           rotating_qr_interval_seconds?: number | null
-          season_id?: string | null
+          series_id?: string | null
           updated_at?: string | null
           workspace_id: string
         }
@@ -183,16 +183,16 @@ export type Database = {
           qr_token_expires_at?: string | null
           rotating_qr_enabled?: boolean | null
           rotating_qr_interval_seconds?: number | null
-          season_id?: string | null
+          series_id?: string | null
           updated_at?: string | null
           workspace_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "events_season_id_fkey"
-            columns: ["season_id"]
+            foreignKeyName: "events_series_id_fkey"
+            columns: ["series_id"]
             isOneToOne: false
-            referencedRelation: "seasons"
+            referencedRelation: "series"
             referencedColumns: ["id"]
           },
           {
@@ -478,7 +478,7 @@ export type Database = {
           },
         ]
       }
-      seasons: {
+      series: {
         Row: {
           created_at: string | null
           description: string | null
@@ -505,10 +505,46 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "seasons_workspace_id_fkey"
+            foreignKeyName: "series_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      series_sanitize_dismissals: {
+        Row: {
+          created_at: string | null
+          dismissed_by: string | null
+          series_id: string
+          suggestion_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          dismissed_by?: string | null
+          series_id: string
+          suggestion_id: string
+        }
+        Update: {
+          created_at?: string | null
+          dismissed_by?: string | null
+          series_id?: string
+          suggestion_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_sanitize_dismissals_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "series_sanitize_dismissals_dismissed_by_fkey"
+            columns: ["dismissed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

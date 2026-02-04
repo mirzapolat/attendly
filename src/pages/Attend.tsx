@@ -7,13 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { applyThemeColor, useThemeColor } from '@/hooks/useThemeColor';
-import { ArrowRight, Check, CheckCircle, XCircle, MapPin, Loader2, QrCode, AlertTriangle, Clock, Calendar } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle, XCircle, MapPin, Loader2, AlertTriangle, Clock, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
 import { parseSupabaseFunctionError } from '@/utils/supabaseFunctions';
+import AttendlyLogo from '@/components/AttendlyLogo';
 
 interface Event {
   id: string;
@@ -656,9 +657,7 @@ const Attend = () => {
               />
             </div>
           ) : (
-            <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-              <QrCode className="w-7 h-7 text-primary-foreground" />
-            </div>
+            <AttendlyLogo className="mx-auto mb-4 h-12 w-12" />
           )}
           <CardTitle>{event?.name}</CardTitle>
           <CardDescription className="flex flex-col items-center gap-1">

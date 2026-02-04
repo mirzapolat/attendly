@@ -27,7 +27,7 @@ interface Event {
   id: string;
   name: string;
   event_date: string;
-  season_id: string | null;
+  series_id: string | null;
   attendance_weight: number | null;
 }
 
@@ -203,7 +203,7 @@ const SeasonDetail = () => {
 
       const [seasonRes, eventsRes, allEventsRes] = await Promise.all([
         supabase
-          .from('seasons')
+          .from('series')
           .select('*')
           .eq('id', id)
           .eq('workspace_id', currentWorkspace.id)
@@ -211,7 +211,7 @@ const SeasonDetail = () => {
         supabase
           .from('events')
           .select('*')
-          .eq('season_id', id)
+          .eq('series_id', id)
           .eq('workspace_id', currentWorkspace.id)
           .order('event_date', { ascending: true }),
         supabase
@@ -232,9 +232,9 @@ const SeasonDetail = () => {
         setEvents(eventsRes.data);
 
         const { data: dismissedData, error: dismissedError } = await supabase
-          .from('season_sanitize_dismissals')
+          .from('series_sanitize_dismissals')
           .select('suggestion_id')
-          .eq('season_id', id);
+          .eq('series_id', id);
 
         if (dismissedError) {
           toast({
@@ -280,13 +280,13 @@ const SeasonDetail = () => {
   const handleRemoveEventFromSeason = async (eventId: string) => {
     const { error } = await supabase
       .from('events')
-      .update({ season_id: null, attendance_weight: 1 })
+      .update({ series_id: null, attendance_weight: 1 })
       .eq('id', eventId);
 
     if (error) {
-      toast({ title: 'Error', description: 'Failed to remove event from season', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Failed to remove event from series', variant: 'destructive' });
     } else {
-      toast({ title: 'Success', description: 'Event removed from season' });
+      toast({ title: 'Success', description: 'Event removed from series' });
       fetchData();
     }
   };
@@ -294,13 +294,13 @@ const SeasonDetail = () => {
   const handleAddEventToSeason = async (eventId: string) => {
     const { error } = await supabase
       .from('events')
-      .update({ season_id: id, attendance_weight: 1 })
+      .update({ series_id: id, attendance_weight: 1 })
       .eq('id', eventId);
 
     if (error) {
-      toast({ title: 'Error', description: 'Failed to add event to season', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Failed to add event to series', variant: 'destructive' });
     } else {
-      toast({ title: 'Success', description: 'Event added to season' });
+      toast({ title: 'Success', description: 'Event added to series' });
       fetchData();
     }
   };
@@ -317,7 +317,7 @@ const SeasonDetail = () => {
     if (!seasonName.trim()) {
       toast({
         title: 'Missing name',
-        description: 'Season name is required',
+        description: 'Series name is required',
         variant: 'destructive',
       });
       return;
@@ -325,7 +325,7 @@ const SeasonDetail = () => {
 
     setSeasonSaving(true);
     const { error } = await supabase
-      .from('seasons')
+      .from('series')
       .update({
         name: seasonName.trim(),
         description: seasonDescription.trim() ? seasonDescription.trim() : null,
@@ -337,7 +337,7 @@ const SeasonDetail = () => {
     if (error) {
       toast({
         title: 'Error',
-        description: 'Failed to update season settings',
+        description: 'Failed to update series settings',
         variant: 'destructive',
       });
       return;
@@ -353,7 +353,7 @@ const SeasonDetail = () => {
         : prev,
     );
     setSeasonSettingsOpen(false);
-    toast({ title: 'Season updated' });
+    toast({ title: 'Series updated' });
   };
 
   const getEventWeight = (event: Event) => {
@@ -737,7 +737,7 @@ const SeasonDetail = () => {
     Math.max(0, totalWeight - member.eventsAttended - member.eventsExcused);
 
   // Events not in this season
-  const eventsNotInSeason = allUserEvents.filter(e => e.season_id !== id);
+  const eventsNotInSeason = allUserEvents.filter(e => e.series_id !== id);
 
   // Filter events list
   const filteredSeasonEvents = events.filter(e => 
@@ -820,7 +820,7 @@ const SeasonDetail = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${season?.name || 'season'}_attendance_matrix.csv`;
+    link.download = `${season?.name || 'series'}_attendance_matrix.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -859,7 +859,7 @@ const SeasonDetail = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${season?.name || 'season'}_members.csv`;
+    link.download = `${season?.name || 'series'}_members.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -870,7 +870,7 @@ const SeasonDetail = () => {
 
   if (loading) {
     return (
-      <WorkspaceLayout title="Season details">
+      <WorkspaceLayout title="Series details">
         <div className="flex items-center justify-center py-20">
           <div className="animate-pulse-subtle">Loading...</div>
         </div>
@@ -880,12 +880,12 @@ const SeasonDetail = () => {
 
   if (!season) {
     return (
-      <WorkspaceLayout title="Season details">
+      <WorkspaceLayout title="Series details">
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <p className="text-muted-foreground mb-4">Season not found</p>
-            <Link to="/seasons">
-              <Button>Back to Seasons</Button>
+            <p className="text-muted-foreground mb-4">Series not found</p>
+            <Link to="/series">
+              <Button>Back to Series</Button>
             </Link>
           </div>
         </div>
@@ -898,19 +898,19 @@ const SeasonDetail = () => {
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/80 px-4 py-3 shadow-sm backdrop-blur-sm">
           <Button asChild variant="glass" size="sm" className="rounded-full px-3">
-            <Link to="/seasons">
+            <Link to="/series">
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Seasons</span>
+              <span className="hidden sm:inline">Series</span>
             </Link>
           </Button>
           <div className="flex items-center gap-2">
-            <Link to={`/seasons/${season.id}/sanitize`}>
+            <Link to={`/series/${season.id}/sanitize`}>
               <Button
                 variant="outline"
                 size="sm"
-                className={`gap-2 hover:border-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 ${
+                className={`gap-2 hover:border-primary/60 hover:text-primary hover:bg-primary/10 ${
                   shouldFlashSanitize
-                    ? 'border-emerald-400 text-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-200 animate-pulse'
+                    ? 'border-primary/50 text-primary bg-primary/10 ring-2 ring-primary/20 animate-pulse'
                     : 'border-border text-foreground bg-background'
                 }`}
                 style={shouldFlashSanitize ? { animationDuration: '3s' } : undefined}
@@ -941,7 +941,7 @@ const SeasonDetail = () => {
               onClick={openSeasonSettings}
               variant="outline"
               size="icon"
-              title="Season settings"
+              title="Series settings"
               className="gear-trigger"
             >
               <Settings className="w-4 h-4 gear-icon" />
@@ -996,7 +996,7 @@ const SeasonDetail = () => {
           <Card className="bg-gradient-card">
             <CardContent className="py-12 text-center">
               <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-4">No events in this season yet</p>
+              <p className="text-muted-foreground mb-4">No events in this series yet</p>
             </CardContent>
           </Card>
         ) : (
@@ -1114,7 +1114,7 @@ const SeasonDetail = () => {
                           <p className="text-sm text-muted-foreground truncate">{member.email}</p>
                         </div>
                         <div className="flex items-center gap-3 text-sm font-semibold">
-                          <span className="text-green-600" title="Attended">
+                          <span className="text-success" title="Attended">
                             {member.eventsAttended}
                           </span>
                           <span className="text-warning" title="Excused">
@@ -1136,7 +1136,7 @@ const SeasonDetail = () => {
         {/* Events List */}
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Events in this Season</h2>
+            <h2 className="text-xl font-semibold">Events in this Series</h2>
             <div className="flex items-center gap-2">
               <div
                 className={`flex h-11 w-11 items-center justify-center rounded-md border transition-all duration-150 ${
@@ -1146,9 +1146,9 @@ const SeasonDetail = () => {
                       : 'border-border text-muted-foreground hover:border-destructive hover:text-destructive hover:bg-destructive/5'
                     : 'border-transparent text-transparent invisible pointer-events-none'
                 }`}
-                title="Drag an event here to remove it from the season"
+                title="Drag an event here to remove it from the series"
                 role="button"
-                aria-label="Remove event from season"
+                aria-label="Remove event from series"
                 onDragEnter={(event) => {
                   event.preventDefault();
                   if (draggedEventId) {
@@ -1197,7 +1197,7 @@ const SeasonDetail = () => {
           {filteredSeasonEvents.length === 0 && events.length === 0 ? (
             <Card className="bg-gradient-card">
               <CardContent className="py-8 text-center">
-                <p className="text-muted-foreground">No events in this season</p>
+                <p className="text-muted-foreground">No events in this series</p>
               </CardContent>
             </Card>
           ) : (
@@ -1352,7 +1352,7 @@ const SeasonDetail = () => {
                   <div
                     className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
                       event.status === 'attended'
-                        ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                        ? 'bg-success/10 text-success'
                         : event.status === 'excused'
                           ? 'bg-warning/10 text-warning'
                           : 'bg-muted text-muted-foreground'
@@ -1389,7 +1389,7 @@ const SeasonDetail = () => {
       <Dialog open={manageEventsOpen} onOpenChange={setManageEventsOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Manage Season Events</DialogTitle>
+            <DialogTitle>Manage Series Events</DialogTitle>
             <DialogDescription>
               Add events to or remove events from {season.name}.
             </DialogDescription>
@@ -1397,11 +1397,11 @@ const SeasonDetail = () => {
 
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Remove from Season</Label>
+              <Label className="text-sm font-medium">Remove from Series</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search events in this season..."
+                  placeholder="Search events in this series..."
                   value={removeEventSearch}
                   onChange={(e) => setRemoveEventSearch(e.target.value)}
                   className="pl-9 mt-1"
@@ -1436,7 +1436,7 @@ const SeasonDetail = () => {
             </div>
 
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Add to Season</Label>
+              <Label className="text-sm font-medium">Add to Series</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -1532,8 +1532,8 @@ const SeasonDetail = () => {
       <Dialog open={seasonSettingsOpen} onOpenChange={setSeasonSettingsOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Season</DialogTitle>
-            <DialogDescription>Update the season name and description.</DialogDescription>
+            <DialogTitle>Edit Series</DialogTitle>
+            <DialogDescription>Update the series name and description.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -1542,7 +1542,7 @@ const SeasonDetail = () => {
                 id="season-name"
                 value={seasonName}
                 onChange={(e) => setSeasonName(e.target.value)}
-                placeholder="Season name"
+                placeholder="Series name"
               />
             </div>
             <div className="space-y-2">

@@ -8,7 +8,7 @@ import { STORAGE_KEYS } from '@/constants/storageKeys';
 
 const navItems = [
   { to: '/dashboard', label: 'Events', icon: CalendarDays },
-  { to: '/seasons', label: 'Seasons', icon: Layers },
+  { to: '/series', label: 'Series', icon: Layers },
   { to: '/members', label: 'Members', icon: Users },
   { to: '/workspace-settings', label: 'Settings', icon: Settings },
 ];

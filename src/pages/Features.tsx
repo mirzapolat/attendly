@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import AttendlyLogo from '@/components/AttendlyLogo';
 
 const FEATURE_STEPS = [
     {
@@ -111,7 +112,7 @@ const FEATURE_STEPS = [
         step: '05',
         title: 'Export results',
         summary: 'Get insights into your attendance trends with our analytics dashboard. You can easily export attendance reports right after your event ends, so you can share results with your team or stakeholders without any hassle.',
-        preview: 'Season analytics, exports, participation trends.',
+        preview: 'Series analytics, exports, participation trends.',
         features: [
             {
                 title: 'Event series analytics',
@@ -150,8 +151,8 @@ const Features = () => {
             <header className="relative z-10 px-3 sm:px-6 pt-8">
                 <div className="container mx-auto flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
-                            <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
+                        <div className="h-11 w-11">
+                            <AttendlyLogo className="h-full w-full" />
                         </div>
                         <Link to="/" className="text-base font-semibold tracking-tight sm:text-lg">
                             Attendly
@@ -318,8 +319,8 @@ const Features = () => {
                         <div className="container mx-auto flex h-full flex-col">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
-                                        <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
+                                    <div className="h-11 w-11">
+                                        <AttendlyLogo className="h-full w-full" />
                                     </div>
                                     <span className="text-base font-semibold tracking-tight sm:text-lg">Attendly</span>
                                 </div>

@@ -22,7 +22,7 @@ interface Event {
   name: string;
   event_date: string;
   is_active: boolean;
-  season_id: string | null;
+  series_id: string | null;
 }
 
 interface Season {
@@ -97,19 +97,19 @@ const EventCard = ({
 
   const handleSeasonChange = async (seasonId: string | null) => {
     try {
-      if (seasonId === event.season_id) return;
+      if (seasonId === event.series_id) return;
       const { error } = await supabase
         .from('events')
-        .update({ season_id: seasonId, attendance_weight: 1 })
+        .update({ series_id: seasonId, attendance_weight: 1 })
         .eq('id', event.id);
 
       if (error) throw error;
 
       toast({
-        title: seasonId ? 'Added to season' : 'Removed from season',
+        title: seasonId ? 'Added to series' : 'Removed from series',
         description: seasonId
           ? `Event added to ${seasons.find((s) => s.id === seasonId)?.name}`
-          : 'Event removed from season',
+          : 'Event removed from series',
       });
       onEventUpdated();
     } catch (error) {
@@ -121,7 +121,7 @@ const EventCard = ({
     }
   };
 
-  const currentSeason = seasons.find((s) => s.id === event.season_id);
+  const currentSeason = seasons.find((s) => s.id === event.series_id);
   const eventDate = new Date(event.event_date);
   const isPastEvent = eventDate.getTime() < Date.now();
   const isToday = isSameDay(eventDate, new Date());
@@ -248,9 +248,9 @@ const EventCard = ({
         variant="outline"
         size="sm"
         onClick={() => setShowSeasonPicker(true)}
-        title={event.season_id ? 'Change season' : 'Assign to season'}
+        title={event.series_id ? 'Change series' : 'Assign to series'}
       >
-        {event.season_id ? (
+        {event.series_id ? (
           <FolderMinus className="w-4 h-4" />
         ) : (
           <FolderPlus className="w-4 h-4" />
@@ -284,7 +284,7 @@ const EventCard = ({
                 <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">
                   Assign event
                 </p>
-                <h3 className="text-lg font-semibold">Choose a season</h3>
+                <h3 className="text-lg font-semibold">Choose a series</h3>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setShowSeasonPicker(false)} title="Close">
                 <X className="w-4 h-4" />
@@ -292,11 +292,11 @@ const EventCard = ({
             </div>
             {seasons.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
-                No seasons available. Create one to organize events.
+                No series available. Create one to organize events.
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {event.season_id && (
+                {event.series_id && (
                   <button
                     type="button"
                     className="rounded-xl border border-dashed border-destructive/40 bg-destructive/5 px-4 py-3 text-left transition-colors hover:border-destructive/60"
@@ -305,7 +305,7 @@ const EventCard = ({
                       setShowSeasonPicker(false);
                     }}
                   >
-                    <p className="font-medium text-destructive">Remove from season</p>
+                    <p className="font-medium text-destructive">Remove from series</p>
                     <p className="text-xs text-muted-foreground">Set as unassigned</p>
                   </button>
                 )}
@@ -314,7 +314,7 @@ const EventCard = ({
                     key={season.id}
                     type="button"
                     className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-                      season.id === event.season_id
+                      season.id === event.series_id
                         ? 'border-primary bg-primary/10'
                         : 'border-border bg-muted/40 hover:border-primary/40'
                     }`}
@@ -324,13 +324,13 @@ const EventCard = ({
                     }}
                   >
                     <p className="font-medium">{season.name}</p>
-                    <p className="text-xs text-muted-foreground">Assign to this season</p>
+                    <p className="text-xs text-muted-foreground">Assign to this series</p>
                   </button>
                 ))}
               </div>
             )}
             <div className="mt-4 text-xs text-muted-foreground">
-              Tip: Drag events onto a season to organize quickly.
+              Tip: Drag events onto a series to organize quickly.
             </div>
           </div>
         </div>
@@ -402,9 +402,9 @@ const EventCard = ({
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => setShowSeasonPicker(true)}
-                  title={event.season_id ? 'Change season' : 'Assign to season'}
+                  title={event.series_id ? 'Change series' : 'Assign to series'}
                 >
-                  {event.season_id ? (
+                  {event.series_id ? (
                     <FolderMinus className="w-4 h-4" />
                   ) : (
                     <FolderPlus className="w-4 h-4" />
