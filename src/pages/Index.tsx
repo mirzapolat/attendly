@@ -4,89 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
     ArrowRight,
-    BarChart3,
-    Calendar,
-    Layers,
-    Mail,
-    MapPin,
     Menu,
-    Palette,
     QrCode,
     Radio,
-    Shield,
     Sparkles,
-    UserCheck,
-    UserMinus,
-    Users,
     X,
 } from 'lucide-react';
 import { usePageTitle } from '@/hooks/usePageTitle';
-
-const FEATURE_CARDS = [
-    {
-        title: 'Workspaces',
-        description: 'Organize teams, members, and seasons under one workspace.',
-        icon: Layers,
-    },
-    {
-        title: 'Custom branding',
-        description: 'Set a logo, name, and accent color per workspace.',
-        icon: Palette,
-    },
-    {
-        title: 'Email typo detection',
-        description: 'Spot similar emails and merge typos before analytics drift.',
-        icon: Mail,
-    },
-    {
-        title: 'Name conflict resolution',
-        description: 'Resolve duplicate names tied to the same email.',
-        icon: UserCheck,
-    },
-    {
-        title: 'Rotating QR codes',
-        description: 'Codes refresh every few seconds to prevent forwarding.',
-        icon: QrCode,
-    },
-    {
-        title: 'Location checks',
-        description: 'Confirm on-site attendance with a venue radius.',
-        icon: MapPin,
-    },
-    {
-        title: 'Moderator links',
-        description: 'Delegate check-ins without sharing admin access.',
-        icon: Shield,
-    },
-    {
-        title: 'Excuse links',
-        description: 'Let members mark themselves excused with a secure link.',
-        icon: UserMinus,
-    },
-    {
-        title: 'Season analytics',
-        description: 'Compare attendance trends across event series.',
-        icon: BarChart3,
-    },
-];
-
-const WORKFLOW_STEPS = [
-    {
-        title: 'Create the event',
-        description: 'Set the date, venue, and security rules in minutes.',
-        icon: Calendar,
-    },
-    {
-        title: 'Share the QR',
-        description: 'Display the rotating QR code on a screen or projector.',
-        icon: QrCode,
-    },
-    {
-        title: 'Track attendance',
-        description: 'See verified check-ins and export reports instantly.',
-        icon: Users,
-    },
-];
 
 const Index = () => {
     usePageTitle('Attendly by Mirza Polat');
@@ -111,12 +35,9 @@ const Index = () => {
                     </div>
                     <div className="hidden items-center gap-6 text-sm md:flex">
                         <div className="flex items-center gap-3">
-                            <a href="#features" className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors">
+                            <Link to="/features" className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors">
                                 Features
-                            </a>
-                            <a href="#workflow" className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors">
-                                Workflow
-                            </a>
+                            </Link>
                         </div>
                         <div className="flex items-center gap-3">
                             <Link to="/auth">
@@ -169,6 +90,11 @@ const Index = () => {
                                         Try it yourself -&gt;
                                     </Button>
                                 </Link>
+                                <Link to="/features">
+                                    <Button variant="outline" size="lg" className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]">
+                                        Explore features
+                                    </Button>
+                                </Link>
                             </div>
                         </div>
 
@@ -214,66 +140,6 @@ const Index = () => {
                             <div className="absolute -bottom-6 -left-6 flex items-center gap-2 rounded-2xl border border-[color:var(--lp-border)] bg-[color:var(--lp-accent-soft)] px-4 py-3 text-xs text-[color:var(--lp-ink)] shadow-[var(--lp-shadow)]">
                                 <Radio className="h-4 w-4 text-[color:var(--lp-accent)]" />
                                 <span className="text-[10px] uppercase tracking-[0.3em]">Live</span>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section id="features" className="px-4 sm:px-6 py-20">
-                    <div className="container mx-auto">
-                        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-10">
-                            <div>
-                                <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--lp-muted)]">Features</p>
-                                <h2 className="mt-2 text-3xl md:text-4xl font-semibold">Everything you need to verify attendance</h2>
-                            </div>
-                            <p className="text-[color:var(--lp-muted)] max-w-xl">
-                                Keep participation clean with layered security, flexible delegation, and export-ready insights.
-                            </p>
-                        </div>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            {FEATURE_CARDS.map((feature, index) => (
-                                <div
-                                    key={feature.title}
-                                    className="rounded-2xl border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] p-5 transition-colors hover:border-[color:var(--lp-accent)]/40 animate-slide-up"
-                                    style={{ animationDelay: `${index * 60}ms` }}
-                                >
-                                    <feature.icon className="h-5 w-5 text-[color:var(--lp-accent)]" />
-                                    <h3 className="mt-4 text-lg font-semibold">{feature.title}</h3>
-                                    <p className="mt-2 text-sm text-[color:var(--lp-muted)]">{feature.description}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </section>
-
-                <section id="workflow" className="px-4 sm:px-6 pb-20">
-                    <div className="container mx-auto">
-                        <div className="rounded-3xl border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] px-6 py-10">
-                            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                <div>
-                                    <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--lp-muted)]">Workflow</p>
-                                    <h2 className="mt-2 text-2xl md:text-3xl font-semibold">From setup to insights in minutes</h2>
-                                </div>
-                                <Link to="/auth?mode=signup">
-                                    <Button variant="outline" className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]">
-                                        Try it now
-                                    </Button>
-                                </Link>
-                            </div>
-                            <div className="mt-8 grid gap-4 md:grid-cols-3">
-                                {WORKFLOW_STEPS.map((step, index) => (
-                                    <div
-                                        key={step.title}
-                                        className="rounded-2xl border border-[color:var(--lp-border)] bg-[color:var(--lp-bg)] p-5"
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <step.icon className="h-5 w-5 text-[color:var(--lp-accent)]" />
-                                            <span className="text-xs text-[color:var(--lp-muted)]">0{index + 1}</span>
-                                        </div>
-                                        <h3 className="mt-4 font-semibold">{step.title}</h3>
-                                        <p className="mt-2 text-sm text-[color:var(--lp-muted)]">{step.description}</p>
-                                    </div>
-                                ))}
                             </div>
                         </div>
                     </div>
@@ -336,12 +202,12 @@ const Index = () => {
                     <div className="flex h-full flex-col px-4 sm:px-6 py-8">
                         <div className="container mx-auto flex h-full flex-col">
                             <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
-                                    <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
+                                <div className="flex items-center gap-3">
+                                    <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
+                                        <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
+                                    </div>
+                                    <span className="text-lg font-semibold tracking-tight">Attendly</span>
                                 </div>
-                                <span className="text-lg font-semibold tracking-tight">Attendly</span>
-                            </div>
                                 <Button
                                     variant="outline"
                                     size="icon"
@@ -354,20 +220,13 @@ const Index = () => {
                                 </Button>
                             </div>
                             <div className="mt-12 flex max-w-sm flex-col gap-5 text-lg">
-                                <a
-                                    href="#features"
+                                <Link
+                                    to="/features"
                                     className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
                                     onClick={() => setMenuOpen(false)}
                                 >
                                     Features
-                                </a>
-                                <a
-                                    href="#workflow"
-                                    className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
-                                    onClick={() => setMenuOpen(false)}
-                                >
-                                    Workflow
-                                </a>
+                                </Link>
                             </div>
                             <div className="mt-auto flex w-full flex-col gap-3">
                                 <Link to="/auth" onClick={() => setMenuOpen(false)}>

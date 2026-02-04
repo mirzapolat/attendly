@@ -10,6 +10,7 @@ import { ConfirmDialogProvider } from "@/hooks/useConfirm";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import Index from "./pages/Index";
+import Features from "./pages/Features";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Home from "./pages/Home";
@@ -45,6 +46,7 @@ const App = () => (
               <BrowserRouter future={{ v7_startTransition: true }}>
                 <Routes>
                   <Route path="/" element={<Index />} />
+                  <Route path="/features" element={<Features />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/workspaces" element={<Workspaces />} />
                   <Route path="/home" element={<Home />} />
