@@ -12,13 +12,13 @@ import {
     Menu,
     Palette,
     QrCode,
+    Radio,
     Shield,
     Sparkles,
     UserCheck,
     UserMinus,
     Users,
     X,
-    Zap,
 } from 'lucide-react';
 import { usePageTitle } from '@/hooks/usePageTitle';
 
@@ -107,7 +107,7 @@ const Index = () => {
                         <div className="h-11 w-11 rounded-2xl bg-[color:var(--lp-accent-soft)] flex items-center justify-center">
                             <QrCode className="h-5 w-5 text-[color:var(--lp-accent)]" />
                         </div>
-                        <span className="text-lg font-semibold tracking-tight">Attendly</span>
+                        <span className="text-lg font-semibold tracking-tight">Attendly by Mirza Polat</span>
                     </div>
                     <div className="hidden items-center gap-6 text-sm md:flex">
                         <div className="flex items-center gap-3">
@@ -153,7 +153,7 @@ const Index = () => {
                         <div>
                             <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.3em] text-[color:var(--lp-muted)] animate-fade-in">
                                 <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-[color:var(--lp-accent)]" />
-                                <span className="whitespace-nowrap">Attendance, clean and accountable</span>
+                                <span className="whitespace-nowrap">Save more time</span>
                             </div>
                             <h1 className="mt-6 text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight animate-fade-in" style={{ animationDelay: '80ms' }}>
                                 Attendance that stays honest{' '}
@@ -165,27 +165,10 @@ const Index = () => {
                             </p>
                             <div className="mt-8 flex flex-wrap gap-3 animate-slide-up" style={{ animationDelay: '200ms' }}>
                                 <Link to="/auth?mode=signup">
-                                    <Button variant="hero" size="lg" className="gap-2">
-                                        Create account
-                                        <Zap className="h-4 w-4" />
+                                    <Button variant="hero" size="lg">
+                                        Try it yourself -&gt;
                                     </Button>
                                 </Link>
-                                <Link to="/auth">
-                                    <Button variant="outline" size="lg" className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]">
-                                        View dashboard
-                                    </Button>
-                                </Link>
-                            </div>
-                            <div className="mt-10 grid gap-3 sm:grid-cols-3 text-sm text-[color:var(--lp-muted)]">
-                                {[
-                                    'Workspace-level branding',
-                                    'Email typo detection',
-                                    'Name conflict resolution',
-                                ].map((item) => (
-                                    <div key={item} className="rounded-2xl border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] px-4 py-3">
-                                        {item}
-                                    </div>
-                                ))}
                             </div>
                         </div>
 
@@ -228,8 +211,9 @@ const Index = () => {
                                     </div>
                                 </CardContent>
                             </Card>
-                            <div className="absolute -bottom-6 -left-6 rounded-2xl border border-[color:var(--lp-border)] bg-[color:var(--lp-accent-soft)] px-4 py-3 text-xs text-[color:var(--lp-ink)] shadow-[var(--lp-shadow)]">
-                                Live sync every 1s
+                            <div className="absolute -bottom-6 -left-6 flex items-center gap-2 rounded-2xl border border-[color:var(--lp-border)] bg-[color:var(--lp-accent-soft)] px-4 py-3 text-xs text-[color:var(--lp-ink)] shadow-[var(--lp-shadow)]">
+                                <Radio className="h-4 w-4 text-[color:var(--lp-accent)]" />
+                                <span className="text-[10px] uppercase tracking-[0.3em]">Live</span>
                             </div>
                         </div>
                     </div>
@@ -331,29 +315,6 @@ const Index = () => {
                     </div>
                 </section>
 
-                <section className="px-4 sm:px-6 pb-[42px]">
-                    <div className="container mx-auto">
-                        <div className="rounded-3xl border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] px-8 py-12 text-center shadow-[var(--lp-shadow)]">
-                            <h2 className="text-3xl md:text-4xl font-semibold">Ready to simplify attendance?</h2>
-                            <p className="mt-4 text-[color:var(--lp-muted)] max-w-2xl mx-auto">
-                                Set up your first event, invite moderators, and export clean reports in minutes.
-                            </p>
-                            <div className="mt-6 flex flex-wrap justify-center gap-3">
-                                <Link to="/auth?mode=signup">
-                                    <Button variant="hero" size="lg" className="gap-2">
-                                        Create account
-                                        <ArrowRight className="h-4 w-4" />
-                                    </Button>
-                                </Link>
-                                <Link to="/auth">
-                                    <Button variant="outline" size="lg" className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]">
-                                        Sign in
-                                    </Button>
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-                </section>
             </main>
 
             <footer className="border-t border-[color:var(--lp-border)] px-4 sm:px-6 py-8">
