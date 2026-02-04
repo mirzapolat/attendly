@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import {
     ArrowRight,
@@ -205,19 +206,26 @@ const Features = () => {
                             />
                             <div className="relative grid gap-10 lg:grid-cols-[1.05fr_0.95fr] items-start">
                                 <div>
-                                    <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.3em] text-[color:var(--lp-muted)]">
+                                    <div
+                                        className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.3em] text-[color:var(--lp-muted)] animate-soft-rise"
+                                        style={{ '--delay': '40ms' } as CSSProperties}
+                                    >
                                         <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-[color:var(--lp-accent)]" />
                                         <span className="whitespace-nowrap">Features</span>
                                     </div>
                                     <h1
-                                        className="mt-6 text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight"
+                                        className="mt-6 text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight animate-soft-rise"
+                                        style={{ '--delay': '90ms' } as CSSProperties}
                                     >
                                         How Attendly saves you time every day
                                     </h1>
-                                    <p className="mt-6 text-lg text-[color:var(--lp-muted)] max-w-xl">
+                                    <p
+                                        className="mt-6 text-lg text-[color:var(--lp-muted)] max-w-xl animate-soft-rise"
+                                        style={{ '--delay': '140ms' } as CSSProperties}
+                                    >
                                         Attendly is build to make attendance management effortless and reliable. What is most important is that your attendance data feels trustworthy so you can focus on what matters most.
                                     </p>
-                                    <div className="mt-8 flex flex-wrap gap-3">
+                                    <div className="mt-8 flex flex-wrap gap-3 animate-soft-rise" style={{ '--delay': '190ms' } as CSSProperties}>
                                         <Link to="/auth?mode=signup">
                                             <Button variant="hero" size="lg">
                                                 Sign up -&gt;
@@ -232,10 +240,11 @@ const Features = () => {
                                 </div>
 
                                 <div className="grid gap-4">
-                                    {FEATURE_STEPS.map((step) => (
+                                    {FEATURE_STEPS.map((step, index) => (
                                         <div
                                             key={step.step}
-                                            className="flex items-start gap-4 rounded-2xl border border-[color:var(--lp-border)] bg-[color:var(--lp-bg)] p-4"
+                                            className="flex items-start gap-4 rounded-2xl border border-[color:var(--lp-border)] bg-[color:var(--lp-bg)] p-4 animate-soft-rise"
+                                            style={{ '--delay': `${140 + index * 70}ms` } as CSSProperties}
                                         >
                                             <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--lp-border)] bg-white/70 text-xs font-semibold text-[color:var(--lp-ink)]">
                                                 {step.step}
@@ -256,7 +265,11 @@ const Features = () => {
                     <div className="container mx-auto">
                         <div className="grid gap-10 md:gap-12">
                             {FEATURE_STEPS.map((step, index) => (
-                                <div key={step.title}>
+                                <div
+                                    key={step.title}
+                                    className="animate-soft-rise"
+                                    style={{ '--delay': `${index * 70}ms` } as CSSProperties}
+                                >
                                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                         <div>
                                             <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--lp-border)] px-3 py-1 text-xs uppercase tracking-[0.2em] text-[color:var(--lp-muted)]">
