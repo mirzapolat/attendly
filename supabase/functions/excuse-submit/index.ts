@@ -140,7 +140,7 @@ serve(async (req) => {
       event_id: eventId,
       attendee_name: trimmedName,
       attendee_email: trimmedEmail,
-      device_fingerprint: `excuse-${link.id}-${crypto.randomUUID()}`,
+      client_id: `excuse-${link.id}-${crypto.randomUUID()}`,
       location_provided: false,
       status: "excused",
     });

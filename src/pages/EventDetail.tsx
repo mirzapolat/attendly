@@ -42,8 +42,8 @@ interface Event {
   qr_host_lease_expires_at: string | null;
   rotating_qr_enabled: boolean;
   rotating_qr_interval_seconds?: number | null;
-  device_fingerprint_enabled: boolean;
-  fingerprint_collision_strict?: boolean | null;
+  client_id_check_enabled?: boolean | null;
+  client_id_collision_strict?: boolean | null;
   location_check_enabled: boolean;
   moderation_enabled: boolean;
   moderator_show_full_name: boolean;
@@ -60,8 +60,8 @@ interface AttendanceRecord {
   location_lat: number | null;
   location_lng: number | null;
   recorded_at: string;
-  device_fingerprint?: string | null;
-  device_fingerprint_raw?: string | null;
+  client_id?: string | null;
+  client_id_raw?: string | null;
 }
 
 interface KnownAttendee {
@@ -116,9 +116,9 @@ const EventDetail = () => {
   const attendanceListRef = useRef<HTMLDivElement | null>(null);
   const [attendanceListMaxHeight, setAttendanceListMaxHeight] = useState<number | null>(null);
   const [copyingStaticLink, setCopyingStaticLink] = useState(false);
-  const [fingerprintDialogOpen, setFingerprintDialogOpen] = useState(false);
-  const [fingerprintDialogKey, setFingerprintDialogKey] = useState<string | null>(null);
-  const [fingerprintBulkAction, setFingerprintBulkAction] = useState<'clearing' | 'deleting' | null>(null);
+  const [clientIdDialogOpen, setClientIdDialogOpen] = useState(false);
+  const [clientIdDialogKey, setClientIdDialogKey] = useState<string | null>(null);
+  const [clientIdBulkAction, setClientIdBulkAction] = useState<'clearing' | 'deleting' | null>(null);
   
   // Settings modals
   const [showSettings, setShowSettings] = useState(false);
@@ -192,8 +192,8 @@ const EventDetail = () => {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showSuggestions]);
 
-  const getFingerprintKey = (record: AttendanceRecord) =>
-    (record.device_fingerprint_raw ?? record.device_fingerprint ?? '').trim();
+  const getClientIdKey = (record: AttendanceRecord) =>
+    (record.client_id_raw ?? record.client_id ?? '').trim();
 
   const triggerStartButtonPulse = () => {
     setStartButtonPulse(true);
@@ -249,36 +249,36 @@ const EventDetail = () => {
     };
   };
 
-  const openFingerprintMatches = (record: AttendanceRecord) => {
-    const key = getFingerprintKey(record);
+  const openClientIdMatches = (record: AttendanceRecord) => {
+    const key = getClientIdKey(record);
     if (!key) return;
-    setFingerprintDialogKey(key);
-    setFingerprintDialogOpen(true);
+    setClientIdDialogKey(key);
+    setClientIdDialogOpen(true);
   };
 
-  const clearFingerprintMatches = async () => {
-    if (!fingerprintMatches.length) return;
-    const ids = fingerprintMatches.filter((record) => record.status === 'suspicious').map((record) => record.id);
+  const clearClientIdMatches = async () => {
+    if (!clientIdMatches.length) return;
+    const ids = clientIdMatches.filter((record) => record.status === 'suspicious').map((record) => record.id);
     if (!ids.length) return;
 
-    setFingerprintBulkAction('clearing');
+    setClientIdBulkAction('clearing');
     const { error } = await supabase
       .from('attendance_records')
       .update({ status: 'cleared', suspicious_reason: null })
       .in('id', ids);
 
-    setFingerprintBulkAction(null);
+    setClientIdBulkAction(null);
 
     if (!error) {
       fetchAttendance();
     }
   };
 
-  const deleteFingerprintMatches = async () => {
-    if (!fingerprintMatches.length) return;
+  const deleteClientIdMatches = async () => {
+    if (!clientIdMatches.length) return;
     const confirmed = await confirm({
       title: 'Delete matching attendees?',
-      description: `Delete all ${fingerprintMatches.length} records that share this fingerprint? This cannot be undone.`,
+      description: `Delete all ${clientIdMatches.length} records that share this client ID? This cannot be undone.`,
       confirmText: 'Delete all',
       cancelText: 'Cancel',
       variant: 'destructive',
@@ -286,18 +286,18 @@ const EventDetail = () => {
 
     if (!confirmed) return;
 
-    setFingerprintBulkAction('deleting');
+    setClientIdBulkAction('deleting');
     const { error } = await supabase
       .from('attendance_records')
       .delete()
-      .in('id', fingerprintMatches.map((record) => record.id));
+      .in('id', clientIdMatches.map((record) => record.id));
 
-    setFingerprintBulkAction(null);
+    setClientIdBulkAction(null);
 
     if (!error) {
       fetchAttendance();
-      setFingerprintDialogOpen(false);
-      setFingerprintDialogKey(null);
+      setClientIdDialogOpen(false);
+      setClientIdDialogKey(null);
     }
   };
 
@@ -852,7 +852,7 @@ const EventDetail = () => {
         event_id: id,
         attendee_name: manualName.trim(),
         attendee_email: manualEmail.trim().toLowerCase(),
-        device_fingerprint: `manual-${crypto.randomUUID()}`,
+        client_id: `manual-${crypto.randomUUID()}`,
         status,
         location_provided: false,
       });
@@ -1231,10 +1231,10 @@ const EventDetail = () => {
     }
     return baseStyle as CSSProperties;
   })();
-  const fingerprintMatches = fingerprintDialogKey
+  const clientIdMatches = clientIdDialogKey
     ? attendance.filter((record) => {
-        const fingerprint = (record.device_fingerprint_raw ?? record.device_fingerprint ?? '').trim();
-        return fingerprint && fingerprint === fingerprintDialogKey;
+        const clientId = (record.client_id_raw ?? record.client_id ?? '').trim();
+        return clientId && clientId === clientIdDialogKey;
       })
     : [];
 
@@ -1282,25 +1282,25 @@ const EventDetail = () => {
         />
       )}
       <Dialog
-        open={fingerprintDialogOpen}
+        open={clientIdDialogOpen}
         onOpenChange={(open) => {
-          setFingerprintDialogOpen(open);
-          if (!open) setFingerprintDialogKey(null);
+          setClientIdDialogOpen(open);
+          if (!open) setClientIdDialogKey(null);
         }}
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Matching fingerprints</DialogTitle>
+            <DialogTitle>Matching client IDs</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              {fingerprintMatches.length === 0
+              {clientIdMatches.length === 0
                 ? 'No matching records found.'
-                : `Found ${fingerprintMatches.length} record${fingerprintMatches.length === 1 ? '' : 's'} with the same fingerprint.`}
+                : `Found ${clientIdMatches.length} record${clientIdMatches.length === 1 ? '' : 's'} with the same client ID.`}
             </p>
-            {fingerprintMatches.length > 0 && (
+            {clientIdMatches.length > 0 && (
               <div className="max-h-64 overflow-y-auto divide-y divide-border/60 rounded-lg border border-border/60 bg-background/60">
-                {fingerprintMatches.map((match) => (
+                {clientIdMatches.map((match) => (
                   <div key={match.id} className="flex items-start justify-between gap-3 px-3 py-2">
                     <div>
                       <p className="text-sm font-medium">{match.attendee_name}</p>
@@ -1331,14 +1331,14 @@ const EventDetail = () => {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={clearFingerprintMatches}
+                onClick={clearClientIdMatches}
                 disabled={
-                  fingerprintBulkAction !== null ||
-                  fingerprintMatches.every((record) => record.status !== 'suspicious')
+                  clientIdBulkAction !== null ||
+                  clientIdMatches.every((record) => record.status !== 'suspicious')
                 }
                 className="gap-2 icon-trigger"
               >
-                {fingerprintBulkAction === 'clearing' ? (
+                {clientIdBulkAction === 'clearing' ? (
                   'Verifying...'
                 ) : (
                   <>
@@ -1351,10 +1351,10 @@ const EventDetail = () => {
                 type="button"
                 variant="destructive"
                 size="sm"
-                onClick={deleteFingerprintMatches}
-                disabled={fingerprintBulkAction !== null || fingerprintMatches.length === 0}
+                onClick={deleteClientIdMatches}
+                disabled={clientIdBulkAction !== null || clientIdMatches.length === 0}
               >
-                {fingerprintBulkAction === 'deleting' ? 'Deleting...' : 'Delete all'}
+                {clientIdBulkAction === 'deleting' ? 'Deleting...' : 'Delete all'}
               </Button>
             </div>
           </div>
@@ -1936,17 +1936,17 @@ const EventDetail = () => {
                                 <AlertTriangle className="w-3 h-3" />
                                 {record.suspicious_reason}
                               </p>
-                              {record.suspicious_reason.toLowerCase().includes('fingerprint') &&
-                                getFingerprintKey(record) && (
+                              {record.suspicious_reason.toLowerCase().includes('client id') &&
+                                getClientIdKey(record) && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
                                     className="h-5 px-1.5 text-xs"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      openFingerprintMatches(record);
+                                      openClientIdMatches(record);
                                     }}
-                                    title="Show matching fingerprint entries"
+                                    title="Show matching client ID entries"
                                   >
                                     Show matches
                                   </Button>

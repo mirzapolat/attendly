@@ -18,8 +18,8 @@ export type Database = {
         Row: {
           attendee_email: string
           attendee_name: string
-          device_fingerprint: string
-          device_fingerprint_raw: string | null
+          client_id: string
+          client_id_raw: string | null
           event_id: string
           id: string
           location_lat: number | null
@@ -32,8 +32,8 @@ export type Database = {
         Insert: {
           attendee_email: string
           attendee_name: string
-          device_fingerprint: string
-          device_fingerprint_raw?: string | null
+          client_id: string
+          client_id_raw?: string | null
           event_id: string
           id?: string
           location_lat?: number | null
@@ -46,8 +46,8 @@ export type Database = {
         Update: {
           attendee_email?: string
           attendee_name?: string
-          device_fingerprint?: string
-          device_fingerprint_raw?: string | null
+          client_id?: string
+          client_id_raw?: string | null
           event_id?: string
           id?: string
           location_lat?: number | null
@@ -69,27 +69,33 @@ export type Database = {
       }
       attendance_sessions: {
         Row: {
+          client_id_hash: string | null
           created_at: string
           event_id: string
           expires_at: string
           id: string
           token: string
+          token_hash: string | null
           used_at: string | null
         }
         Insert: {
+          client_id_hash?: string | null
           created_at?: string
           event_id: string
           expires_at: string
           id?: string
           token: string
+          token_hash?: string | null
           used_at?: string | null
         }
         Update: {
+          client_id_hash?: string | null
           created_at?: string
           event_id?: string
           expires_at?: string
           id?: string
           token?: string
+          token_hash?: string | null
           used_at?: string | null
         }
         Relationships: [
@@ -108,8 +114,8 @@ export type Database = {
           created_at: string | null
           current_qr_token: string | null
           description: string | null
-          device_fingerprint_enabled: boolean | null
-          fingerprint_collision_strict: boolean | null
+          client_id_check_enabled: boolean | null
+          client_id_collision_strict: boolean | null
           event_date: string
           id: string
           is_active: boolean | null
@@ -136,8 +142,8 @@ export type Database = {
           created_at?: string | null
           current_qr_token?: string | null
           description?: string | null
-          device_fingerprint_enabled?: boolean | null
-          fingerprint_collision_strict?: boolean | null
+          client_id_check_enabled?: boolean | null
+          client_id_collision_strict?: boolean | null
           event_date: string
           id?: string
           is_active?: boolean | null
@@ -164,8 +170,8 @@ export type Database = {
           created_at?: string | null
           current_qr_token?: string | null
           description?: string | null
-          device_fingerprint_enabled?: boolean | null
-          fingerprint_collision_strict?: boolean | null
+          client_id_check_enabled?: boolean | null
+          client_id_collision_strict?: boolean | null
           event_date?: string
           id?: string
           is_active?: boolean | null

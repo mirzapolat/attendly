@@ -1,13 +1,13 @@
 # Attendly
 
 Attendly is a QR-based attendance platform with anti-fraud controls like rotating codes,
-location verification, and device fingerprinting. It is built with React + Vite on the
+location verification, and browser-stored client IDs. It is built with React + Vite on the
 front end and Supabase (Auth, Postgres, Realtime, Edge Functions) on the back end.
 
 ## Highlights
 - Rotating QR codes with short-lived tokens to reduce screenshot sharing.
 - Optional location verification with a configurable radius (flags out-of-range check-ins).
-- Device fingerprinting to limit duplicate check-ins per event.
+- Client IDs (stored in cookies/local storage) to limit duplicate check-ins per event.
 - Live event windows (start/stop attendance).
 - Moderator links with limited access and privacy controls.
 - Excuse links so attendees can self-mark as excused.
@@ -101,12 +101,12 @@ docker run --rm -p 8080:80 \
 - `profiles`: admin profiles and theme color.
 - `series`: groups of events.
 - `events`: core event info + QR/security flags + moderation settings.
-- `attendance_records`: attendee submissions + status + fingerprint + location.
+- `attendance_records`: attendee submissions + status + client id + location.
 - `moderation_links`: shareable tokens for moderator access.
 - `excuse_links`: shareable tokens for excused attendance.
 
 ## Security Notes
-- Rotating QR tokens are short-lived and validated by timestamp.
-- Device fingerprinting is enforced at the database level (unique per event).
+- Rotating QR tokens are short-lived and validated against the current server token.
+- Client IDs are enforced at the database level (unique per event).
 - Location verification marks submissions as suspicious if denied or out of range.
 - Attendance form sessions expire after 2 minutes per scan.

@@ -9,7 +9,6 @@ import { useToast } from '@/hooks/use-toast';
 import { applyThemeColor, useThemeColor } from '@/hooks/useThemeColor';
 import { ArrowRight, Check, CheckCircle, XCircle, MapPin, Loader2, AlertTriangle, Clock, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
-import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
@@ -27,7 +26,6 @@ interface Event {
   location_radius_meters: number;
   is_active: boolean;
   rotating_qr_enabled: boolean;
-  device_fingerprint_enabled: boolean;
   location_check_enabled: boolean;
   theme_color?: string | null;
   brand_logo_url?: string | null;
@@ -43,6 +41,8 @@ type SubmitState = 'form' | 'loading' | 'success' | 'error' | 'expired' | 'alrea
 const FORM_TIME_LIMIT_MS = 2 * 60 * 1000; // 2 minutes
 const REMEMBER_COOKIE = 'attendly:remember-attendee';
 const REMEMBER_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
+const CLIENT_ID_COOKIE = 'attendly:client-id';
+const CLIENT_ID_MAX_AGE_SECONDS = 60 * 60 * 24 * 400; // ~400 days
 
 const getCookieValue = (key: string): string | null => {
   if (typeof document === 'undefined') return null;
@@ -93,35 +93,43 @@ const storeRememberCookie = (payload: { name: string; email: string }) => {
   document.cookie = `${REMEMBER_COOKIE}=${encoded}; Max-Age=${REMEMBER_MAX_AGE_SECONDS}; ${buildCookieAttributes()}`;
 };
 
-const generateDeviceId = () => {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
+const getStoredClientId = (): string | null => {
+  const cookieValue = getCookieValue(CLIENT_ID_COOKIE);
+  if (cookieValue) return cookieValue;
+
+  try {
+    const existing = localStorage.getItem(STORAGE_KEYS.clientId);
+    if (existing) return existing;
+  } catch {
+    // Ignore storage errors.
   }
-  return `device-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  try {
+    const existing = sessionStorage.getItem(STORAGE_KEYS.clientId);
+    if (existing) return existing;
+  } catch {
+    // Ignore storage errors.
+  }
+
+  return null;
 };
 
-const getStoredDeviceId = (): string => {
-  try {
-    const existing = localStorage.getItem(STORAGE_KEYS.deviceId);
-    if (existing) return existing;
-    const next = generateDeviceId();
-    localStorage.setItem(STORAGE_KEYS.deviceId, next);
-    return next;
-  } catch {
-    // Fall back to session storage if local storage is unavailable.
+const persistClientId = (clientId: string) => {
+  if (typeof document !== 'undefined') {
+    document.cookie = `${CLIENT_ID_COOKIE}=${clientId}; Max-Age=${CLIENT_ID_MAX_AGE_SECONDS}; ${buildCookieAttributes()}`;
   }
 
   try {
-    const existing = sessionStorage.getItem(STORAGE_KEYS.deviceId);
-    if (existing) return existing;
-    const next = generateDeviceId();
-    sessionStorage.setItem(STORAGE_KEYS.deviceId, next);
-    return next;
+    localStorage.setItem(STORAGE_KEYS.clientId, clientId);
   } catch {
-    // Final fallback to in-memory id.
+    // Ignore storage errors.
   }
 
-  return generateDeviceId();
+  try {
+    sessionStorage.setItem(STORAGE_KEYS.clientId, clientId);
+  } catch {
+    // Ignore storage errors.
+  }
 };
 
 const Attend = () => {
@@ -139,8 +147,7 @@ const Attend = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitState, setSubmitState] = useState<SubmitState>('loading');
   const [startErrorMessage, setStartErrorMessage] = useState<string | null>(null);
-  const [fingerprint, setFingerprint] = useState<string>('');
-  const [fingerprintRaw, setFingerprintRaw] = useState<string>('');
+  const [clientId, setClientId] = useState<string | null>(null);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationRequested, setLocationRequested] = useState(false);
   const [locationDenied, setLocationDenied] = useState(false);
@@ -236,8 +243,7 @@ const Attend = () => {
     setEmail('');
     setErrors({});
     setStartErrorMessage(null);
-    setFingerprint('');
-    setFingerprintRaw('');
+    setClientId(null);
     setLocation(null);
     setLocationRequested(false);
     setLocationDenied(false);
@@ -254,11 +260,14 @@ const Attend = () => {
       setPrefilledFromRemember(true);
     }
 
+    const existingClientId = getStoredClientId();
+    if (existingClientId) {
+      persistClientId(existingClientId);
+    }
+
     let cancelled = false;
     const initialize = async () => {
-      const { fingerprint: deviceFingerprint, raw: deviceFingerprintRaw } = await initializeFingerprint();
-      if (cancelled) return;
-      await startAttendanceSession(deviceFingerprint, deviceFingerprintRaw);
+      await startAttendanceSession(existingClientId ?? undefined);
     };
     initialize();
 
@@ -276,30 +285,11 @@ const Attend = () => {
     };
   }, []);
 
-  const initializeFingerprint = async (): Promise<{ fingerprint: string; raw: string }> => {
-    const deviceId = getStoredDeviceId();
-
-    try {
-      const fp = await FingerprintJS.load();
-      const result = await fp.get();
-      const raw = result.visitorId?.trim() ?? '';
-      const combined = raw ? `${raw}::${deviceId}` : `local-${deviceId}`;
-      setFingerprint(combined);
-      setFingerprintRaw(raw);
-      return { fingerprint: combined, raw };
-    } catch (error) {
-      const combined = `local-${deviceId}`;
-      setFingerprint(combined);
-      setFingerprintRaw('');
-      return { fingerprint: combined, raw: '' };
-    }
-  };
-
-  const startAttendanceSession = async (deviceFingerprint?: string, deviceFingerprintRaw?: string) => {
+  const startAttendanceSession = async (existingClientId?: string) => {
     if (!id) return;
 
     const { data, error } = await supabase.functions.invoke('attendance-start', {
-      body: { eventId: id, token, deviceFingerprint, deviceFingerprintRaw },
+      body: { eventId: id, token, clientId: existingClientId },
     });
 
     if (error || !data?.authorized || !data?.event) {
@@ -325,6 +315,10 @@ const Attend = () => {
     setSessionExpiresAt(data.sessionExpiresAt ?? null);
     setEventThemeColor((data.event as Event).theme_color ?? 'default');
     setSubmitState('form');
+    if (data.clientId) {
+      persistClientId(String(data.clientId));
+      setClientId(String(data.clientId));
+    }
   };
 
   const requestLocation = () => {
@@ -382,6 +376,11 @@ const Attend = () => {
       return;
     }
 
+    if (!clientId) {
+      setSubmitState('error');
+      return;
+    }
+
     if (timeRemaining <= 0) {
       setSubmitState('time-expired');
       return;
@@ -395,10 +394,9 @@ const Attend = () => {
         body: {
           sessionId,
           token: token ?? undefined,
+          clientId: clientId ?? undefined,
           attendeeName: name.trim(),
           attendeeEmail: email.trim().toLowerCase(),
-          deviceFingerprint: fingerprint || undefined,
-          deviceFingerprintRaw: fingerprintRaw || undefined,
           location: event?.location_check_enabled ? effectiveLocation : null,
           locationDenied,
         },
@@ -446,15 +444,6 @@ const Attend = () => {
         setErrors(newErrors);
         return;
       }
-    }
-
-    // If device fingerprinting is enabled, ensure fingerprint is ready
-    if (event?.device_fingerprint_enabled && !fingerprint) {
-      toast({
-        title: 'Loading device verification',
-        description: 'Please try again in a second.',
-      });
-      return;
     }
 
     // Only request location if location check is enabled
@@ -772,7 +761,7 @@ const Attend = () => {
             </Button>
             <p className="text-xs text-muted-foreground text-center">
               By submitting, you consent to your name and email being stored. If enabled for this event, location and
-              device fingerprint data may also be processed.
+              a device identifier stored in your browser may also be processed.
             </p>
           </form>
         </CardContent>

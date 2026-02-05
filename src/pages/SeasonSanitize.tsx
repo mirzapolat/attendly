@@ -34,8 +34,8 @@ interface AttendanceRecord {
   attendee_email: string;
   attendee_name: string;
   status: AttendanceStatus;
-  device_fingerprint?: string | null;
-  device_fingerprint_raw?: string | null;
+  client_id?: string | null;
+  client_id_raw?: string | null;
 }
 
 interface EmailSuggestion {
@@ -45,7 +45,7 @@ interface EmailSuggestion {
   countA: number;
   countB: number;
   distance: number;
-  signals: ('similarity' | 'fingerprint')[];
+  signals: ('similarity' | 'client_id')[];
 }
 
 interface NameConflict {
@@ -70,16 +70,19 @@ const splitDomain = (domain: string) => {
   return { base: parts.join('.'), tld };
 };
 
-const isReliableFingerprint = (value?: string | null) => {
+const isReliableClientId = (value?: string | null) => {
   if (!value) return false;
   const trimmed = value.trim();
   if (!trimmed) return false;
   return !(
-    trimmed.startsWith('no-fp-') ||
+    trimmed.startsWith('collision-') ||
     trimmed.startsWith('manual-') ||
     trimmed.startsWith('moderator-') ||
+    trimmed.startsWith('excuse-') ||
+    trimmed.startsWith('import-') ||
+    trimmed.startsWith('no-fp-') ||
     trimmed.startsWith('fallback-') ||
-    trimmed.startsWith('import-')
+    trimmed.startsWith('local-')
   );
 };
 
@@ -226,7 +229,7 @@ const SeasonSanitize = () => {
 
       const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance_records')
-        .select('id, event_id, attendee_email, attendee_name, status, device_fingerprint, device_fingerprint_raw')
+        .select('id, event_id, attendee_email, attendee_name, status, client_id, client_id_raw')
         .in('event_id', eventIds);
 
       if (attendanceError) {
@@ -295,7 +298,7 @@ const SeasonSanitize = () => {
       emailA: string,
       emailB: string,
       distance: number,
-      signal: 'similarity' | 'fingerprint',
+      signal: 'similarity' | 'client_id',
     ) => {
       const id = getSuggestionKey(emailA, emailB);
       const existing = suggestionMap.get(id);
@@ -317,24 +320,24 @@ const SeasonSanitize = () => {
       });
     };
 
-    const fingerprintMap = new Map<string, Set<string>>();
+    const clientIdMap = new Map<string, Set<string>>();
     attendance.forEach((record) => {
-      const fingerprint = record.device_fingerprint_raw ?? record.device_fingerprint ?? '';
-      if (!isReliableFingerprint(fingerprint)) return;
+      const clientId = record.client_id_raw ?? record.client_id ?? '';
+      if (!isReliableClientId(clientId)) return;
       const email = normalizeEmail(record.attendee_email || '');
       if (!email) return;
-      if (!fingerprintMap.has(fingerprint)) {
-        fingerprintMap.set(fingerprint, new Set());
+      if (!clientIdMap.has(clientId)) {
+        clientIdMap.set(clientId, new Set());
       }
-      fingerprintMap.get(fingerprint)!.add(email);
+      clientIdMap.get(clientId)!.add(email);
     });
 
-    fingerprintMap.forEach((emailsSet) => {
+    clientIdMap.forEach((emailsSet) => {
       const emails = Array.from(emailsSet);
       if (emails.length < 2) return;
       for (let i = 0; i < emails.length; i += 1) {
         for (let j = i + 1; j < emails.length; j += 1) {
-          addSuggestion(emails[i], emails[j], 0, 'fingerprint');
+          addSuggestion(emails[i], emails[j], 0, 'client_id');
         }
       }
     });
@@ -379,10 +382,10 @@ const SeasonSanitize = () => {
 
     return Array.from(suggestionMap.values())
       .sort((a, b) => {
-        const aFingerprint = a.signals.includes('fingerprint');
-        const bFingerprint = b.signals.includes('fingerprint');
-        if (aFingerprint !== bFingerprint) {
-          return aFingerprint ? -1 : 1;
+        const aClient = a.signals.includes('client_id');
+        const bClient = b.signals.includes('client_id');
+        if (aClient !== bClient) {
+          return aClient ? -1 : 1;
         }
         return a.distance - b.distance || (b.countA + b.countB) - (a.countA + a.countB);
       })
@@ -808,10 +811,10 @@ const SeasonSanitize = () => {
                             <div className="space-y-1">
                               <p className="text-sm font-medium">Possible typo detected</p>
                               <p className="text-xs text-muted-foreground">
-                                {suggestion.signals.includes('fingerprint')
+                                {suggestion.signals.includes('client_id')
                                   ? suggestion.signals.includes('similarity')
-                                    ? 'Fingerprint match + similar emails'
-                                    : 'Fingerprint match'
+                                    ? 'Client ID match + similar emails'
+                                    : 'Client ID match'
                                   : `Distance ${suggestion.distance}`}{' '}
                                 • {suggestion.countA + suggestion.countB} records
                               </p>

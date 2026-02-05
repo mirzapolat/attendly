@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Calendar, Save, Shield, QrCode, Fingerprint, MapPinned, Timer, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Calendar, Save, Shield, QrCode, MapPinned, Timer, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
 import LocationPicker from '@/components/LocationPicker';
@@ -77,8 +77,8 @@ const NewEvent = () => {
   const [rotatingQrEnabled, setRotatingQrEnabled] = useState(true);
   const [rotatingQrSeconds, setRotatingQrSeconds] = useState(6);
   const [showRotationSettings, setShowRotationSettings] = useState(false);
-  const [deviceFingerprintEnabled, setDeviceFingerprintEnabled] = useState(true);
-  const [fingerprintCollisionStrict, setFingerprintCollisionStrict] = useState(true);
+  const [clientIdCheckEnabled, setClientIdCheckEnabled] = useState(true);
+  const [clientIdCollisionStrict, setClientIdCollisionStrict] = useState(true);
   const [locationCheckEnabled, setLocationCheckEnabled] = useState(false);
 
   useEffect(() => {
@@ -218,8 +218,8 @@ const NewEvent = () => {
           ROTATION_MAX_SECONDS,
           Math.max(ROTATION_MIN_SECONDS, Math.round(rotatingQrSeconds)),
         ),
-        device_fingerprint_enabled: deviceFingerprintEnabled,
-        fingerprint_collision_strict: fingerprintCollisionStrict,
+        client_id_check_enabled: clientIdCheckEnabled,
+        client_id_collision_strict: clientIdCollisionStrict,
         location_check_enabled: locationCheckEnabled,
       }).select('id').single();
 
@@ -408,44 +408,56 @@ const NewEvent = () => {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Fingerprint className="w-5 h-5 text-muted-foreground" />
+                      <ShieldCheck className="w-5 h-5 text-muted-foreground" />
                       <div>
-                        <p className="font-medium text-sm">Device Fingerprinting</p>
+                        <p className="font-medium text-sm">Client ID Checks</p>
                         <p className="text-xs text-muted-foreground">
-                          {deviceFingerprintEnabled
-                            ? fingerprintCollisionStrict
-                              ? 'Strict: block matching fingerprints'
-                              : 'Allow + mark suspicious on matches'
-                            : 'Prevent multiple submissions per device'}
+                          {clientIdCheckEnabled
+                            ? 'Track repeat submissions using client IDs'
+                            : 'Disabled: client IDs still saved for analytics'}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      {deviceFingerprintEnabled && (
+                    <Switch
+                      checked={clientIdCheckEnabled}
+                      onCheckedChange={setClientIdCheckEnabled}
+                    />
+                  </div>
+
+                  {clientIdCheckEnabled && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <AlertTriangle className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium text-sm">Collision Handling</p>
+                          <p className="text-xs text-muted-foreground">
+                            {clientIdCollisionStrict
+                              ? 'Strict: block matching client IDs'
+                              : 'Allow + mark suspicious on matches'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => setFingerprintCollisionStrict((prev) => !prev)}
+                          onClick={() => setClientIdCollisionStrict((prev) => !prev)}
                           title={
-                            fingerprintCollisionStrict
-                              ? 'Strict block: reject matching fingerprints'
+                            clientIdCollisionStrict
+                              ? 'Strict block: reject matching client IDs'
                               : 'Allow + mark suspicious on matches'
                           }
                         >
-                          {fingerprintCollisionStrict ? (
+                          {clientIdCollisionStrict ? (
                             <ShieldCheck className="h-4 w-4" />
                           ) : (
                             <AlertTriangle className="h-4 w-4" />
                           )}
                         </Button>
-                      )}
-                      <Switch
-                        checked={deviceFingerprintEnabled}
-                        onCheckedChange={setDeviceFingerprintEnabled}
-                      />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">

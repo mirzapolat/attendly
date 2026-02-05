@@ -16,8 +16,7 @@ const FORM_TIME_LIMIT_MS = 2 * 60 * 1000;
 type AttendanceStartRequest = {
   eventId?: string;
   token?: string | null;
-  deviceFingerprint?: string;
-  deviceFingerprintRaw?: string;
+  clientId?: string;
 };
 
 const isTokenExpired = (expiresAt: string | null, now: number): boolean => {
@@ -55,7 +54,7 @@ serve(async (req) => {
   }
 
   try {
-    const { eventId, token, deviceFingerprint, deviceFingerprintRaw } =
+    const { eventId, token, clientId } =
       (await req.json().catch(() => ({}))) as AttendanceStartRequest;
 
     if (!eventId) {
@@ -92,8 +91,8 @@ serve(async (req) => {
           "is_active",
           "rotating_qr_enabled",
           "rotating_qr_interval_seconds",
-          "device_fingerprint_enabled",
-          "fingerprint_collision_strict",
+          "client_id_check_enabled",
+          "client_id_collision_strict",
           "location_check_enabled",
           "current_qr_token",
           "qr_token_expires_at",
@@ -121,91 +120,10 @@ serve(async (req) => {
       return respond({ authorized: false, reason: "inactive" });
     }
 
-    const normalizedFingerprint = deviceFingerprint?.trim() ?? "";
-    const normalizedRaw = deviceFingerprintRaw?.trim() ?? "";
-    if (event.device_fingerprint_enabled) {
-      if (!normalizedFingerprint && !normalizedRaw) {
-        return respond({ authorized: false, reason: "missing_fingerprint" });
-      }
-
-      const fingerprintStrict = event.fingerprint_collision_strict !== false;
-
-      if (fingerprintStrict) {
-        if (normalizedFingerprint) {
-          const { data: existingExact, error: existingExactError } = await admin
-            .from("attendance_records")
-            .select("id")
-            .eq("event_id", event.id)
-            .eq("device_fingerprint", normalizedFingerprint)
-            .maybeSingle();
-
-          if (existingExactError) {
-            console.error("attendance-start fingerprint error", existingExactError);
-            return respond(
-              {
-                authorized: false,
-                reason: isSchemaError(existingExactError) ? "missing_migrations" : "server_error",
-              },
-              500,
-            );
-          }
-
-          if (existingExact) {
-            return respond({ authorized: false, reason: "already_submitted" });
-          }
-        }
-
-        if (normalizedRaw) {
-          const { data: existingRaw, error: existingRawError } = await admin
-            .from("attendance_records")
-            .select("id")
-            .eq("event_id", event.id)
-            .eq("device_fingerprint_raw", normalizedRaw)
-            .maybeSingle();
-
-          if (existingRawError) {
-            console.error("attendance-start fingerprint error", existingRawError);
-            return respond(
-              {
-                authorized: false,
-                reason: isSchemaError(existingRawError) ? "missing_migrations" : "server_error",
-              },
-              500,
-            );
-          }
-
-          if (existingRaw) {
-            return respond({ authorized: false, reason: "already_submitted" });
-          }
-
-          const { data: existingLegacy, error: existingLegacyError } = await admin
-            .from("attendance_records")
-            .select("id")
-            .eq("event_id", event.id)
-            .eq("device_fingerprint", normalizedRaw)
-            .maybeSingle();
-
-          if (existingLegacyError) {
-            console.error("attendance-start fingerprint error", existingLegacyError);
-            return respond(
-              {
-                authorized: false,
-                reason: isSchemaError(existingLegacyError) ? "missing_migrations" : "server_error",
-              },
-              500,
-            );
-          }
-
-          if (existingLegacy) {
-            return respond({ authorized: false, reason: "already_submitted" });
-          }
-        }
-      }
-    }
-
     const now = Date.now();
     const providedToken = token ?? null;
-    const fingerprintForSession = normalizedFingerprint || normalizedRaw;
+    const normalizedClientId = clientId?.trim() ?? "";
+    const clientIdForSession = normalizedClientId || crypto.randomUUID();
 
     if (event.rotating_qr_enabled) {
       if (!providedToken || !event.current_qr_token || !event.qr_token_expires_at) {
@@ -225,17 +143,42 @@ serve(async (req) => {
       }
     }
 
+    const clientIdCheckEnabled = event.client_id_check_enabled !== false;
+    if (clientIdCheckEnabled && event.client_id_collision_strict !== false) {
+      const { data: existingClient, error: existingClientError } = await admin
+        .from("attendance_records")
+        .select("id")
+        .eq("event_id", event.id)
+        .eq("client_id", clientIdForSession)
+        .maybeSingle();
+
+      if (existingClientError) {
+        console.error("attendance-start client id error", existingClientError);
+        return respond(
+          {
+            authorized: false,
+            reason: isSchemaError(existingClientError) ? "missing_migrations" : "server_error",
+          },
+          500,
+        );
+      }
+
+      if (existingClient) {
+        return respond({ authorized: false, reason: "already_submitted" });
+      }
+    }
+
     const expiresAt = new Date(now + FORM_TIME_LIMIT_MS).toISOString();
     const tokenForSession = providedToken ?? "static";
     const tokenHash = await hashValue(tokenForSession);
-    const fingerprintHash = fingerprintForSession ? await hashValue(fingerprintForSession) : null;
+    const clientIdHash = await hashValue(clientIdForSession);
     const { data: session, error: sessionError } = await admin
       .from("attendance_sessions")
       .insert({
         event_id: event.id,
         token: tokenForSession,
         token_hash: tokenHash,
-        fingerprint_hash: fingerprintHash,
+        client_id_hash: clientIdHash,
         expires_at: expiresAt,
       })
       .select("id, expires_at")
@@ -262,6 +205,7 @@ serve(async (req) => {
       authorized: true,
       sessionId: session.id,
       sessionExpiresAt: session.expires_at,
+      clientId: clientIdForSession,
       event: {
         id: event.id,
         workspace_id: event.workspace_id,
@@ -274,7 +218,6 @@ serve(async (req) => {
         is_active: event.is_active,
         rotating_qr_enabled: event.rotating_qr_enabled,
         rotating_qr_interval_seconds: event.rotating_qr_interval_seconds ?? 3,
-        device_fingerprint_enabled: event.device_fingerprint_enabled,
         location_check_enabled: event.location_check_enabled,
         theme_color: workspace?.brand_color ?? "default",
         brand_logo_url: workspace?.brand_logo_url ?? null,

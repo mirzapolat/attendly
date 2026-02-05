@@ -222,7 +222,7 @@ serve(async (req) => {
           event_id: eventId,
           attendee_name: attendeeName.trim(),
           attendee_email: attendeeEmail.trim().toLowerCase(),
-          device_fingerprint: `moderator-${crypto.randomUUID()}`,
+          client_id: `manual-${crypto.randomUUID()}`,
           status,
           location_provided: false,
         });

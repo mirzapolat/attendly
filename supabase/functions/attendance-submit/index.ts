@@ -9,10 +9,9 @@ const corsHeaders = {
 type AttendanceSubmitRequest = {
   sessionId?: string;
   token?: string;
+  clientId?: string;
   attendeeName?: string;
   attendeeEmail?: string;
-  deviceFingerprint?: string;
-  deviceFingerprintRaw?: string;
   location?: { lat: number; lng: number } | null;
   locationDenied?: boolean;
 };
@@ -47,9 +46,9 @@ serve(async (req) => {
 
   try {
     const body = (await req.json().catch(() => ({}))) as AttendanceSubmitRequest;
-    const { sessionId, token, attendeeName, attendeeEmail, deviceFingerprint, deviceFingerprintRaw, location, locationDenied } = body;
+    const { sessionId, token, clientId, attendeeName, attendeeEmail, location, locationDenied } = body;
 
-    if (!sessionId || !token || !attendeeName || !attendeeEmail) {
+    if (!sessionId || !token || !clientId || !attendeeName || !attendeeEmail) {
       return new Response(
         JSON.stringify({ success: false, reason: "invalid_request" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -73,7 +72,7 @@ serve(async (req) => {
 
     const { data: session, error: sessionError } = await admin
       .from("attendance_sessions")
-      .select("id, event_id, expires_at, used_at, token, token_hash, fingerprint_hash")
+      .select("id, event_id, expires_at, used_at, token, token_hash, client_id_hash")
       .eq("id", sessionId)
       .maybeSingle();
 
@@ -123,14 +122,32 @@ serve(async (req) => {
       );
     }
 
+    const normalizedClientId = clientId.trim();
+    if (!normalizedClientId) {
+      return new Response(
+        JSON.stringify({ success: false, reason: "invalid_request" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    if (session.client_id_hash) {
+      const clientIdHash = await hashValue(normalizedClientId);
+      if (clientIdHash !== session.client_id_hash) {
+        return new Response(
+          JSON.stringify({ success: false, reason: "session_invalid" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     const { data: event, error: eventError } = await admin
       .from("events")
       .select(
         [
           "id",
           "is_active",
-          "device_fingerprint_enabled",
-          "fingerprint_collision_strict",
+          "client_id_check_enabled",
+          "client_id_collision_strict",
           "location_check_enabled",
           "location_lat",
           "location_lng",
@@ -156,97 +173,34 @@ serve(async (req) => {
 
     const trimmedName = attendeeName.trim();
     const trimmedEmail = attendeeEmail.trim().toLowerCase();
-    const normalizedFingerprint = deviceFingerprint?.trim() ?? "";
-    const normalizedRaw = deviceFingerprintRaw?.trim() ?? "";
-    const fingerprintForSession = normalizedFingerprint || normalizedRaw;
-    let fingerprintToStore = normalizedFingerprint || normalizedRaw;
-    const fingerprintRaw = normalizedRaw || (normalizedFingerprint ? normalizedFingerprint : null);
-
-    if (session.fingerprint_hash) {
-      if (!fingerprintForSession) {
-        return new Response(
-          JSON.stringify({ success: false, reason: "session_invalid" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      const fingerprintHash = await hashValue(fingerprintForSession);
-      if (fingerprintHash !== session.fingerprint_hash) {
-        return new Response(
-          JSON.stringify({ success: false, reason: "session_invalid" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-    }
-
-    if (event.device_fingerprint_enabled && !fingerprintToStore) {
-      return new Response(
-        JSON.stringify({ success: false, reason: "missing_fingerprint" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    if (!event.device_fingerprint_enabled) {
-      fingerprintToStore = `no-fp-${crypto.randomUUID()}`;
-    }
+    const clientIdForRecord = normalizedClientId;
+    let clientIdToStore = clientIdForRecord;
+    let clientIdRaw: string | null = null;
 
     let status: "verified" | "suspicious" = "verified";
     let suspiciousReason: string | null = null;
 
-    const fingerprintStrict = event.fingerprint_collision_strict !== false;
-    let fingerprintCollision = false;
-    let fingerprintExactMatch = false;
+    const clientIdCheckEnabled = event.client_id_check_enabled !== false;
+    if (clientIdCheckEnabled) {
+      const clientIdStrict = event.client_id_collision_strict !== false;
+      const { data: existingClient } = await admin
+        .from("attendance_records")
+        .select("id")
+        .eq("event_id", event.id)
+        .eq("client_id", clientIdForRecord)
+        .maybeSingle();
 
-    if (event.device_fingerprint_enabled) {
-      if (normalizedFingerprint) {
-        const { data: existingExact } = await admin
-          .from("attendance_records")
-          .select("id")
-          .eq("event_id", event.id)
-          .eq("device_fingerprint", normalizedFingerprint)
-          .maybeSingle();
-
-        if (existingExact) {
-          fingerprintCollision = true;
-          fingerprintExactMatch = true;
-        }
-      }
-
-      if (normalizedRaw) {
-        const { data: existingRaw } = await admin
-          .from("attendance_records")
-          .select("id")
-          .eq("event_id", event.id)
-          .eq("device_fingerprint_raw", normalizedRaw)
-          .maybeSingle();
-
-        if (existingRaw) {
-          fingerprintCollision = true;
-        } else {
-          const { data: existingLegacy } = await admin
-            .from("attendance_records")
-            .select("id")
-            .eq("event_id", event.id)
-            .eq("device_fingerprint", normalizedRaw)
-            .maybeSingle();
-
-          if (existingLegacy) {
-            fingerprintCollision = true;
-          }
-        }
-      }
-
-      if (fingerprintCollision) {
-        if (fingerprintStrict) {
+      if (existingClient) {
+        if (clientIdStrict) {
           return new Response(
             JSON.stringify({ success: false, reason: "already_submitted" }),
             { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
         status = "suspicious";
-        suspiciousReason = "Fingerprint matched another submission";
-        if (fingerprintExactMatch || normalizedRaw || normalizedFingerprint) {
-          fingerprintToStore = `collision-${crypto.randomUUID()}`;
-        }
+        suspiciousReason = "Client ID matched another submission";
+        clientIdRaw = clientIdForRecord;
+        clientIdToStore = `collision-${crypto.randomUUID()}`;
       }
     }
 
@@ -269,18 +223,33 @@ serve(async (req) => {
       }
     }
 
-    const { error: insertError } = await admin.from("attendance_records").insert({
+    const baseRecord = {
       event_id: event.id,
       attendee_name: trimmedName,
       attendee_email: trimmedEmail,
-      device_fingerprint: fingerprintToStore,
-      device_fingerprint_raw: fingerprintRaw,
       location_lat: event.location_check_enabled ? location?.lat ?? null : null,
       location_lng: event.location_check_enabled ? location?.lng ?? null : null,
       location_provided: event.location_check_enabled ? !!location : false,
       status,
       suspicious_reason: suspiciousReason,
-    });
+    };
+
+    const initialPayload = {
+      ...baseRecord,
+      client_id: clientIdToStore,
+      client_id_raw: clientIdRaw,
+    };
+
+    let { error: insertError } = await admin.from("attendance_records").insert(initialPayload);
+    if (insertError?.code === "23505" && !clientIdCheckEnabled) {
+      const fallbackPayload = {
+        ...baseRecord,
+        client_id: `collision-${crypto.randomUUID()}`,
+        client_id_raw: clientIdForRecord,
+      };
+      const { error: retryError } = await admin.from("attendance_records").insert(fallbackPayload);
+      insertError = retryError;
+    }
 
     if (insertError) {
       if (insertError.code === "23505") {

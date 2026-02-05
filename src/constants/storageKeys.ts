@@ -2,7 +2,7 @@ export const STORAGE_KEYS = {
   workspaceId: 'attendly:workspace',
   themeColor: 'attendly:theme-color',
   resumeEventPrefix: 'attendly:resume-event:',
-  deviceId: 'attendly:device-id',
+  clientId: 'attendly:client-id',
   qrHostTabId: 'attendly:qr-host-tab-id',
   eventsView: 'attendly:events-view',
   welcome: 'attendly:welcome',

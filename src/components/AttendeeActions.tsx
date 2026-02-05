@@ -26,7 +26,7 @@ interface AttendanceRecord {
   suspicious_reason: string | null;
   location_provided: boolean;
   recorded_at: string;
-  device_fingerprint?: string;
+  client_id?: string;
   location_lat?: number | null;
   location_lng?: number | null;
 }
@@ -51,7 +51,7 @@ const AttendeeActions = ({
   const [isImporting, setIsImporting] = useState(false);
 
   const exportToCsv = async () => {
-    // Fetch full attendance records including fingerprint
+    // Fetch full attendance records including client id
     const { data, error } = await supabase
       .from('attendance_records')
       .select('*')
@@ -147,7 +147,9 @@ const AttendeeActions = ({
         const statusIndex = header.findIndex((h) => h.includes('status'));
         const suspiciousReasonIndex = header.findIndex((h) => h.includes('suspicious'));
         const locationProvidedIndex = header.findIndex((h) => h.includes('location provided'));
-        const fingerprintIndex = header.findIndex((h) => h.includes('fingerprint'));
+        const clientIdIndex = header.findIndex(
+          (h) => h.includes('client id') || h.includes('device id'),
+        );
 
         // Parse rows
         const records = [];
@@ -170,8 +172,8 @@ const AttendeeActions = ({
             event_id: eventId,
             attendee_name: name,
             attendee_email: email,
-            device_fingerprint: fingerprintIndex !== -1 && values[fingerprintIndex]
-              ? values[fingerprintIndex].trim()
+            client_id: clientIdIndex !== -1 && values[clientIdIndex]
+              ? values[clientIdIndex].trim()
               : `import-${crypto.randomUUID()}`,
             status,
             suspicious_reason: suspiciousReasonIndex !== -1 ? values[suspiciousReasonIndex]?.trim() || null : null,
@@ -246,7 +248,7 @@ const AttendeeActions = ({
       event_id: eventId,
       attendee_name: email.split('@')[0],
       attendee_email: email,
-      device_fingerprint: `manual-${crypto.randomUUID()}`,
+      client_id: `manual-${crypto.randomUUID()}`,
       status: 'verified' as const,
       location_provided: false,
     }));

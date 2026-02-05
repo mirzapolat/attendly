@@ -6,6 +6,7 @@ import {
     BadgeCheck,
     BarChart3,
     ClipboardList,
+    Github,
     Home,
     Layers,
     LogIn,
@@ -163,6 +164,14 @@ const Features = () => {
                             <Link to="/" className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors">
                                 Home
                             </Link>
+                            <a
+                                href="https://github.com/mirzapolat/attendly"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
+                            >
+                                GitHub
+                            </a>
                         </div>
                         <div className="flex items-center gap-3">
                             <Link to="/auth">
@@ -362,6 +371,16 @@ const Features = () => {
                                     <Home className="h-5 w-5 text-[color:var(--lp-accent)]" />
                                     <span>Home</span>
                                 </Link>
+                                <a
+                                    href="https://github.com/mirzapolat/attendly"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex items-center gap-3 text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
+                                    onClick={() => setMenuOpen(false)}
+                                >
+                                    <Github className="h-5 w-5 text-[color:var(--lp-accent)]" />
+                                    <span>GitHub</span>
+                                </a>
                             </div>
                         </div>
                     </div>
