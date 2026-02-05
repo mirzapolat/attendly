@@ -79,38 +79,37 @@ const Index = () => {
                                 style={{ '--delay': '40ms' } as CSSProperties}
                             >
                                 <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-[color:var(--lp-accent)]" />
-                                <span className="whitespace-nowrap">Save more time</span>
+                                <span className="whitespace-nowrap">Easy and secure</span>
                             </div>
                             <h1
                                 className="mt-6 text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight animate-soft-rise"
                                 style={{ '--delay': '90ms' } as CSSProperties}
                             >
-                                Attendance that stays honest{' '}
-                                <span className="text-[color:var(--lp-accent)]">without extra effort.</span>
+                                Simplify attendance tracking{' '}
+                                <span className="text-[color:var(--lp-accent)]">elegantly.</span>
                             </h1>
                             <p
                                 className="mt-6 text-lg text-[color:var(--lp-muted)] max-w-xl animate-soft-rise"
                                 style={{ '--delay': '140ms' } as CSSProperties}
                             >
-                                Organize teams in branded workspaces, run secure check-ins, and keep analytics clean.
-                                Catch email typos and name conflicts early while sharing moderation safely.
+                                Attendly simplifies attendance tracking for educators and students, providing a seamless experience that saves time and helps you do more of what matters most. is tracked, making it effortless and efficient for everyone involved.
                             </p>
                             <div className="mt-8 flex flex-wrap gap-3 animate-soft-rise" style={{ '--delay': '190ms' } as CSSProperties}>
                                 <Link to="/auth?mode=signup">
                                     <Button variant="hero" size="lg">
-                                        Start now -&gt;
+                                        Sign up -&gt;
                                     </Button>
                                 </Link>
                                 <Link to="/features">
                                     <Button variant="outline" size="lg" className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]">
-                                        Explore features
+                                        Features
                                     </Button>
                                 </Link>
                             </div>
                         </div>
 
                         <div
-                            className="relative mt-6 sm:mt-0 hidden md:block animate-soft-rise"
+                            className="relative mt-6 sm:mt-0 hidden lg:block animate-soft-rise"
                             style={{ '--delay': '160ms' } as CSSProperties}
                         >
                             <Card className="border border-[color:var(--lp-border)] bg-[color:var(--lp-card)] shadow-[var(--lp-shadow)]">

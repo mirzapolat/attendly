@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
 
-    --primary: 161 59% 62%;
+    --primary: 161 70% 51%;
     --primary-foreground: 220 20% 10%;
 
     --secondary: 220 14% 96%;
@@ -25,7 +25,7 @@
     --muted: 220 14% 96%;
     --muted-foreground: 220 10% 46%;
 
-    --accent: 161 59% 62%;
+    --accent: 161 70% 51%;
     --accent-foreground: 220 20% 10%;
 
     --destructive: 0 84% 60%;
@@ -34,12 +34,12 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --success: 161 59% 62%;
+    --success: 161 70% 51%;
     --success-foreground: 220 20% 10%;
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 161 59% 62%;
+    --ring: 161 70% 51%;
 
     --radius: 0.625rem;
 
@@ -50,10 +50,10 @@
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 161 59% 62%;
+    --sidebar-ring: 161 70% 51%;
 
     /* Custom gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(161 59% 62%) 0%, hsl(161 59% 52%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(161 70% 51%) 0%, hsl(161 70% 41%) 100%);
     --gradient-subtle: linear-gradient(180deg, hsl(0, 0%, 100%) 0%, hsl(220, 14%, 98%) 100%);
     --gradient-card: linear-gradient(135deg, hsl(0, 0%, 100%) 0%, hsl(220, 20%, 99%) 100%);
     --page-bg-end: 220 14% 98%;
@@ -62,7 +62,7 @@
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
-    --shadow-glow: 0 0 20px hsl(161 59% 62% / 0.2);
+    --shadow-glow: 0 0 20px hsl(161 70% 51% / 0.2);
   }
 
   .dark {
@@ -75,7 +75,7 @@
     --popover: 220 20% 10%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 161 59% 62%;
+    --primary: 161 70% 51%;
     --primary-foreground: 220 20% 7%;
 
     --secondary: 220 14% 14%;
@@ -84,7 +84,7 @@
     --muted: 220 14% 14%;
     --muted-foreground: 220 10% 60%;
 
-    --accent: 161 59% 62%;
+    --accent: 161 70% 51%;
     --accent-foreground: 220 20% 7%;
 
     --destructive: 0 62% 50%;
@@ -93,23 +93,23 @@
     --warning: 38 92% 50%;
     --warning-foreground: 220 20% 7%;
 
-    --success: 161 59% 62%;
+    --success: 161 70% 51%;
     --success-foreground: 220 20% 7%;
 
     --border: 220 14% 18%;
     --input: 220 14% 18%;
-    --ring: 161 59% 62%;
+    --ring: 161 70% 51%;
 
     --sidebar-background: 220 20% 7%;
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 161 59% 62%;
+    --sidebar-primary: 161 70% 51%;
     --sidebar-primary-foreground: 220 20% 7%;
     --sidebar-accent: 220 14% 14%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 220 14% 18%;
-    --sidebar-ring: 161 59% 62%;
+    --sidebar-ring: 161 70% 51%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(161 59% 62%) 0%, hsl(161 59% 52%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(161 70% 51%) 0%, hsl(161 70% 41%) 100%);
     --gradient-subtle: linear-gradient(180deg, hsl(220, 20%, 7%) 0%, hsl(220, 20%, 10%) 100%);
     --gradient-card: linear-gradient(135deg, hsl(220, 20%, 10%) 0%, hsl(220, 20%, 12%) 100%);
     --page-bg-end: 220 20% 10%;
@@ -117,34 +117,34 @@
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.2);
-    --shadow-glow: 0 0 20px hsl(161 59% 62% / 0.3);
+    --shadow-glow: 0 0 20px hsl(161 70% 51% / 0.3);
   }
 
   .landing-emerald {
-    --primary: 161 59% 62%;
-    --accent: 161 59% 62%;
-    --ring: 161 59% 62%;
-    --success: 161 59% 62%;
-    --gradient-primary: linear-gradient(135deg, hsl(161 59% 62%) 0%, hsl(161 59% 52%) 100%);
-    --shadow-glow: 0 0 20px hsl(161 59% 62% / 0.2);
+    --primary: 161 70% 51%;
+    --accent: 161 70% 51%;
+    --ring: 161 70% 51%;
+    --success: 161 70% 51%;
+    --gradient-primary: linear-gradient(135deg, hsl(161 70% 51%) 0%, hsl(161 70% 41%) 100%);
+    --shadow-glow: 0 0 20px hsl(161 70% 51% / 0.2);
   }
 
   .dark .landing-emerald {
-    --primary: 161 59% 62%;
-    --accent: 161 59% 62%;
-    --ring: 161 59% 62%;
-    --success: 161 59% 62%;
-    --gradient-primary: linear-gradient(135deg, hsl(161 59% 62%) 0%, hsl(161 59% 52%) 100%);
-    --shadow-glow: 0 0 20px hsl(161 59% 62% / 0.3);
+    --primary: 161 70% 51%;
+    --accent: 161 70% 51%;
+    --ring: 161 70% 51%;
+    --success: 161 70% 51%;
+    --gradient-primary: linear-gradient(135deg, hsl(161 70% 51%) 0%, hsl(161 70% 41%) 100%);
+    --shadow-glow: 0 0 20px hsl(161 70% 51% / 0.3);
   }
 
   .landing-minimal {
-    --primary: 161 59% 62%;
-    --accent: 161 59% 62%;
-    --ring: 161 59% 62%;
-    --success: 161 59% 62%;
-    --gradient-primary: linear-gradient(135deg, hsl(161 59% 62%) 0%, hsl(161 59% 52%) 100%);
-    --shadow-glow: 0 18px 40px hsl(161 59% 62% / 0.2);
+    --primary: 161 70% 51%;
+    --accent: 161 70% 51%;
+    --ring: 161 70% 51%;
+    --success: 161 70% 51%;
+    --gradient-primary: linear-gradient(135deg, hsl(161 70% 51%) 0%, hsl(161 70% 41%) 100%);
+    --shadow-glow: 0 18px 40px hsl(161 70% 51% / 0.2);
     --lp-bg: hsl(var(--background));
     --lp-ink: hsl(var(--foreground));
     --lp-muted: hsl(var(--muted-foreground));

@@ -394,6 +394,7 @@ const Attend = () => {
       const { data, error } = await supabase.functions.invoke('attendance-submit', {
         body: {
           sessionId,
+          token: token ?? undefined,
           attendeeName: name.trim(),
           attendeeEmail: email.trim().toLowerCase(),
           deviceFingerprint: fingerprint || undefined,

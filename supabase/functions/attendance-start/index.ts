@@ -12,9 +12,6 @@ const jsonHeaders = {
 };
 
 const FORM_TIME_LIMIT_MS = 2 * 60 * 1000;
-const TOKEN_GRACE_MS = 7 * 1000;
-const ROTATION_MIN_SECONDS = 2;
-const ROTATION_MAX_SECONDS = 60;
 
 type AttendanceStartRequest = {
   eventId?: string;
@@ -23,21 +20,23 @@ type AttendanceStartRequest = {
   deviceFingerprintRaw?: string;
 };
 
-const getTokenAgeMs = (token: string, now: number): number | null => {
-  const parts = token.split("_");
-  const timestamp = Number.parseInt(parts[parts.length - 1] ?? "", 10);
-  if (Number.isNaN(timestamp)) return null;
-  return now - timestamp;
-};
-
-const isTokenWithinGrace = (token: string, now: number, intervalMs: number): boolean => {
-  const age = getTokenAgeMs(token, now);
-  if (age === null || age < 0) return false;
-  return age <= intervalMs + TOKEN_GRACE_MS;
+const isTokenExpired = (expiresAt: string | null, now: number): boolean => {
+  if (!expiresAt) return true;
+  const expiresMs = Date.parse(expiresAt);
+  if (Number.isNaN(expiresMs)) return true;
+  return now > expiresMs;
 };
 
 const respond = (payload: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(payload), { status, headers: jsonHeaders });
+
+const hashValue = async (value: string): Promise<string> => {
+  const data = new TextEncoder().encode(value);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+};
 
 const isSchemaError = (error: { code?: string; message?: string } | null): boolean => {
   if (!error) return false;
@@ -206,14 +205,18 @@ serve(async (req) => {
 
     const now = Date.now();
     const providedToken = token ?? null;
-
-    const rotationSeconds = Math.min(
-      ROTATION_MAX_SECONDS,
-      Math.max(ROTATION_MIN_SECONDS, Number(event.rotating_qr_interval_seconds ?? 3)),
-    );
+    const fingerprintForSession = normalizedFingerprint || normalizedRaw;
 
     if (event.rotating_qr_enabled) {
-      if (!providedToken || !isTokenWithinGrace(providedToken, now, rotationSeconds * 1000)) {
+      if (!providedToken || !event.current_qr_token || !event.qr_token_expires_at) {
+        return respond({ authorized: false, reason: "expired" });
+      }
+
+      if (providedToken !== event.current_qr_token) {
+        return respond({ authorized: false, reason: "expired" });
+      }
+
+      if (isTokenExpired(event.qr_token_expires_at, now)) {
         return respond({ authorized: false, reason: "expired" });
       }
     } else {
@@ -223,11 +226,16 @@ serve(async (req) => {
     }
 
     const expiresAt = new Date(now + FORM_TIME_LIMIT_MS).toISOString();
+    const tokenForSession = providedToken ?? "static";
+    const tokenHash = await hashValue(tokenForSession);
+    const fingerprintHash = fingerprintForSession ? await hashValue(fingerprintForSession) : null;
     const { data: session, error: sessionError } = await admin
       .from("attendance_sessions")
       .insert({
         event_id: event.id,
-        token: providedToken ?? "static",
+        token: tokenForSession,
+        token_hash: tokenHash,
+        fingerprint_hash: fingerprintHash,
         expires_at: expiresAt,
       })
       .select("id, expires_at")

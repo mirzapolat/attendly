@@ -8,12 +8,21 @@ const corsHeaders = {
 
 type AttendanceSubmitRequest = {
   sessionId?: string;
+  token?: string;
   attendeeName?: string;
   attendeeEmail?: string;
   deviceFingerprint?: string;
   deviceFingerprintRaw?: string;
   location?: { lat: number; lng: number } | null;
   locationDenied?: boolean;
+};
+
+const hashValue = async (value: string): Promise<string> => {
+  const data = new TextEncoder().encode(value);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 };
 
 const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -38,9 +47,9 @@ serve(async (req) => {
 
   try {
     const body = (await req.json().catch(() => ({}))) as AttendanceSubmitRequest;
-    const { sessionId, attendeeName, attendeeEmail, deviceFingerprint, deviceFingerprintRaw, location, locationDenied } = body;
+    const { sessionId, token, attendeeName, attendeeEmail, deviceFingerprint, deviceFingerprintRaw, location, locationDenied } = body;
 
-    if (!sessionId || !attendeeName || !attendeeEmail) {
+    if (!sessionId || !token || !attendeeName || !attendeeEmail) {
       return new Response(
         JSON.stringify({ success: false, reason: "invalid_request" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -64,7 +73,7 @@ serve(async (req) => {
 
     const { data: session, error: sessionError } = await admin
       .from("attendance_sessions")
-      .select("id, event_id, expires_at, used_at")
+      .select("id, event_id, expires_at, used_at, token, token_hash, fingerprint_hash")
       .eq("id", sessionId)
       .maybeSingle();
 
@@ -88,6 +97,29 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ success: false, reason: "session_expired" }),
         { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const normalizedToken = token.trim();
+    if (!normalizedToken) {
+      return new Response(
+        JSON.stringify({ success: false, reason: "invalid_request" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    if (session.token_hash) {
+      const tokenHash = await hashValue(normalizedToken);
+      if (tokenHash !== session.token_hash) {
+        return new Response(
+          JSON.stringify({ success: false, reason: "session_invalid" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    } else if (session.token && normalizedToken !== session.token) {
+      return new Response(
+        JSON.stringify({ success: false, reason: "session_invalid" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -126,8 +158,25 @@ serve(async (req) => {
     const trimmedEmail = attendeeEmail.trim().toLowerCase();
     const normalizedFingerprint = deviceFingerprint?.trim() ?? "";
     const normalizedRaw = deviceFingerprintRaw?.trim() ?? "";
+    const fingerprintForSession = normalizedFingerprint || normalizedRaw;
     let fingerprintToStore = normalizedFingerprint || normalizedRaw;
     const fingerprintRaw = normalizedRaw || (normalizedFingerprint ? normalizedFingerprint : null);
+
+    if (session.fingerprint_hash) {
+      if (!fingerprintForSession) {
+        return new Response(
+          JSON.stringify({ success: false, reason: "session_invalid" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const fingerprintHash = await hashValue(fingerprintForSession);
+      if (fingerprintHash !== session.fingerprint_hash) {
+        return new Response(
+          JSON.stringify({ success: false, reason: "session_invalid" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
 
     if (event.device_fingerprint_enabled && !fingerprintToStore) {
       return new Response(

@@ -18,7 +18,7 @@ interface ThemeColorContextType {
 
 const ThemeColorContext = createContext<ThemeColorContextType | undefined>(undefined);
 export const themeColors: ThemeColor[] = [
-  { id: 'default', name: 'Emerald', hex: '#66d7b3' },
+  { id: 'default', name: 'Emerald', hex: '#2adaa2' },
   { id: 'teal', name: 'Teal', hex: '#498467' },
   { id: 'cerulean', name: 'Cerulean', hex: '#006E90' },
   { id: 'cyan', name: 'Cyan', hex: '#10a9b7' },

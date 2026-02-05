@@ -234,13 +234,13 @@ const Features = () => {
                                         </Link>
                                         <Link to="/">
                                             <Button variant="outline" size="lg" className="border-[color:var(--lp-border)] text-[color:var(--lp-ink)]">
-                                                Back to home
+                                                Home
                                             </Button>
                                         </Link>
                                     </div>
                                 </div>
 
-                                <div className="grid gap-4">
+                                <div className="hidden lg:grid gap-4">
                                     {FEATURE_STEPS.map((step, index) => (
                                         <div
                                             key={step.step}
