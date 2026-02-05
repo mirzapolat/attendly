@@ -16,7 +16,7 @@ import { useConfirm } from '@/hooks/useConfirm';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, Clock, Play, Square, 
-  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2, Search, UserMinus, List, ListCollapse, Mail
+  AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2, Search, UserMinus, List, ListCollapse, Mail, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EventSettings from '@/components/EventSettings';
@@ -69,9 +69,10 @@ interface KnownAttendee {
   attendee_email: string;
 }
 
-const POLL_INTERVAL_MS = 1100;
+const POLL_INTERVAL_MS = 500;
 const RESUME_WINDOW_MS = 15000;
 const ROTATION_GRACE_MS = 7000;
+const ROTATION_EARLY_MS = 500;
 const ROTATION_MIN_SECONDS = 2;
 const ROTATION_MAX_SECONDS = 60;
 const QR_HOST_LEASE_MS = 20000;
@@ -93,8 +94,10 @@ const EventDetail = () => {
   const [loading, setLoading] = useState(true);
   const [qrToken, setQrToken] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(3);
-  const intervalRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
+  const nextRotationAtRef = useRef<number | null>(null);
+  const nextCountdownTickAtRef = useRef<number | null>(null);
+  const qrRotationInFlightRef = useRef(false);
   const hostHeartbeatRef = useRef<number | null>(null);
   const hostDeviceIdRef = useRef<string | null>(null);
   const hostClaimInFlightRef = useRef(false);
@@ -124,6 +127,7 @@ const EventDetail = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showModeration, setShowModeration] = useState(false);
   const [showExcuseLinks, setShowExcuseLinks] = useState(false);
+  const [isTogglingEvent, setIsTogglingEvent] = useState(false);
 
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -145,6 +149,7 @@ const EventDetail = () => {
   const [startButtonPulse, setStartButtonPulse] = useState(false);
   const startButtonPulseTimerRef = useRef<number | null>(null);
   const [qrRefreshPulse, setQrRefreshPulse] = useState(false);
+  const [isQrRefreshing, setIsQrRefreshing] = useState(false);
   const qrRefreshTimerRef = useRef<number | null>(null);
   const prevQrTokenRef = useRef<string | null>(null);
 
@@ -323,6 +328,16 @@ const EventDetail = () => {
     ROTATION_MAX_SECONDS,
     Math.max(ROTATION_MIN_SECONDS, Number(event?.rotating_qr_interval_seconds ?? 3)),
   );
+  const getRotationTargetMs = useCallback((expiresAt?: string | null) => {
+    if (!expiresAt) return null;
+    const parsed = Date.parse(expiresAt);
+    if (Number.isNaN(parsed)) return null;
+    return parsed - ROTATION_GRACE_MS;
+  }, []);
+  const getSecondsRemaining = useCallback((targetMs: number) => {
+    const remainingMs = targetMs - Date.now();
+    return Math.max(1, Math.ceil(remainingMs / 1000));
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -522,14 +537,17 @@ const EventDetail = () => {
   useEffect(() => {
     if (!event?.is_active || !event?.rotating_qr_enabled) {
       prevQrTokenRef.current = qrToken || null;
+      setIsQrRefreshing(false);
       return;
     }
     if (!qrToken) {
       prevQrTokenRef.current = null;
+      setIsQrRefreshing(false);
       return;
     }
     if (prevQrTokenRef.current && prevQrTokenRef.current !== qrToken) {
       setQrRefreshPulse(true);
+      setIsQrRefreshing(false);
       if (qrRefreshTimerRef.current) {
         window.clearTimeout(qrRefreshTimerRef.current);
       }
@@ -877,94 +895,122 @@ const EventDetail = () => {
     if (!event?.is_active || !event?.rotating_qr_enabled || !isQrHost) return;
     const deviceId = hostDeviceIdRef.current;
     if (!deviceId) return;
+    if (qrRotationInFlightRef.current) return;
+    qrRotationInFlightRef.current = true;
 
-    const newToken = generateToken();
-    const expiresAt = new Date(Date.now() + rotationSeconds * 1000 + ROTATION_GRACE_MS).toISOString();
+    try {
+      const newToken = generateToken();
+      const rotationMs = rotationSeconds * 1000;
+      const issuedAt = Date.now();
+      const expiresAt = new Date(issuedAt + rotationMs + ROTATION_GRACE_MS).toISOString();
 
-    await supabase
-      .from('events')
-      .update({
-        current_qr_token: newToken,
-        qr_token_expires_at: expiresAt,
-      })
-      .eq('id', id)
-      .eq('qr_host_device_id', deviceId);
+      const { error } = await supabase
+        .from('events')
+        .update({
+          current_qr_token: newToken,
+          qr_token_expires_at: expiresAt,
+        })
+        .eq('id', id)
+        .eq('qr_host_device_id', deviceId);
 
-    setQrToken(newToken);
-    setTimeLeft(rotationSeconds);
+      if (error) {
+        return;
+      }
+
+      setQrToken(newToken);
+      const nextAt = Date.now() + rotationMs;
+      nextRotationAtRef.current = nextAt;
+      nextCountdownTickAtRef.current = Date.now() + 1000;
+      setIsQrRefreshing(false);
+      setTimeLeft(rotationSeconds);
+    } finally {
+      qrRotationInFlightRef.current = false;
+    }
   }, [id, event?.is_active, event?.rotating_qr_enabled, generateToken, rotationSeconds, isQrHost]);
 
   useEffect(() => {
     if (event?.is_active && event?.rotating_qr_enabled && isQrHost) {
-      updateQRCode();
-      intervalRef.current = window.setInterval(() => {
-        updateQRCode();
-      }, rotationSeconds * 1000);
-
-      const countdownInterval = window.setInterval(() => {
-        setTimeLeft((prev) => (prev > 1 ? prev - 1 : rotationSeconds));
-      }, 1000);
-
-      return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        clearInterval(countdownInterval);
-      };
+      void updateQRCode();
     }
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, [event?.is_active, event?.rotating_qr_enabled, updateQRCode, rotationSeconds, isQrHost]);
+  }, [event?.is_active, event?.rotating_qr_enabled, isQrHost, updateQRCode]);
 
   useEffect(() => {
     if (!event) return;
     if (event.is_active && !event.rotating_qr_enabled) {
       setQrToken('static');
+      nextRotationAtRef.current = null;
+      nextCountdownTickAtRef.current = null;
+      setIsQrRefreshing(false);
+      setTimeLeft(rotationSeconds);
       return;
     }
     if (!event.is_active) {
       setQrToken('');
+      nextRotationAtRef.current = null;
+      nextCountdownTickAtRef.current = null;
+      setIsQrRefreshing(false);
+      setTimeLeft(rotationSeconds);
       return;
     }
     if (!isQrHost && event.rotating_qr_enabled) {
       setQrToken(event.current_qr_token ?? '');
-      setTimeLeft(rotationSeconds);
+      const nextAt = getRotationTargetMs(event.qr_token_expires_at);
+      nextRotationAtRef.current = nextAt;
+      nextCountdownTickAtRef.current = Date.now() + 1000;
+      if (nextAt !== null) {
+        if (nextAt > Date.now()) {
+          setIsQrRefreshing(false);
+        }
+        setTimeLeft(getSecondsRemaining(nextAt));
+      }
     }
   }, [
     event?.current_qr_token,
+    event?.qr_token_expires_at,
     event?.is_active,
     event?.rotating_qr_enabled,
     isQrHost,
     rotationSeconds,
+    getRotationTargetMs,
+    getSecondsRemaining,
   ]);
 
   useEffect(() => {
-    if (isQrHost) {
+    if (!event?.is_active || !event?.rotating_qr_enabled) {
       if (countdownIntervalRef.current) {
-        window.clearInterval(countdownIntervalRef.current);
+        window.clearTimeout(countdownIntervalRef.current);
         countdownIntervalRef.current = null;
       }
       return;
     }
-    if (event?.is_active && event?.rotating_qr_enabled) {
-      if (countdownIntervalRef.current) {
-        window.clearInterval(countdownIntervalRef.current);
-      }
-      countdownIntervalRef.current = window.setInterval(() => {
-        setTimeLeft((prev) => (prev > 1 ? prev - 1 : rotationSeconds));
-      }, 1000);
-      return () => {
-        if (countdownIntervalRef.current) {
-          window.clearInterval(countdownIntervalRef.current);
-          countdownIntervalRef.current = null;
+
+    const tick = () => {
+      const target = nextRotationAtRef.current;
+      if (target !== null) {
+        const remainingMs = target - Date.now();
+        const remaining = getSecondsRemaining(target);
+        setTimeLeft(remaining);
+        if (remainingMs <= 0) {
+          setIsQrRefreshing(true);
         }
-      };
-    }
-    if (countdownIntervalRef.current) {
-      window.clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-  }, [event?.is_active, event?.rotating_qr_enabled, event?.current_qr_token, isQrHost, rotationSeconds]);
+        if (remainingMs <= ROTATION_EARLY_MS && isQrHost) {
+          void updateQRCode();
+        }
+      }
+      const nextTickAt = nextCountdownTickAtRef.current ?? Date.now() + 1000;
+      const delay = Math.max(0, nextTickAt - Date.now());
+      nextCountdownTickAtRef.current = nextTickAt + 1000;
+      countdownIntervalRef.current = window.setTimeout(tick, delay);
+    };
+
+    tick();
+    return () => {
+      if (countdownIntervalRef.current) {
+        window.clearTimeout(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+    };
+  }, [event?.is_active, event?.rotating_qr_enabled, isQrHost, updateQRCode, getSecondsRemaining]);
 
   useEffect(() => {
     if (!event || !id) return;
@@ -1083,6 +1129,9 @@ const EventDetail = () => {
           : prev
       );
       setQrToken(newToken);
+      nextRotationAtRef.current = Date.now() + rotationSeconds * 1000;
+      nextCountdownTickAtRef.current = Date.now() + 1000;
+      setIsQrRefreshing(false);
       setTimeLeft(rotationSeconds);
       setIsQrHost(Boolean(deviceId));
     };
@@ -1095,7 +1144,8 @@ const EventDetail = () => {
   };
 
   const toggleActive = async () => {
-    const newStatus = !event?.is_active;
+    if (!event || isTogglingEvent) return;
+    const newStatus = !event.is_active;
     if (newStatus) {
       triggerStartButtonPulse();
     }
@@ -1105,30 +1155,35 @@ const EventDetail = () => {
       : null;
     const leaseExpiresAt =
       newStatus && deviceId ? new Date(Date.now() + QR_HOST_LEASE_MS).toISOString() : null;
-    
-    const { error } = await supabase
-      .from('events')
-      .update({ 
-        is_active: newStatus,
-        current_qr_token: newStatus ? generateToken() : null,
-        qr_token_expires_at: expiresAt,
-        qr_host_device_id: newStatus ? deviceId ?? null : null,
-        qr_host_lease_expires_at: newStatus ? leaseExpiresAt : null,
-      })
-      .eq('id', id);
 
-    if (!error) {
-      setEvent((prev) =>
-        prev
-          ? {
-              ...prev,
-              is_active: newStatus,
-              qr_host_device_id: newStatus ? deviceId ?? null : null,
-              qr_host_lease_expires_at: newStatus ? leaseExpiresAt : null,
-            }
-          : null,
-      );
-      setIsQrHost(Boolean(newStatus && deviceId));
+    setIsTogglingEvent(true);
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({ 
+          is_active: newStatus,
+          current_qr_token: newStatus ? generateToken() : null,
+          qr_token_expires_at: expiresAt,
+          qr_host_device_id: newStatus ? deviceId ?? null : null,
+          qr_host_lease_expires_at: newStatus ? leaseExpiresAt : null,
+        })
+        .eq('id', id);
+
+      if (!error) {
+        setEvent((prev) =>
+          prev
+            ? {
+                ...prev,
+                is_active: newStatus,
+                qr_host_device_id: newStatus ? deviceId ?? null : null,
+                qr_host_lease_expires_at: newStatus ? leaseExpiresAt : null,
+              }
+            : null,
+        );
+        setIsQrHost(Boolean(newStatus && deviceId));
+      }
+    } finally {
+      setIsTogglingEvent(false);
     }
   };
 
@@ -1175,6 +1230,7 @@ const EventDetail = () => {
 
   const qrUrl = `${window.location.origin}/attend/${id}?token=${qrToken}`;
   const staticQrUrl = `${window.location.origin}/attend/${id}?token=static`;
+  const isStarting = isTogglingEvent && !event?.is_active;
 
   const handleCopyStaticLink = async () => {
     setCopyingStaticLink(true);
@@ -1407,6 +1463,8 @@ const EventDetail = () => {
             <Button
               variant={event.is_active ? 'destructive' : 'hero'}
               onClick={toggleActive}
+              disabled={isTogglingEvent}
+              aria-busy={isTogglingEvent}
               className={`gap-2 rounded-full ${startButtonPulse ? 'animate-button-press' : ''} ${event.is_active ? 'stop-event-trigger' : 'start-event-trigger'}`}
             >
               {event.is_active ? (
@@ -1416,8 +1474,12 @@ const EventDetail = () => {
                 </>
               ) : (
                 <>
-                  <Play className="w-4 h-4 start-event-icon" />
-                  <span className="hidden md:inline">Start Event</span>
+                  {isStarting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Play className="w-4 h-4 start-event-icon" />
+                  )}
+                  <span className="hidden md:inline">{isStarting ? 'Starting...' : 'Start Event'}</span>
                 </>
               )}
             </Button>
@@ -1475,7 +1537,7 @@ const EventDetail = () => {
                       {event.rotating_qr_enabled ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin" />
-                          Refreshing in {timeLeft}s
+                          {isQrRefreshing ? 'Refreshing…' : `Refreshing in ${timeLeft}s`}
                         </>
                       ) : (
                         <span>Static QR Code</span>
@@ -1519,10 +1581,16 @@ const EventDetail = () => {
                     <Button
                       onClick={toggleActive}
                       variant="hero"
+                      disabled={isTogglingEvent}
+                      aria-busy={isTogglingEvent}
                       className={`gap-2 rounded-full start-event-trigger ${startButtonPulse ? 'animate-button-press' : ''}`}
                     >
-                      <Play className="w-4 h-4 start-event-icon" />
-                      Start Event
+                      {isStarting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Play className="w-4 h-4 start-event-icon" />
+                      )}
+                      {isStarting ? 'Starting...' : 'Start Event'}
                     </Button>
                   </div>
                 )}
