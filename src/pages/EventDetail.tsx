@@ -275,7 +275,9 @@ const EventDetail = () => {
     setClientIdBulkAction(null);
 
     if (!error) {
-      fetchAttendance();
+      await fetchAttendance();
+      setClientIdDialogOpen(false);
+      setClientIdDialogKey(null);
     }
   };
 
@@ -1998,7 +2000,7 @@ const EventDetail = () => {
                               </div>
                             </>
                           )}
-                          {record.suspicious_reason && (
+                          {record.suspicious_reason && (!compactView || isExpanded) && (
                             <div className={`flex items-center gap-2 ${compactView && !isExpanded ? 'mt-0.5' : 'mt-1'}`}>
                               <p className="text-xs text-warning flex items-center gap-1 break-words">
                                 <AlertTriangle className="w-3 h-3" />
