@@ -16,7 +16,7 @@ const AlertDialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Overlay
     className={cn(
-      "fixed inset-0 z-50 bg-black/55 backdrop-blur-[4px] animate-sanitize-overlay data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-black/55 backdrop-blur-[4px] animate-sanitize-overlay",
       className,
     )}
     {...props}
@@ -28,15 +28,20 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => (
+>(({ className, style, ...props }, ref) => (
   <AlertDialogPortal>
     <AlertDialogOverlay />
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-x-2 bottom-2 z-50 grid w-auto max-h-[92dvh] gap-4 overflow-y-auto rounded-3xl border border-border/70 bg-gradient-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-[0_34px_84px_-30px_rgba(0,0,0,0.65)] duration-200 animate-sanitize-card data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:inset-x-4 sm:bottom-4 sm:p-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:inset-auto lg:left-[50%] lg:top-[50%] lg:bottom-auto lg:w-[calc(100%-2rem)] lg:max-w-lg lg:max-h-[90vh] lg:translate-x-[-50%] lg:translate-y-[-50%]",
+        "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-1rem)] max-h-[92dvh] max-w-lg -translate-x-1/2 -translate-y-1/2 origin-center gap-4 overflow-y-auto rounded-3xl border border-border/70 bg-gradient-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-[0_34px_84px_-30px_rgba(0,0,0,0.65)] duration-200 animate-sanitize-card sm:w-[calc(100%-2rem)] sm:p-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:max-h-[90vh]",
         className,
       )}
+      style={{
+        ["--sanitize-x" as string]: "-50%",
+        ["--sanitize-y" as string]: "-50%",
+        ...style,
+      }}
       {...props}
     />
   </AlertDialogPortal>

@@ -511,10 +511,15 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-soft-rise,
   .animate-season-fullscreen,
-  .animate-sanitize-overlay,
-  .animate-sanitize-card {
+  .animate-sanitize-overlay {
     animation: none;
     transform: none;
+  }
+
+  .animate-sanitize-card {
+    animation: none;
+    transform: translate(var(--sanitize-x, 0), var(--sanitize-y, 0));
+    opacity: 1;
   }
 }
 
@@ -583,11 +588,11 @@
 @keyframes sanitizeCard {
   0% {
     opacity: 0;
-    transform: scale(0.92) translateY(16px);
+    transform: translate(var(--sanitize-x, 0), var(--sanitize-y, 0)) scale(0.92) translateY(16px);
   }
   100% {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translate(var(--sanitize-x, 0), var(--sanitize-y, 0)) scale(1) translateY(0);
   }
 }
 
