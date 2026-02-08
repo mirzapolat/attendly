@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import WorkspaceLayout from '@/components/WorkspaceLayout';
 import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X, Settings, FileText, AlertTriangle, Wand2, DoorOpen, MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -873,33 +872,38 @@ const SeasonDetail = () => {
 
   if (loading) {
     return (
-      <WorkspaceLayout title="Series details">
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-pulse-subtle">Loading...</div>
+      <div className="fixed inset-0 z-50 bg-background overflow-y-auto animate-season-fullscreen">
+        <div className="container mx-auto px-6 py-8">
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-pulse-subtle">Loading...</div>
+          </div>
         </div>
-      </WorkspaceLayout>
+      </div>
     );
   }
 
   if (!season) {
     return (
-      <WorkspaceLayout title="Series details">
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <p className="text-muted-foreground mb-4">Series not found</p>
-            <Link to="/series">
-              <Button>Back to Series</Button>
-            </Link>
+      <div className="fixed inset-0 z-50 bg-background overflow-y-auto animate-season-fullscreen">
+        <div className="container mx-auto px-6 py-8">
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <p className="text-muted-foreground mb-4">Series not found</p>
+              <Link to="/series">
+                <Button>Back to Series</Button>
+              </Link>
+            </div>
           </div>
         </div>
-      </WorkspaceLayout>
+      </div>
     );
   }
 
   return (
-    <WorkspaceLayout title={season.name}>
+    <div className="fixed inset-0 z-50 bg-background overflow-y-auto animate-season-fullscreen">
+      <div className="container mx-auto px-6 py-8">
       <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/80 px-4 py-3 shadow-sm backdrop-blur-sm">
+        <div className="animate-soft-rise flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/80 px-4 py-3 shadow-sm backdrop-blur-sm">
           <Button asChild variant="glass" size="sm" className="rounded-full px-3">
             <Link to="/series">
               <ArrowLeft className="w-4 h-4" />
@@ -953,7 +957,7 @@ const SeasonDetail = () => {
         </div>
 
         <div>
-        <div className="mb-8 space-y-3">
+        <div className="animate-soft-rise mb-8 space-y-3" style={{ '--delay': '80ms' } as React.CSSProperties}>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <BarChart3 className="w-6 h-6" />
@@ -996,14 +1000,14 @@ const SeasonDetail = () => {
         </div>
 
         {events.length === 0 ? (
-          <Card className="bg-gradient-card">
+          <Card className="animate-soft-rise bg-gradient-card" style={{ '--delay': '160ms' } as React.CSSProperties}>
             <CardContent className="py-12 text-center">
               <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">No events in this series yet</p>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="animate-soft-rise grid lg:grid-cols-2 gap-8" style={{ '--delay': '160ms' } as React.CSSProperties}>
             {/* Attendance Chart */}
             <Card className="bg-gradient-card">
               <CardHeader>
@@ -1137,7 +1141,7 @@ const SeasonDetail = () => {
         )}
 
         {/* Events List */}
-        <div className="mt-8">
+        <div className="animate-soft-rise mt-8" style={{ '--delay': '240ms' } as React.CSSProperties}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Events in this Series</h2>
             <div className="flex items-center gap-2">
@@ -1636,7 +1640,8 @@ const SeasonDetail = () => {
         </DialogContent>
       </Dialog>
     </div>
-  </WorkspaceLayout>
+    </div>
+  </div>
   );
 };
 
