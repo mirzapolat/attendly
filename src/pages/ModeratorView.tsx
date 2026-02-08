@@ -985,22 +985,22 @@ const ModeratorView = () => {
                             >
                               {getDisplayName(record)}
                             </p>
-                            <Badge
-                              variant={
-                                record.status === 'verified'
-                                  ? 'default'
-                                  : record.status === 'suspicious'
+                            {record.status !== 'verified' && (
+                              <Badge
+                                variant={
+                                  record.status === 'suspicious'
                                     ? 'destructive'
                                     : 'secondary'
-                              }
-                              className={
-                                record.status === 'excused'
-                                  ? 'bg-warning/10 text-warning border-warning/20'
-                                  : undefined
-                              }
-                            >
-                              {record.status}
-                            </Badge>
+                                }
+                                className={
+                                  record.status === 'excused'
+                                    ? 'bg-warning/10 text-warning border-warning/20'
+                                    : undefined
+                                }
+                              >
+                                {record.status}
+                              </Badge>
+                            )}
                           </div>
                           {(!compactView || isExpanded) && (
                             <>
