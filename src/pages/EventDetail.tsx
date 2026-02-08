@@ -1616,8 +1616,8 @@ const EventDetail = () => {
                   <p className="text-xs text-muted-foreground">Total</p>
                 </CardContent>
               </Card>
-              <Card 
-                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] filter-cloudy-warning ${statusFilter === 'excused' ? 'ring-2 ring-warning filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)]' : ''}`}
+              <Card
+                className={`bg-gradient-card relative overflow-hidden transition-all ${excusedCount === 0 ? 'opacity-50 cursor-default pointer-events-none' : `cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] filter-cloudy-warning ${statusFilter === 'excused' ? 'ring-2 ring-warning filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)]' : ''}`}`}
                 onClick={(event) => handleStatusFilter('excused', event)}
                 style={getCloudOriginStyle('excused')}
               >
@@ -1630,8 +1630,8 @@ const EventDetail = () => {
                   <p className="text-xs text-muted-foreground">Excused</p>
                 </CardContent>
               </Card>
-              <Card 
-                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)] filter-cloudy-success ${statusFilter === 'verified' ? 'ring-2 ring-success filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)]' : ''}`}
+              <Card
+                className={`bg-gradient-card relative overflow-hidden transition-all ${verifiedCount === 0 ? 'opacity-50 cursor-default pointer-events-none' : `cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)] filter-cloudy-success ${statusFilter === 'verified' ? 'ring-2 ring-success filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)]' : ''}`}`}
                 onClick={(event) => handleStatusFilter('verified', event)}
                 style={getCloudOriginStyle('verified')}
               >
@@ -1644,8 +1644,8 @@ const EventDetail = () => {
                   <p className="text-xs text-muted-foreground">Verified</p>
                 </CardContent>
               </Card>
-              <Card 
-                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--destructive)/0.45)] filter-cloudy-destructive ${statusFilter === 'suspicious' ? 'ring-2 ring-destructive filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--destructive)/0.45)]' : ''}`}
+              <Card
+                className={`bg-gradient-card relative overflow-hidden transition-all ${suspiciousCount === 0 ? 'opacity-50 cursor-default pointer-events-none' : `cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--destructive)/0.45)] filter-cloudy-destructive ${statusFilter === 'suspicious' ? 'ring-2 ring-destructive filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--destructive)/0.45)]' : ''}`}`}
                 onClick={(event) => handleStatusFilter('suspicious', event)}
                 style={getCloudOriginStyle('suspicious')}
               >
