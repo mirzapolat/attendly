@@ -8,7 +8,6 @@ import {
     Home,
     LogIn,
     Mail,
-    MapPin,
     Menu,
     Sparkles,
     User,
@@ -133,14 +132,6 @@ const Impressum = () => {
                                                 <p className="font-semibold text-foreground">Mirza Can Polat</p>
                                             </div>
                                         </div>
-                                        <div className="mt-3 flex items-start gap-3">
-                                            <MapPin className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                                            <div className="space-y-1">
-                                                <p>Dachauer Str. 159</p>
-                                                <p>80636 München</p>
-                                                <p>Deutschland</p>
-                                            </div>
-                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -180,13 +171,6 @@ const Impressum = () => {
                                             <User className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                                             <div>
                                                 <p className="font-semibold text-foreground">Mirza Can Polat</p>
-                                            </div>
-                                        </div>
-                                        <div className="mt-3 flex items-start gap-3">
-                                            <MapPin className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                                            <div className="space-y-1">
-                                                <p>Dachauer Str. 159</p>
-                                                <p>80636 München</p>
                                             </div>
                                         </div>
                                     </div>
