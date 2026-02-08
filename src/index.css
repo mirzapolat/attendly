@@ -283,6 +283,11 @@
     animation: scaleIn 0.3s ease-out forwards;
   }
 
+  .animate-season-fullscreen {
+    animation: seasonFullscreen 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    will-change: transform, opacity;
+  }
+
   .animate-soft-rise {
     animation: softRise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
     animation-delay: var(--delay, 0ms);
@@ -494,7 +499,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-soft-rise {
+  .animate-soft-rise,
+  .animate-season-fullscreen {
     animation: none;
     transform: none;
   }
@@ -539,6 +545,17 @@
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes seasonFullscreen {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 
