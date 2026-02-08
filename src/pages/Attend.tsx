@@ -156,6 +156,7 @@ const Attend = () => {
   const [rememberSaved, setRememberSaved] = useState(false);
   const [showRememberConfetti, setShowRememberConfetti] = useState(false);
   const [prefilledFromRemember, setPrefilledFromRemember] = useState(false);
+  const [isRemembered, setIsRemembered] = useState(false);
 
   const timerRef = useRef<number | null>(null);
   const pendingLocationSubmitRef = useRef(false);
@@ -252,12 +253,14 @@ const Attend = () => {
     setRememberSaved(false);
     setShowRememberConfetti(false);
     setPrefilledFromRemember(false);
+    setIsRemembered(false);
 
     const remembered = consumeRememberCookie();
     if (remembered) {
       setName(remembered.name);
       setEmail(remembered.email);
       setPrefilledFromRemember(true);
+      setIsRemembered(true);
     }
 
     const existingClientId = getStoredClientId();
@@ -414,7 +417,9 @@ const Attend = () => {
           throw error ?? new Error(reason || 'Unknown error');
         }
       } else {
-        clearRememberCookie();
+        if (isRemembered) {
+          storeRememberCookie({ name: name.trim(), email: email.trim().toLowerCase() });
+        }
         setSubmitState('success');
       }
     } catch (error: unknown) {
@@ -471,6 +476,7 @@ const Attend = () => {
       };
       attendeeSchema.parse(payload);
       storeRememberCookie(payload);
+      setIsRemembered(true);
       setRememberSaved(true);
       setShowRememberConfetti(true);
       if (rememberConfettiTimerRef.current) {
@@ -491,6 +497,16 @@ const Attend = () => {
         description: 'Please enter a valid name and email before saving.',
       });
     }
+  };
+
+  const handleForgetMe = () => {
+    clearRememberCookie();
+    setIsRemembered(false);
+    setRememberSaved(false);
+    toast({
+      title: 'Forgotten',
+      description: 'Your details have been removed and won\'t be prefilled next time.',
+    });
   };
 
   // Render states
@@ -612,15 +628,33 @@ const Attend = () => {
               Thank you for checking in to {event?.name}.
             </p>
             <div className="mt-6 flex flex-col gap-2">
-              <Button
-                size="sm"
-                className="w-full bg-accent text-accent-foreground border-accent/40 hover:bg-accent/90"
-                onClick={handleRememberMe}
-                disabled={rememberSaved}
-              >
-                {rememberSaved && <Check />}
-                {rememberSaved ? 'Saved for next time' : 'Remember me'}
-              </Button>
+              {isRemembered ? (
+                <>
+                  <div className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">
+                    <p className="font-medium">Remembered as</p>
+                    <p className="text-muted-foreground">{name.trim()}</p>
+                    <p className="text-muted-foreground">{email.trim().toLowerCase()}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleForgetMe}
+                  >
+                    Forget me
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  className="w-full bg-accent text-accent-foreground border-accent/40 hover:bg-accent/90"
+                  onClick={handleRememberMe}
+                  disabled={rememberSaved}
+                >
+                  {rememberSaved && <Check />}
+                  {rememberSaved ? 'Saved for next time' : 'Remember me'}
+                </Button>
+              )}
               <Link to="/">
                 <Button variant="outline" size="sm" className="w-full">
                   Try Attendly

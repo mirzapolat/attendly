@@ -75,7 +75,7 @@ const NewEvent = () => {
 
   // Security features
   const [rotatingQrEnabled, setRotatingQrEnabled] = useState(true);
-  const [rotatingQrSeconds, setRotatingQrSeconds] = useState(6);
+  const [rotatingQrSeconds, setRotatingQrSeconds] = useState(15);
   const [showRotationSettings, setShowRotationSettings] = useState(false);
   const [clientIdCheckEnabled, setClientIdCheckEnabled] = useState(true);
   const [clientIdCollisionStrict, setClientIdCollisionStrict] = useState(true);
