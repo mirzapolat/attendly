@@ -19,6 +19,7 @@ import {
   AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Radio, Search, UserMinus, Mail, List, ListCollapse
 } from 'lucide-react';
 import { format } from 'date-fns';
+import AnimatedCount from '@/components/AnimatedCount';
 
 interface Event {
   id: string;
@@ -613,7 +614,7 @@ const ModeratorView = () => {
             <Card className="bg-gradient-card">
               <CardHeader>
                 <CardTitle className="min-w-0">
-                  <span className="min-w-0 truncate">{event.name}</span>
+                  <span className="block min-w-0 overflow-hidden whitespace-nowrap" style={{ maskImage: 'linear-gradient(to right, black 85%, transparent)', WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent)' }}>{event.name}</span>
                 </CardTitle>
                 {event.description && (
                   <p className="text-sm text-muted-foreground mt-1 break-words">{event.description}</p>
@@ -685,7 +686,7 @@ const ModeratorView = () => {
                 )}
                 <CardContent className="py-4 text-center relative z-10">
                   <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
-                  <p className="text-2xl font-bold">{attendance.length}</p>
+                  <p className="text-2xl font-bold"><AnimatedCount value={attendance.length} /></p>
                   <p className="text-xs text-muted-foreground">Total</p>
                 </CardContent>
               </Card>
@@ -699,7 +700,7 @@ const ModeratorView = () => {
                 )}
                 <CardContent className="py-4 text-center relative z-10">
                   <UserMinus className="w-5 h-5 mx-auto mb-1 text-warning" />
-                  <p className="text-2xl font-bold">{excusedCount}</p>
+                  <p className="text-2xl font-bold"><AnimatedCount value={excusedCount} /></p>
                   <p className="text-xs text-muted-foreground">Excused</p>
                 </CardContent>
               </Card>
@@ -713,7 +714,7 @@ const ModeratorView = () => {
                 )}
                 <CardContent className="py-4 text-center relative z-10">
                   <CheckCircle className="w-5 h-5 mx-auto mb-1 text-success" />
-                  <p className="text-2xl font-bold">{verifiedCount}</p>
+                  <p className="text-2xl font-bold"><AnimatedCount value={verifiedCount} /></p>
                   <p className="text-xs text-muted-foreground">Verified</p>
                 </CardContent>
               </Card>
@@ -727,7 +728,7 @@ const ModeratorView = () => {
                 )}
                 <CardContent className="py-4 text-center relative z-10">
                   <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-destructive" />
-                  <p className="text-2xl font-bold">{suspiciousCount}</p>
+                  <p className="text-2xl font-bold"><AnimatedCount value={suspiciousCount} /></p>
                   <p className="text-xs text-muted-foreground">Suspicious</p>
                 </CardContent>
               </Card>

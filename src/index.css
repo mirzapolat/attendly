@@ -908,3 +908,27 @@
     transform: rotate(6deg);
   }
 }
+
+.rolling-count {
+  display: inline-flex;
+  overflow: hidden;
+  line-height: 1;
+}
+
+.rolling-digit {
+  display: inline-block;
+  height: 1em;
+  overflow: hidden;
+}
+
+.rolling-digit-strip {
+  display: flex;
+  flex-direction: column;
+  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rolling-digit-strip span {
+  display: block;
+  height: 1em;
+  line-height: 1;
+}
