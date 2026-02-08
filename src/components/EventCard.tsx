@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +16,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { format, differenceInMinutes, isSameDay } from 'date-fns';
-import { Trash2, FolderPlus, FolderMinus, Folder, Calendar, Clock, UserCheck, X } from 'lucide-react';
+import { Trash2, FolderPlus, FolderMinus, Folder, Calendar, Clock, UserCheck } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -270,71 +271,58 @@ const EventCard = ({
 
   const dialogs = (
     <>
-      {showSeasonPicker && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm p-4"
-          onClick={() => setShowSeasonPicker(false)}
-        >
-          <div
-            className="w-full max-w-3xl rounded-2xl border border-border bg-background shadow-lg p-6"
-            onClick={(eventClick) => eventClick.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">
-                  Assign event
-                </p>
-                <h3 className="text-lg font-semibold">Choose a series</h3>
-              </div>
-              <Button variant="ghost" size="icon" onClick={() => setShowSeasonPicker(false)} title="Close">
-                <X className="w-4 h-4" />
-              </Button>
+      <Dialog open={showSeasonPicker} onOpenChange={setShowSeasonPicker}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Choose a series</DialogTitle>
+            <DialogDescription>
+              Assign this event to a series or remove it from its current series.
+            </DialogDescription>
+          </DialogHeader>
+          {seasons.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              No series available. Create one to organize events.
             </div>
-            {seasons.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">
-                No series available. Create one to organize events.
-              </div>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {event.series_id && (
-                  <button
-                    type="button"
-                    className="rounded-xl border border-dashed border-destructive/40 bg-destructive/5 px-4 py-3 text-left transition-colors hover:border-destructive/60"
-                    onClick={() => {
-                      handleSeasonChange(null);
-                      setShowSeasonPicker(false);
-                    }}
-                  >
-                    <p className="font-medium text-destructive">Remove from series</p>
-                    <p className="text-xs text-muted-foreground">Set as unassigned</p>
-                  </button>
-                )}
-                {seasons.map((season) => (
-                  <button
-                    key={season.id}
-                    type="button"
-                    className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-                      season.id === event.series_id
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border bg-muted/40 hover:border-primary/40'
-                    }`}
-                    onClick={() => {
-                      handleSeasonChange(season.id);
-                      setShowSeasonPicker(false);
-                    }}
-                  >
-                    <p className="font-medium">{season.name}</p>
-                    <p className="text-xs text-muted-foreground">Assign to this series</p>
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="mt-4 text-xs text-muted-foreground">
-              Tip: Drag events onto a series to organize quickly.
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {event.series_id && (
+                <button
+                  type="button"
+                  className="rounded-xl border border-dashed border-destructive/40 bg-destructive/5 px-4 py-3 text-left transition-colors hover:border-destructive/60"
+                  onClick={() => {
+                    handleSeasonChange(null);
+                    setShowSeasonPicker(false);
+                  }}
+                >
+                  <p className="font-medium text-destructive">Remove from series</p>
+                  <p className="text-xs text-muted-foreground">Set as unassigned</p>
+                </button>
+              )}
+              {seasons.map((season) => (
+                <button
+                  key={season.id}
+                  type="button"
+                  className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                    season.id === event.series_id
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border bg-muted/40 hover:border-primary/40'
+                  }`}
+                  onClick={() => {
+                    handleSeasonChange(season.id);
+                    setShowSeasonPicker(false);
+                  }}
+                >
+                  <p className="font-medium">{season.name}</p>
+                  <p className="text-xs text-muted-foreground">Assign to this series</p>
+                </button>
+              ))}
             </div>
+          )}
+          <div className="text-xs text-muted-foreground">
+            Tip: Drag events onto a series to organize quickly.
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>

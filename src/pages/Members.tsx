@@ -291,16 +291,16 @@ const Members = () => {
 
   return (
     <WorkspaceLayout title="Workspace members">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Members</h1>
-          <p className="text-muted-foreground">Manage who can access this workspace.</p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold sm:text-2xl">Members</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">Manage who can access this workspace.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           {isOwner ? (
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="hero">
+                <Button variant="hero" className="w-full sm:w-auto">
                   <UserPlus className="w-4 h-4" />
                   Invite member
                 </Button>
@@ -327,14 +327,14 @@ const Members = () => {
               </DialogContent>
             </Dialog>
           ) : (
-            <Button variant="outline" onClick={handleLeaveWorkspace}>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={handleLeaveWorkspace}>
               Leave workspace
             </Button>
           )}
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-xl font-semibold">Workspace members</h2>
         {members.length > 0 && (
           <div className="relative w-full sm:w-64">
@@ -356,8 +356,79 @@ const Members = () => {
           {memberSearch ? 'No members match your search.' : 'No members found.'}
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <div className="min-w-[640px] rounded-lg border border-border overflow-hidden">
+        <>
+          <div className="space-y-3 lg:hidden">
+            {filteredMembers.map((member) => {
+              const isWorkspaceOwner = member.profile_id === currentWorkspace?.owner_id;
+              const isSelf = member.profile_id === user?.id;
+              const highlightOwner = isWorkspaceOwner;
+              const highlightSelf = isSelf && !isWorkspaceOwner;
+              return (
+                <div
+                  key={member.profile_id}
+                  className="rounded-xl border border-border/80 bg-gradient-card p-4"
+                  style={
+                    highlightOwner
+                      ? { borderColor: '#f59e0b66', backgroundColor: '#f59e0b14' }
+                      : highlightSelf
+                        ? { borderColor: `${brandColor}66`, backgroundColor: `${brandColor}14` }
+                        : undefined
+                  }
+                >
+                  <div className="space-y-2">
+                    <div className="min-w-0">
+                      <p className="font-medium break-words">
+                        {member.profiles?.full_name ?? 'Unknown'}
+                        {isWorkspaceOwner && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700">
+                            <Crown className="h-3.5 w-3.5" />
+                            Owner
+                          </span>
+                        )}
+                        {isSelf && !isWorkspaceOwner && (
+                          <span className="ml-2 text-xs text-muted-foreground">You</span>
+                        )}
+                      </p>
+                      <p className="text-sm text-muted-foreground break-all">{member.profiles?.email ?? 'No email'}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Member since {member.created_at ? format(new Date(member.created_at), 'PPP') : '—'}
+                    </p>
+                    {showActions && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {isOwner && !isWorkspaceOwner ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 min-w-[120px] text-destructive hover:text-destructive"
+                              onClick={() => handleRemoveMember(member.profile_id)}
+                            >
+                              Remove
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 min-w-[140px]"
+                              onClick={() => handleTransferOwnershipToMember(member.profile_id)}
+                              disabled={transferringId === member.profile_id}
+                            >
+                              {transferringId === member.profile_id ? 'Transferring...' : 'Transfer ownership'}
+                            </Button>
+                          </>
+                        ) : (
+                          <div className="h-1" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden lg:block overflow-x-auto">
+            <div className="min-w-[640px] rounded-lg border border-border overflow-hidden">
             <div className="bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-l-4 border-transparent">
               <div
                 className={`grid gap-3 items-center ${
@@ -449,7 +520,8 @@ const Members = () => {
               })}
             </div>
           </div>
-        </div>
+          </div>
+        </>
       )}
 
       {isOwner && !loading && pendingInvites.length > 0 && (
@@ -464,7 +536,7 @@ const Members = () => {
             {pendingInvites.map((invite) => (
               <div
                 key={invite.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3"
+                className="flex flex-col items-start justify-between gap-3 rounded-lg border border-border px-4 py-3 sm:flex-row sm:items-center"
               >
                 <div className="min-w-0">
                   <p className="font-medium truncate">{invite.invited_email}</p>
@@ -474,7 +546,7 @@ const Members = () => {
                     </p>
                   )}
                 </div>
-                <Button variant="outline" size="sm" onClick={() => handleRevokeInvite(invite.id)}>
+                <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => handleRevokeInvite(invite.id)}>
                   Revoke
                 </Button>
               </div>

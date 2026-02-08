@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useWorkspace } from '@/hooks/useWorkspace';
-import { Settings, Save, Shield, QrCode, MapPinned, X, Copy, Timer, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Settings, Save, QrCode, MapPinned, Copy, Timer, ShieldCheck, AlertTriangle } from 'lucide-react';
 import QRCodeExport from '@/components/QRCodeExport';
 import LocationPicker from '@/components/LocationPicker';
 
@@ -93,7 +93,6 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
       Math.max(ROTATION_MIN_SECONDS, Number(event.rotating_qr_interval_seconds ?? 3)),
     ),
   );
-  const [showRotationSettings, setShowRotationSettings] = useState(false);
   const [clientIdCheckEnabled, setClientIdCheckEnabled] = useState(
     event.client_id_check_enabled ?? true,
   );
@@ -102,15 +101,12 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
   );
   const [locationCheckEnabled, setLocationCheckEnabled] = useState(event.location_check_enabled);
 
-  useEffect(() => {
-    if (!rotatingQrEnabled) {
-      setShowRotationSettings(false);
-    }
-  }, [rotatingQrEnabled]);
-
   // Check if location is properly set
-  const hasValidLocation = locationName && locationName !== 'No location' && 
-    locationLat !== 0 && locationLng !== 0;
+  const hasValidLocation =
+    Boolean(locationName) &&
+    locationName !== 'No location' &&
+    locationLat !== 0 &&
+    locationLng !== 0;
 
   const handleSaveAll = async () => {
     if (name.length > 40) {
@@ -202,259 +198,114 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
   const exportLogoUrl = event.brand_logo_url ?? currentWorkspace?.brand_logo_url ?? null;
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto py-8">
-      <Card className="w-full max-w-2xl mx-4 bg-gradient-card">
-        <CardHeader className="relative">
-          <CardTitle className="flex items-center gap-2">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="lg:max-w-5xl lg:max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
             Event Settings
-          </CardTitle>
-          <CardDescription>
+          </DialogTitle>
+          <DialogDescription>
             Modify event details and security settings.
-          </CardDescription>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="absolute right-4 top-4"
-            title="Close"
-          >
-            <X className="w-5 h-5" />
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSaveAll();
-            }}
-            className="space-y-6"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="eventName">Event Name</Label>
-              <Input
-                id="eventName"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={40}
-              />
-              {!showDescription && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowDescription(true)}
-                  className="h-auto p-0 text-xs font-normal text-muted-foreground hover:text-foreground"
-                >
-                  Add description
-                </Button>
-              )}
-            </div>
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveAll();
+          }}
+          className="space-y-6"
+        >
+          <div className="grid gap-6 lg:grid-cols-[1.55fr_1fr]">
+            <div className="space-y-6">
+              <section className="space-y-4 rounded-2xl border border-border/70 bg-background/60 p-4 sm:p-5">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Basics</p>
+                  <h3 className="text-base font-semibold">Event details</h3>
+                </div>
 
-            {showDescription && (
-              <div className="space-y-2">
-                <Label htmlFor="eventDescription">Description (Optional)</Label>
-                <Textarea
-                  id="eventDescription"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Brief description of the event..."
-                  rows={3}
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="eventDate">Date & Time</Label>
-              <Input
-                id="eventDate"
-                type="datetime-local"
-                value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
-              />
-            </div>
-
-            {/* Security Features */}
-            <div className="border border-border rounded-lg p-4 space-y-4">
-              <Label className="flex items-center gap-2 text-base font-medium">
-                <Shield className="w-4 h-4" />
-                Security Features
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Choose which security features to enable for this event.
-              </p>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <QrCode className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">Rotating QR Codes</p>
-                      <p className="text-xs text-muted-foreground">
-                        {rotatingQrEnabled
-                          ? `QR code changes every ${rotatingQrSeconds}s`
-                          : 'Static QR code (can be downloaded)'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {rotatingQrEnabled && (
+                <div className="space-y-2">
+                  <Label htmlFor="eventName">Event Name</Label>
+                  <Input
+                    id="eventName"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Weekly Team Meeting"
+                    maxLength={40}
+                  />
+                  <div className="flex items-center justify-between">
+                    {!showDescription ? (
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
-                        onClick={() => setShowRotationSettings((prev) => !prev)}
-                        title="Adjust rotation interval"
+                        size="sm"
+                        onClick={() => setShowDescription(true)}
+                        className="h-auto p-0 text-xs font-normal text-muted-foreground hover:text-foreground"
                       >
-                        <Timer className="h-4 w-4" />
+                        Add description
                       </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Keep details concise for attendees.</span>
                     )}
-                    <Switch
-                      checked={rotatingQrEnabled}
-                      onCheckedChange={setRotatingQrEnabled}
-                    />
+                    <span className="text-xs text-muted-foreground">{name.length}/40</span>
                   </div>
                 </div>
-                {showRotationSettings && (
-                  <div className="text-xs text-muted-foreground">
+
+                {showDescription && (
+                  <div className="space-y-2">
+                    <Label htmlFor="eventDescription">Description (Optional)</Label>
+                    <Textarea
+                      id="eventDescription"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Brief description of the event..."
+                      rows={3}
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="eventDate">Date & Time</Label>
+                  <Input
+                    id="eventDate"
+                    type="datetime-local"
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                  />
+                </div>
+              </section>
+
+              {locationCheckEnabled && (
+                <section className="space-y-4 rounded-2xl border border-border/70 bg-background/60 p-4 sm:p-5">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Location</p>
+                    <h3 className="text-base font-semibold">Attendance area</h3>
+                  </div>
+
+                  {!hasValidLocation && (
+                    <p className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                      Location check is enabled but no valid location is set. Please add location data below.
+                    </p>
+                  )}
+
+                  <LocationPicker
+                    locationName={locationName}
+                    locationLat={locationLat}
+                    locationLng={locationLng}
+                    onLocationNameChange={setLocationName}
+                    onLocationLatChange={setLocationLat}
+                    onLocationLngChange={setLocationLng}
+                  />
+
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Timer className="h-3.5 w-3.5" />
-                        <span>Rotate every</span>
-                      </div>
+                      <Label htmlFor="radius">Allowed Radius</Label>
                       <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-semibold text-foreground">
-                        {rotatingQrSeconds}s
+                        {formatRadius(radiusMeters)}
                       </span>
                     </div>
-                    <input
-                      type="range"
-                      min={ROTATION_MIN_SECONDS}
-                      max={ROTATION_MAX_SECONDS}
-                      step={1}
-                      value={rotatingQrSeconds}
-                      onChange={(event) => setRotatingQrSeconds(Number(event.target.value))}
-                      className="mt-2 w-full accent-primary"
-                    />
-                  </div>
-                )}
-
-                {!rotatingQrEnabled && (
-                  <div className="p-4 border border-border rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">Static QR Code</p>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleCopyStaticLink}
-                          disabled={copyingLink}
-                          className="gap-2"
-                        >
-                          <Copy className="h-4 w-4" />
-                          {copyingLink ? 'Copying...' : 'Copy link'}
-                        </Button>
-                        <QRCodeExport
-                          url={staticQrUrl}
-                          eventName={event.name}
-                          eventDate={event.event_date}
-                          brandLogoUrl={exportLogoUrl}
-                          label="Download JPG"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <ShieldCheck className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">Client ID Checks</p>
-                      <p className="text-xs text-muted-foreground">
-                        {clientIdCheckEnabled
-                          ? 'Track repeat submissions using client IDs'
-                          : 'Disabled: client IDs still saved for analytics'}
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={clientIdCheckEnabled}
-                    onCheckedChange={setClientIdCheckEnabled}
-                  />
-                </div>
-
-                {clientIdCheckEnabled && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <AlertTriangle className="w-5 h-5 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium text-sm">Collision Handling</p>
-                        <p className="text-xs text-muted-foreground">
-                          {clientIdCollisionStrict
-                            ? 'Strict: block matching client IDs'
-                            : 'Allow + mark suspicious on matches'}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setClientIdCollisionStrict((prev) => !prev)}
-                      title={
-                        clientIdCollisionStrict
-                          ? 'Strict block: reject matching client IDs'
-                          : 'Allow + mark suspicious on matches'
-                      }
-                    >
-                      {clientIdCollisionStrict ? (
-                        <ShieldCheck className="h-4 w-4" />
-                      ) : (
-                        <AlertTriangle className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <MapPinned className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">Location Check</p>
-                      <p className="text-xs text-muted-foreground">
-                        {locationCheckEnabled
-                          ? 'Location is required and will be verified'
-                          : 'Location is optional'}
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={locationCheckEnabled}
-                    onCheckedChange={setLocationCheckEnabled}
-                  />
-                </div>
-
-                {locationCheckEnabled && (
-                  <div className="rounded-lg border border-border/60 bg-secondary/20 p-4 space-y-4">
-                    {!hasValidLocation && (
-                      <p className="text-sm text-warning bg-warning/10 p-2 rounded">
-                        ⚠️ Location check is enabled but no valid location is set. Please add location data below.
-                      </p>
-                    )}
-
-                    <LocationPicker
-                      locationName={locationName}
-                      locationLat={locationLat}
-                      locationLng={locationLng}
-                      onLocationNameChange={setLocationName}
-                      onLocationLatChange={setLocationLat}
-                      onLocationLngChange={setLocationLng}
-                    />
-
-                    <div className="space-y-2">
-                      <Label>Allowed Radius: {formatRadius(radiusMeters)}</Label>
                     <Input
+                      id="radius"
                       type="range"
                       min="0"
                       max="6"
@@ -463,23 +314,171 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                       onChange={(e) => setRadiusMeters(sliderToRadius(parseFloat(e.target.value)))}
                       className="w-full"
                     />
-                      <p className="text-xs text-muted-foreground">
-                        Location changes apply to future check-ins only.
-                      </p>
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Location changes apply to future check-ins only.
+                    </p>
                   </div>
-                )}
-              </div>
+                </section>
+              )}
             </div>
 
-            <Button type="submit" disabled={saving} className="w-full" size="lg">
-              <Save className="w-4 h-4" />
-              {saving ? 'Saving...' : 'Save Event'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+            <div className="space-y-4">
+              <section className="space-y-4 rounded-2xl border border-border/70 bg-background/60 p-4 sm:p-5">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Security</p>
+                  <h3 className="text-base font-semibold">Protection settings</h3>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-border/60 bg-background/70 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <QrCode className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">Rotating QR Codes</p>
+                          <p className="text-xs text-muted-foreground">
+                            {rotatingQrEnabled ? `Refresh every ${rotatingQrSeconds}s` : 'Use static QR'}
+                          </p>
+                        </div>
+                      </div>
+                      <Switch checked={rotatingQrEnabled} onCheckedChange={setRotatingQrEnabled} />
+                    </div>
+
+                    {rotatingQrEnabled && (
+                      <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="inline-flex items-center gap-1">
+                            <Timer className="h-3.5 w-3.5" />
+                            Rotate every
+                          </span>
+                          <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                            {rotatingQrSeconds}s
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={ROTATION_MIN_SECONDS}
+                          max={ROTATION_MAX_SECONDS}
+                          step={1}
+                          value={rotatingQrSeconds}
+                          onChange={(rotationEvent) =>
+                            setRotatingQrSeconds(Number(rotationEvent.target.value))
+                          }
+                          className="w-full accent-primary"
+                        />
+                      </div>
+                    )}
+
+                    {!rotatingQrEnabled && (
+                      <div className="mt-3 rounded-lg border border-border/60 bg-background/80 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-medium text-muted-foreground">Static QR sharing</p>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleCopyStaticLink}
+                              disabled={copyingLink}
+                              className="gap-2"
+                            >
+                              <Copy className="h-4 w-4" />
+                              {copyingLink ? 'Copying...' : 'Copy link'}
+                            </Button>
+                            <QRCodeExport
+                              url={staticQrUrl}
+                              eventName={event.name}
+                              eventDate={event.event_date}
+                              brandLogoUrl={exportLogoUrl}
+                              label="Download JPG"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-border/60 bg-background/70 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <ShieldCheck className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">Client ID Checks</p>
+                          <p className="text-xs text-muted-foreground">
+                            {clientIdCheckEnabled ? 'Prevent repeated check-ins' : 'Track only for analytics'}
+                          </p>
+                        </div>
+                      </div>
+                      <Switch checked={clientIdCheckEnabled} onCheckedChange={setClientIdCheckEnabled} />
+                    </div>
+
+                    {clientIdCheckEnabled && (
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">Collision Handling</p>
+                            <p className="text-xs text-muted-foreground">
+                              {clientIdCollisionStrict ? 'Strict block mode' : 'Allow + mark suspicious'}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setClientIdCollisionStrict((prev) => !prev)}
+                          title={
+                            clientIdCollisionStrict
+                              ? 'Strict block: reject matching client IDs'
+                              : 'Allow + mark suspicious on matches'
+                          }
+                        >
+                          {clientIdCollisionStrict ? (
+                            <ShieldCheck className="h-4 w-4" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-border/60 bg-background/70 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <MapPinned className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">Location Check</p>
+                          <p className="text-xs text-muted-foreground">
+                            {locationCheckEnabled ? 'Require attendees near your location' : 'Location optional'}
+                          </p>
+                        </div>
+                      </div>
+                      <Switch checked={locationCheckEnabled} onCheckedChange={setLocationCheckEnabled} />
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 -mx-5 mt-2 border-t border-border/70 bg-background/80 px-5 py-4 backdrop-blur-md sm:-mx-6 sm:px-6">
+            <div className="flex items-center justify-between gap-3">
+              <div className="ml-auto flex items-center gap-2">
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  <Save className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save Event'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 };
 

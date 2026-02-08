@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { X, Plus, Copy, Trash2, Link as LinkIcon, Shield, Eye, EyeOff } from 'lucide-react';
+import { Plus, Copy, Trash2, Link as LinkIcon, Shield, Eye } from 'lucide-react';
 
 interface ModerationLink {
   id: string;
@@ -207,172 +207,166 @@ const ModerationSettings = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-lg bg-background border shadow-lg max-h-[90vh] overflow-y-auto">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-semibold">Moderation Settings</h2>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onClose} title="Close">
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-
-          <p className="text-sm text-muted-foreground mb-6">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="lg:max-w-lg lg:max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-primary" />
+            Moderation Settings
+          </DialogTitle>
+          <DialogDescription>
             Manage moderation access for <strong>{eventName}</strong>
-          </p>
+          </DialogDescription>
+        </DialogHeader>
 
-          {/* Enable/Disable Moderation */}
-          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg mb-4">
-            <div>
-              <Label htmlFor="moderation-toggle" className="font-medium">
-                Enable Moderation
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Allow moderators to access this event
-              </p>
-            </div>
-            <Switch
-              id="moderation-toggle"
-              checked={enabled}
-              onCheckedChange={toggleModeration}
-            />
+        {/* Enable/Disable Moderation */}
+        <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg mb-4">
+          <div>
+            <Label htmlFor="moderation-toggle" className="font-medium">
+              Enable Moderation
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              Allow moderators to access this event
+            </p>
           </div>
+          <Switch
+            id="moderation-toggle"
+            checked={enabled}
+            onCheckedChange={toggleModeration}
+          />
+        </div>
 
-          {enabled && (
-            <>
-              {/* Privacy Settings */}
-              <div className="mb-6 space-y-3">
-                <Label className="text-sm font-medium flex items-center gap-2">
-                  <Eye className="w-4 h-4" />
-                  Privacy Settings
-                </Label>
-                
-                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <div>
-                    <Label htmlFor="show-fullname" className="text-sm">
-                      Show full names
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      If disabled, moderators only see first names
-                    </p>
-                  </div>
-                  <Switch
-                    id="show-fullname"
-                    checked={showFullName}
-                    onCheckedChange={toggleShowFullName}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <div>
-                    <Label htmlFor="show-email" className="text-sm">
-                      Show emails
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      If disabled, moderators cannot see emails
-                    </p>
-                  </div>
-                  <Switch
-                    id="show-email"
-                    checked={showEmail}
-                    onCheckedChange={toggleShowEmail}
-                  />
-                </div>
-              </div>
-
-              {/* Create New Link */}
-              <div className="mb-6">
-                <Label className="mb-2 block">Create Moderation Link</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Label (optional, e.g. 'John')"
-                    value={newLinkLabel}
-                    onChange={(e) => setNewLinkLabel(e.target.value)}
-                  />
-                  <Button onClick={createLink} size="icon" title="Create link">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Existing Links */}
-              <div>
-                <Label className="mb-2 block">
-                  Active Links ({links.filter((l) => l.is_active).length})
-                </Label>
-                {loading ? (
-                  <p className="text-sm text-muted-foreground">Loading...</p>
-                ) : links.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No moderation links created yet
+        {enabled && (
+          <>
+            {/* Privacy Settings */}
+            <div className="mb-6 space-y-3">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                Privacy Settings
+              </Label>
+              
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                <div>
+                  <Label htmlFor="show-fullname" className="text-sm">
+                    Show full names
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    If disabled, moderators only see first names
                   </p>
-                ) : (
-                  <div className="space-y-2">
-                    {links.map((link) => (
-                      <div
-                        key={link.id}
-                        className={`flex items-center justify-between p-3 rounded-lg border ${
-                          link.is_active
-                            ? 'bg-muted/30'
-                            : 'bg-muted/10 opacity-60'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <LinkIcon className="w-4 h-4 text-muted-foreground shrink-0" />
-                          <div className="min-w-0">
-                            <div className="text-sm truncate">
-                              {link.label || `Link ${link.token.slice(0, 8)}...`}
-                            </div>
-                            {formatExpiry(link.expires_at) && (
-                              <div className="text-xs text-muted-foreground">
-                                Expires {formatExpiry(link.expires_at)}
-                              </div>
-                            )}
+                </div>
+                <Switch
+                  id="show-fullname"
+                  checked={showFullName}
+                  onCheckedChange={toggleShowFullName}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                <div>
+                  <Label htmlFor="show-email" className="text-sm">
+                    Show emails
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    If disabled, moderators cannot see emails
+                  </p>
+                </div>
+                <Switch
+                  id="show-email"
+                  checked={showEmail}
+                  onCheckedChange={toggleShowEmail}
+                />
+              </div>
+            </div>
+
+            {/* Create New Link */}
+            <div className="mb-6">
+              <Label className="mb-2 block">Create Moderation Link</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Label (optional, e.g. 'John')"
+                  value={newLinkLabel}
+                  onChange={(e) => setNewLinkLabel(e.target.value)}
+                />
+                <Button onClick={createLink} size="icon" title="Create link">
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Existing Links */}
+            <div>
+              <Label className="mb-2 block">
+                Active Links ({links.filter((l) => l.is_active).length})
+              </Label>
+              {loading ? (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              ) : links.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No moderation links created yet
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {links.map((link) => (
+                    <div
+                      key={link.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        link.is_active
+                          ? 'bg-muted/30'
+                          : 'bg-muted/10 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <LinkIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <div className="min-w-0">
+                          <div className="text-sm truncate">
+                            {link.label || `Link ${link.token.slice(0, 8)}...`}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Switch
-                            checked={link.is_active}
-                            onCheckedChange={(v) => toggleLink(link.id, v)}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => copyLink(link.token)}
-                            title="Copy link"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteLink(link.id)}
-                            title="Delete link"
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
+                          {formatExpiry(link.expires_at) && (
+                            <div className="text-xs text-muted-foreground">
+                              Expires {formatExpiry(link.expires_at)}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      <div className="flex items-center gap-1">
+                        <Switch
+                          checked={link.is_active}
+                          onCheckedChange={(v) => toggleLink(link.id, v)}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => copyLink(link.token)}
+                          title="Copy link"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteLink(link.id)}
+                          title="Delete link"
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-              <div className="mt-6 p-4 bg-muted rounded-lg border">
-                <p className="text-sm text-foreground">
-                  <strong>Moderator permissions:</strong> View event, add/remove
-                  attendees, toggle suspicious status. Cannot modify settings,
-                  start/stop event, or export data.
-                </p>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            <div className="mt-6 p-4 bg-muted rounded-lg border">
+              <p className="text-sm text-foreground">
+                <strong>Moderator permissions:</strong> View event, add/remove
+                attendees, toggle suspicious status. Cannot modify settings,
+                start/stop event, or export data.
+              </p>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 };
 

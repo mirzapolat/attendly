@@ -254,8 +254,13 @@ const WorkspaceSettings = () => {
 
   return (
     <WorkspaceLayout title="Workspace settings">
-      <div className="max-w-3xl">
-        <h1 className="text-2xl font-bold mb-6">Workspace settings</h1>
+      <div className="max-w-4xl">
+        <div className="mb-6">
+          <h1 className="text-xl font-bold sm:text-2xl">Workspace settings</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
+            Manage branding, members, and cleanup actions for this workspace.
+          </p>
+        </div>
 
         <Card className="bg-gradient-card mb-6">
           <CardHeader>
@@ -278,7 +283,7 @@ const WorkspaceSettings = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="workspaceLogo">Brand logo (URL)</Label>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   {logoPreviewUrl && (
                     <div className="h-12 w-12 shrink-0 rounded-xl border border-border bg-muted/40 flex items-center justify-center overflow-hidden">
                       <img
@@ -316,7 +321,7 @@ const WorkspaceSettings = () => {
                 </div>
               </div>
               {isOwner ? (
-                <Button type="submit" disabled={saving} className="gap-2">
+                <Button type="submit" disabled={saving} className="w-full gap-2 sm:w-auto">
                   <Save className="w-4 h-4" />
                   {saving ? 'Saving...' : 'Save changes'}
                 </Button>
@@ -341,11 +346,12 @@ const WorkspaceSettings = () => {
                   Remove data or members without deleting the workspace.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-wrap gap-3">
+              <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Button
                   variant="outline"
                   onClick={handleDeleteAllEvents}
                   disabled={clearingEvents}
+                  className="w-full sm:w-auto"
                 >
                   {clearingEvents ? 'Deleting events...' : 'Delete all events'}
                 </Button>
@@ -353,6 +359,7 @@ const WorkspaceSettings = () => {
                   variant="outline"
                   onClick={handleDeleteAllSeasons}
                   disabled={clearingSeasons}
+                  className="w-full sm:w-auto"
                 >
                   {clearingSeasons ? 'Deleting series...' : 'Delete all series'}
                 </Button>
@@ -360,6 +367,7 @@ const WorkspaceSettings = () => {
                   variant="outline"
                   onClick={handleRemoveAllMembers}
                   disabled={removingMembers}
+                  className="w-full sm:w-auto"
                 >
                   {removingMembers ? 'Removing members...' : 'Remove all members'}
                 </Button>
@@ -377,7 +385,7 @@ const WorkspaceSettings = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                <Button variant="destructive" className="w-full sm:w-auto" onClick={handleDelete} disabled={deleting}>
                   {deleting ? 'Deleting...' : 'Delete workspace'}
                 </Button>
               </CardContent>

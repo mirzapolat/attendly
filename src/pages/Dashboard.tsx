@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowDown,
   ArrowUp,
@@ -12,6 +12,7 @@ import {
   List,
   Plus,
   Search,
+  SlidersHorizontal,
   X,
 } from 'lucide-react';
 import {
@@ -37,6 +38,8 @@ import { usePageTitle } from '@/hooks/usePageTitle';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import WorkspaceLayout from '@/components/WorkspaceLayout';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import CreateEventDialog from '@/components/CreateEventDialog';
 
 interface Event {
   id: string;
@@ -59,6 +62,8 @@ const Dashboard = () => {
 
   const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [events, setEvents] = useState<Event[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, number>>({});
@@ -74,8 +79,14 @@ const Dashboard = () => {
     const saved = window.localStorage.getItem(STORAGE_KEYS.eventsView);
     return saved === 'list' || saved === 'grid' || saved === 'calendar' ? saved : 'grid';
   });
+  const [isSmallScreen, setIsSmallScreen] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)').matches : false,
+  );
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<Date | null>(null);
+  const [createEventOpen, setCreateEventOpen] = useState(false);
+  const [createEventDate, setCreateEventDate] = useState<Date | null>(null);
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
   const seasonPickerPrevTimer = useRef<number | null>(null);
   const seasonPickerNextTimer = useRef<number | null>(null);
   const [seasonPagerHover, setSeasonPagerHover] = useState<'prev' | 'next' | null>(null);
@@ -91,6 +102,34 @@ const Dashboard = () => {
   }, [currentWorkspace]);
 
   useEffect(() => {
+    if (searchParams.get('createEvent') !== '1') return;
+
+    const dateParam = searchParams.get('date');
+    let parsedDate: Date | null = null;
+
+    if (dateParam) {
+      if (dateParam.includes('T')) {
+        const parsed = new Date(dateParam);
+        if (!Number.isNaN(parsed.getTime())) {
+          parsedDate = parsed;
+        }
+      } else {
+        const [year, month, day] = dateParam.split('-').map(Number);
+        if ([year, month, day].every((part) => Number.isFinite(part))) {
+          const base = new Date();
+          base.setFullYear(year, month - 1, day);
+          base.setSeconds(0, 0);
+          parsedDate = base;
+        }
+      }
+    }
+
+    setCreateEventDate(parsedDate);
+    setCreateEventOpen(true);
+    navigate('/dashboard', { replace: true });
+  }, [searchParams, navigate]);
+
+  useEffect(() => {
     if (draggingEventId) {
       setSeasonPickerPage(1);
     }
@@ -104,6 +143,29 @@ const Dashboard = () => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(STORAGE_KEYS.eventsView, viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(max-width: 639px)');
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsSmallScreen(event.matches);
+    };
+    setIsSmallScreen(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isSmallScreen || viewMode !== 'calendar') return;
+    setViewMode('grid');
+  }, [isSmallScreen, viewMode]);
+
+  useEffect(() => {
+    if (isSmallScreen) return;
+    setMobileControlsOpen(false);
+  }, [isSmallScreen]);
+
+  const effectiveViewMode = isSmallScreen && viewMode === 'calendar' ? 'grid' : viewMode;
 
   const fetchData = async () => {
     if (!currentWorkspace) return;
@@ -253,7 +315,9 @@ const Dashboard = () => {
     return { todayEvents: today, upcomingEvents: upcoming, pastEvents: past };
   }, [paginatedEvents]);
 
-  const eventsGridClass = viewMode === 'grid'
+  const displayedUpcomingEvents = isSmallScreen ? [...todayEvents, ...upcomingEvents] : upcomingEvents;
+
+  const eventsGridClass = effectiveViewMode === 'grid'
     ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3 items-stretch'
     : 'grid gap-3';
 
@@ -361,17 +425,47 @@ const Dashboard = () => {
     setSeasonPagerHover(null);
   };
 
+  const openCreateEventDialog = (date: Date | null = null) => {
+    setCreateEventDate(date);
+    setCreateEventOpen(true);
+  };
+
   return (
     <WorkspaceLayout title="Events overview">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Events</h1>
-          <p className="text-muted-foreground">Plan, launch, and manage attendance.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          {events.length > 0 && (
-            <>
-              <div className="relative w-full sm:w-64">
+      <CreateEventDialog
+        open={createEventOpen}
+        onOpenChange={setCreateEventOpen}
+        initialDate={createEventDate}
+      />
+      {isSmallScreen ? (
+        <div className="mb-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-xl font-semibold">Upcoming events</h1>
+            <div className="flex items-center gap-2">
+              {pastEvents.length > 0 && (
+                <Button asChild variant="glass" size="sm" className="h-9 rounded-full px-3 text-xs">
+                  <a href="#past-events">Past</a>
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setMobileControlsOpen((prev) => !prev)}
+                title={mobileControlsOpen ? 'Hide filters' : 'Show filters'}
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                <span className="sr-only">{mobileControlsOpen ? 'Hide filters' : 'Show filters'}</span>
+              </Button>
+              <Button variant="hero" size="icon" onClick={() => openCreateEventDialog()} title="New event">
+                <Plus className="w-4 h-4" />
+                <span className="sr-only">New event</span>
+              </Button>
+            </div>
+          </div>
+          {mobileControlsOpen && events.length > 0 && (
+            <div className="space-y-2 rounded-2xl border border-border/70 bg-background/60 p-3">
+              <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search events..."
@@ -380,85 +474,165 @@ const Dashboard = () => {
                   className="pl-9"
                 />
               </div>
-              <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
-                <SelectTrigger className="w-[180px]">
-                  <div className="flex items-center gap-2">
-                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder="Sort by" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date">Event date</SelectItem>
-                  <SelectItem value="name">Alphabetically</SelectItem>
-                  <SelectItem value="attendance">Attendance amount</SelectItem>
-                  <SelectItem value="created">Created date</SelectItem>
-                  <SelectItem value="series">Series assigned</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 w-10 p-0"
-                onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-                title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
-              >
-                {sortDirection === 'asc' ? (
-                  <>
-                    <ArrowUp className="w-4 h-4" />
-                    <span className="sr-only">Ascending</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowDown className="w-4 h-4" />
-                    <span className="sr-only">Descending</span>
-                  </>
-                )}
-              </Button>
-              <div className="hidden items-center gap-1 rounded-full bg-muted/40 p-1 sm:flex">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+                  <SelectTrigger className="w-full">
+                    <div className="flex items-center gap-2">
+                      <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                      <SelectValue placeholder="Sort by" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">Event date</SelectItem>
+                    <SelectItem value="name">Alphabetically</SelectItem>
+                    <SelectItem value="attendance">Attendance amount</SelectItem>
+                    <SelectItem value="created">Created date</SelectItem>
+                    <SelectItem value="series">Series assigned</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button
                   type="button"
-                  variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => setViewMode('grid')}
-                  title="Grid view"
+                  variant="outline"
+                  className="h-9 w-10 p-0"
+                  onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
                 >
-                  <LayoutGrid className="w-4 h-4" />
-                  <span className="sr-only">Grid view</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => setViewMode('list')}
-                  title="List view"
-                >
-                  <List className="w-4 h-4" />
-                  <span className="sr-only">List view</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={viewMode === 'calendar' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => setViewMode('calendar')}
-                  title="Calendar view"
-                >
-                  <CalendarDays className="w-4 h-4" />
-                  <span className="sr-only">Calendar view</span>
+                  {sortDirection === 'asc' ? (
+                    <>
+                      <ArrowUp className="w-4 h-4" />
+                      <span className="sr-only">Ascending</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowDown className="w-4 h-4" />
+                      <span className="sr-only">Descending</span>
+                    </>
+                  )}
                 </Button>
               </div>
-            </>
+              <div className="flex items-center gap-1 rounded-full bg-muted/40 p-1">
+                <Button
+                  type="button"
+                  variant={effectiveViewMode === 'grid' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 flex-1 px-3"
+                  onClick={() => setViewMode('grid')}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                  <span className="ml-1 text-xs">Grid</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={effectiveViewMode === 'list' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 flex-1 px-3"
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="w-4 h-4" />
+                  <span className="ml-1 text-xs">List</span>
+                </Button>
+              </div>
+            </div>
           )}
-          <Link to="/events/new">
-            <Button variant="hero">
+        </div>
+      ) : (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold sm:text-2xl">Events</h1>
+            <p className="text-sm text-muted-foreground sm:text-base">Plan, launch, and manage attendance.</p>
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+            {events.length > 0 && (
+              <>
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search events..."
+                    value={eventSearch}
+                    onChange={(event) => setEventSearch(event.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:w-auto sm:items-center">
+                  <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <div className="flex items-center gap-2">
+                        <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                        <SelectValue placeholder="Sort by" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date">Event date</SelectItem>
+                      <SelectItem value="name">Alphabetically</SelectItem>
+                      <SelectItem value="attendance">Attendance amount</SelectItem>
+                      <SelectItem value="created">Created date</SelectItem>
+                      <SelectItem value="series">Series assigned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 w-10 p-0"
+                    onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
+                  >
+                    {sortDirection === 'asc' ? (
+                      <>
+                        <ArrowUp className="w-4 h-4" />
+                        <span className="sr-only">Ascending</span>
+                      </>
+                    ) : (
+                      <>
+                        <ArrowDown className="w-4 h-4" />
+                        <span className="sr-only">Descending</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <div className="hidden items-center gap-1 rounded-full bg-muted/40 p-1 sm:flex">
+                  <Button
+                    type="button"
+                    variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setViewMode('grid')}
+                    title="Grid view"
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                    <span className="sr-only">Grid view</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setViewMode('list')}
+                    title="List view"
+                  >
+                    <List className="w-4 h-4" />
+                    <span className="sr-only">List view</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={viewMode === 'calendar' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setViewMode('calendar')}
+                    title="Calendar view"
+                  >
+                    <CalendarDays className="w-4 h-4" />
+                    <span className="sr-only">Calendar view</span>
+                  </Button>
+                </div>
+              </>
+            )}
+            <Button variant="hero" className="w-full sm:w-auto" onClick={() => openCreateEventDialog()}>
               <Plus className="w-4 h-4" />
               New event
             </Button>
-          </Link>
+          </div>
         </div>
-      </div>
+      )}
 
       {loading ? (
         <Card className="bg-gradient-card">
@@ -469,9 +643,7 @@ const Dashboard = () => {
           <CardContent className="py-12 text-center">
             <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground mb-4">No events yet</p>
-            <Link to="/events/new">
-              <Button>Create your first event</Button>
-            </Link>
+            <Button onClick={() => openCreateEventDialog()}>Create your first event</Button>
           </CardContent>
         </Card>
       ) : filteredEvents.length === 0 ? (
@@ -480,7 +652,7 @@ const Dashboard = () => {
             <p className="text-muted-foreground">No events match your search</p>
           </CardContent>
         </Card>
-      ) : viewMode === 'calendar' ? (
+      ) : effectiveViewMode === 'calendar' ? (
         <Card className="bg-gradient-card">
           <CardContent className="p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -600,83 +772,76 @@ const Dashboard = () => {
                 );
               })}
             </div>
-            {selectedCalendarDay && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm p-4"
-                onClick={() => setSelectedCalendarDay(null)}
-              >
-                <div
-                  className="w-full max-w-2xl rounded-2xl border border-border bg-background shadow-lg p-6"
-                  onClick={(eventClick) => eventClick.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between gap-4 mb-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                        {format(selectedCalendarDay, 'EEEE')}
-                      </p>
-                      <h3 className="text-lg font-semibold">
-                        {format(selectedCalendarDay, 'MMMM d, yyyy')}
-                      </h3>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => setSelectedCalendarDay(null)} title="Close">
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
+            <Dialog open={!!selectedCalendarDay} onOpenChange={(open) => !open && setSelectedCalendarDay(null)}>
+              <DialogContent className="lg:max-w-2xl">
+                {selectedCalendarDay && (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle>{format(selectedCalendarDay, 'MMMM d, yyyy')}</DialogTitle>
+                      <DialogDescription>
+                        {format(selectedCalendarDay, 'EEEE')} •{' '}
+                        {selectedDayEvents.length === 0
+                          ? 'No events scheduled for this day.'
+                          : `${selectedDayEvents.length} event${selectedDayEvents.length === 1 ? '' : 's'} scheduled.`}
+                      </DialogDescription>
+                    </DialogHeader>
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <p className="text-sm text-muted-foreground">
-                      {selectedDayEvents.length === 0
-                        ? 'No events scheduled for this day.'
-                        : `${selectedDayEvents.length} event${selectedDayEvents.length === 1 ? '' : 's'} scheduled.`}
-                    </p>
-                    <Link
-                      to={`/events/new?date=${format(selectedCalendarDay, 'yyyy-MM-dd')}`}
-                      onClick={() => setSelectedCalendarDay(null)}
-                    >
-                      <Button variant="hero" size="sm" className="gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                      <p className="text-sm text-muted-foreground">
+                        Tap an event to open details.
+                      </p>
+                      <Button
+                        variant="hero"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => {
+                          openCreateEventDialog(selectedCalendarDay);
+                          setSelectedCalendarDay(null);
+                        }}
+                      >
                         <Plus className="w-4 h-4" />
                         Add event
                       </Button>
-                    </Link>
-                  </div>
-
-                  {selectedDayEvents.length > 0 && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {selectedDayEvents.map((event) => (
-                        <Link
-                          key={event.id}
-                          to={`/events/${event.id}`}
-                          className="group flex items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 px-4 py-3 hover:border-primary/40 transition-colors"
-                          onClick={() => setSelectedCalendarDay(null)}
-                        >
-                          <div>
-                            <p className="font-medium group-hover:text-primary transition-colors">
-                              {event.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(event.event_date), 'HH:mm')}
-                            </p>
-                          </div>
-                          <div className="flex flex-col items-end leading-none">
-                            <span className="text-2xl font-semibold">
-                              {attendanceCounts[event.id] ?? 0}
-                            </span>
-                            <span className="text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
-                              attended
-                            </span>
-                          </div>
-                        </Link>
-                      ))}
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
+
+                    {selectedDayEvents.length > 0 && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {selectedDayEvents.map((event) => (
+                          <Link
+                            key={event.id}
+                            to={`/events/${event.id}`}
+                            className="group flex items-center justify-between gap-3 rounded-2xl border border-border bg-background/70 px-4 py-3 hover:border-primary/40 transition-colors"
+                            onClick={() => setSelectedCalendarDay(null)}
+                          >
+                            <div>
+                              <p className="font-medium group-hover:text-primary transition-colors">
+                                {event.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(event.event_date), 'HH:mm')}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end leading-none">
+                              <span className="text-2xl font-semibold">
+                                {attendanceCounts[event.id] ?? 0}
+                              </span>
+                              <span className="text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
+                                attended
+                              </span>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
       ) : (
         <>
-          {todayEvents.length > 0 && (
+          {!isSmallScreen && todayEvents.length > 0 && (
             <div className="mb-10">
               <h2 className="text-xl font-semibold mb-4">Events today</h2>
               <div className={eventsGridClass}>
@@ -688,7 +853,7 @@ const Dashboard = () => {
                     seasons={seasons}
                     onEventDeleted={fetchData}
                     onEventUpdated={fetchData}
-                    variant={viewMode}
+                    variant={effectiveViewMode}
                     onDragStart={(eventId) => {
                       dropHandledRef.current = false;
                       draggingEventRef.current = eventId;
@@ -728,18 +893,20 @@ const Dashboard = () => {
           )}
 
           <div>
-            {upcomingEvents.length > 0 && (
+            {displayedUpcomingEvents.length > 0 && (
               <>
-                <div className="flex flex-wrap items-center gap-3 mb-4">
-                  <h2 className="text-xl font-semibold">Upcoming events</h2>
-                  {pastEvents.length > 0 && (
-                    <Button asChild variant="glass" size="sm" className="rounded-full px-3">
-                      <a href="#past-events">Skip to past events</a>
-                    </Button>
-                  )}
-                </div>
+                {!isSmallScreen && (
+                  <div className="mb-4 flex flex-wrap items-center gap-3">
+                    <h2 className="text-xl font-semibold">Upcoming events</h2>
+                    {pastEvents.length > 0 && (
+                      <Button asChild variant="glass" size="sm" className="w-full rounded-full px-3 sm:w-auto">
+                        <a href="#past-events">Skip to past events</a>
+                      </Button>
+                    )}
+                  </div>
+                )}
                 <div className={eventsGridClass}>
-                  {upcomingEvents.map((event) => (
+                  {displayedUpcomingEvents.map((event) => (
                     <EventCard
                       key={event.id}
                       event={event}
@@ -747,7 +914,7 @@ const Dashboard = () => {
                       seasons={seasons}
                       onEventDeleted={fetchData}
                       onEventUpdated={fetchData}
-                      variant={viewMode}
+                      variant={effectiveViewMode}
                       onDragStart={(eventId) => {
                         dropHandledRef.current = false;
                         draggingEventRef.current = eventId;
@@ -799,7 +966,7 @@ const Dashboard = () => {
                     seasons={seasons}
                     onEventDeleted={fetchData}
                     onEventUpdated={fetchData}
-                    variant={viewMode}
+                    variant={effectiveViewMode}
                     onDragStart={(eventId) => {
                       dropHandledRef.current = false;
                       draggingEventRef.current = eventId;
@@ -842,10 +1009,10 @@ const Dashboard = () => {
 
       {draggingEventId && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-2 backdrop-blur-[4px] sm:items-center sm:p-4"
           onDragOver={(event) => event.preventDefault()}
         >
-          <div className="w-full max-w-3xl rounded-2xl border border-border bg-background shadow-lg p-6">
+          <div className="w-full max-h-[92dvh] max-w-3xl overflow-y-auto rounded-3xl border border-border/70 bg-gradient-card p-4 shadow-[0_34px_84px_-30px_rgba(0,0,0,0.65)] sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">

@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useConfirm } from '@/hooks/useConfirm';
 import { supabase } from '@/integrations/supabase/client';
+import AccountSettingsDialog from '@/components/AccountSettingsDialog';
 
 const AccountMenu = () => {
   const { user, signOut } = useAuth();
@@ -21,6 +22,7 @@ const AccountMenu = () => {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const [fullName, setFullName] = useState<string | null>(null);
+  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -79,53 +81,65 @@ const AccountMenu = () => {
   };
 
   return (
-    <DropdownMenu onOpenChange={(open) => open && loadProfileName()}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          title="Account"
-          className="shadow-none hover:shadow-none"
-        >
-          <User className="w-5 h-5" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Account</span>
-          {displayName ? (
-            <>
+    <>
+      <DropdownMenu onOpenChange={(open) => open && loadProfileName()}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Account"
+            className="shadow-none hover:shadow-none"
+          >
+            <User className="w-5 h-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Account</span>
+            {displayName ? (
+              <>
+                <span className="text-sm font-medium text-foreground truncate">
+                  {displayName}
+                </span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {displayEmail}
+                </span>
+              </>
+            ) : (
               <span className="text-sm font-medium text-foreground truncate">
-                {displayName}
-              </span>
-              <span className="text-xs text-muted-foreground truncate">
                 {displayEmail}
               </span>
-            </>
-          ) : (
-            <span className="text-sm font-medium text-foreground truncate">
-              {displayEmail}
-            </span>
-          )}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() => navigate('/settings')}
-          className="cursor-pointer gap-2"
-        >
-          <Settings className="w-4 h-4" />
-          Account settings
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={handleSignOut}
-          className="cursor-pointer gap-2 text-destructive focus:text-destructive"
-        >
-          <LogOut className="w-4 h-4" />
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            )}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => setAccountSettingsOpen(true)}
+            className="cursor-pointer gap-2"
+          >
+            <Settings className="w-4 h-4" />
+            Account settings
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={handleSignOut}
+            className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AccountSettingsDialog
+        open={accountSettingsOpen}
+        onOpenChange={(open) => {
+          setAccountSettingsOpen(open);
+          if (!open) {
+            void loadProfileName();
+          }
+        }}
+      />
+    </>
   );
 };
 

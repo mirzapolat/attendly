@@ -80,12 +80,26 @@ const Seasons = () => {
   const [selectedSeasonIds, setSelectedSeasonIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'created' | 'name' | 'events' | 'earliest' | 'latest'>('created');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [isCompactScreen, setIsCompactScreen] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false,
+  );
 
   useEffect(() => {
     if (currentWorkspace) {
       fetchData();
     }
   }, [currentWorkspace]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsCompactScreen(event.matches);
+    };
+    setIsCompactScreen(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   const fetchData = async () => {
     if (!currentWorkspace) return;
@@ -204,6 +218,13 @@ const Seasons = () => {
     setSelectedSeasonIds((prev) => prev.filter((id) => seasons.some((season) => season.id === id)));
   }, [seasons, selectedSeasonIds.length]);
 
+  useEffect(() => {
+    if (!isCompactScreen) return;
+    if (selectedSeasonIds.length > 0) {
+      setSelectedSeasonIds([]);
+    }
+  }, [isCompactScreen, selectedSeasonIds.length]);
+
   const eventCounts = useMemo(() => {
     const counts = new Map<string, number>();
     events.forEach((event) => {
@@ -320,14 +341,14 @@ const Seasons = () => {
 
   return (
     <WorkspaceLayout title="Series overview">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Series</h1>
-          <p className="text-muted-foreground">Organize events into series and track attendance.</p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold sm:text-2xl">Series</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">Organize events into series and track attendance.</p>
         </div>
         <Dialog open={seasonDialogOpen} onOpenChange={setSeasonDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="hero">
+            <Button variant="hero" className="w-full sm:w-auto">
               <FolderOpen className="w-4 h-4" />
               Create series
             </Button>
@@ -365,10 +386,10 @@ const Seasons = () => {
         </Dialog>
       </div>
 
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-xl font-semibold">All series</h2>
         {seasons.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -378,39 +399,41 @@ const Seasons = () => {
                 className="pl-9"
               />
             </div>
-            <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
-              <SelectTrigger className="w-[170px]">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="latest">Latest event date</SelectItem>
-                <SelectItem value="earliest">Earliest event date</SelectItem>
-                <SelectItem value="name">Alphabetically</SelectItem>
-                <SelectItem value="created">Created date</SelectItem>
-                <SelectItem value="events">Event amount</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-9 w-10 p-0"
-              onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-              title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
-            >
-              {sortDirection === 'asc' ? (
-                <>
-                  <ArrowUp className="w-4 h-4" />
-                  <span className="sr-only">Ascending</span>
-                </>
-              ) : (
-                <>
-                  <ArrowDown className="w-4 h-4" />
-                  <span className="sr-only">Descending</span>
-                </>
-              )}
-            </Button>
-            {selectedSeasonIds.length > 0 && (
-              <Button variant="destructive" onClick={handleDeleteSelectedSeasons}>
+            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:w-auto sm:items-center">
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+                <SelectTrigger className="w-full sm:w-[170px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="latest">Latest event date</SelectItem>
+                  <SelectItem value="earliest">Earliest event date</SelectItem>
+                  <SelectItem value="name">Alphabetically</SelectItem>
+                  <SelectItem value="created">Created date</SelectItem>
+                  <SelectItem value="events">Event amount</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 w-10 p-0"
+                onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
+              >
+                {sortDirection === 'asc' ? (
+                  <>
+                    <ArrowUp className="w-4 h-4" />
+                    <span className="sr-only">Ascending</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowDown className="w-4 h-4" />
+                    <span className="sr-only">Descending</span>
+                  </>
+                )}
+              </Button>
+            </div>
+            {selectedSeasonIds.length > 0 && !isCompactScreen && (
+              <Button variant="destructive" className="hidden md:inline-flex" onClick={handleDeleteSelectedSeasons}>
                 Delete selected ({selectedSeasonIds.length})
               </Button>
             )}
@@ -432,7 +455,78 @@ const Seasons = () => {
         </Card>
       ) : (
         <>
-          <div className="overflow-x-auto">
+          <div className="grid gap-3 md:hidden">
+            {sortedSeasons.map((season) => (
+              <Card
+                key={season.id}
+                className="bg-gradient-card border-border/80"
+                role="link"
+                tabIndex={0}
+                onClick={() => navigate(`/series/${season.id}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    navigate(`/series/${season.id}`);
+                  }
+                }}
+              >
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        handleDeleteSeason(season.id);
+                      }}
+                      title="Delete series"
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+
+                  <div className="min-w-0">
+                    <ClampedSeasonName name={season.name} />
+                    {season.description && (
+                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{season.description}</p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-lg border border-border/60 bg-background/70 px-2 py-1.5">
+                      <p className="text-muted-foreground">Events</p>
+                      <p className="font-medium">{eventCounts.get(season.id) ?? 0}</p>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-background/70 px-2 py-1.5">
+                      <p className="text-muted-foreground">Created</p>
+                      <p className="font-medium truncate">
+                        {season.created_at ? format(new Date(season.created_at), 'PPP') : '—'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-background/70 px-2 py-1.5">
+                      <p className="text-muted-foreground">Earliest</p>
+                      <p className="font-medium truncate">
+                        {seasonDateRanges.get(season.id)?.earliest
+                          ? format(new Date(seasonDateRanges.get(season.id)!.earliest as string), 'PPP')
+                          : '—'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-background/70 px-2 py-1.5">
+                      <p className="text-muted-foreground">Latest</p>
+                      <p className="font-medium truncate">
+                        {seasonDateRanges.get(season.id)?.latest
+                          ? format(new Date(seasonDateRanges.get(season.id)!.latest as string), 'PPP')
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
             <div className="min-w-[820px] rounded-lg border border-border overflow-hidden">
               <div className="bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <div className="grid gap-3 grid-cols-[minmax(0,1.3fr)_minmax(0,0.6fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_48px] items-center">
