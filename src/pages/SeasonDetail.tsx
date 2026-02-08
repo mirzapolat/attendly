@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, Outlet, useMatch } from 'react-router-dom';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -153,6 +153,7 @@ const SeasonDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
+  const isSanitizeOpen = !!useMatch('/series/:id/sanitize');
 
   const [season, setSeason] = useState<Season | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
@@ -872,8 +873,8 @@ const SeasonDetail = () => {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 bg-background overflow-y-auto animate-season-fullscreen">
-        <div className="container mx-auto px-6 py-8">
+      <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
+        <div className="container mx-auto px-6 py-8 animate-season-fullscreen">
           <div className="flex items-center justify-center py-20">
             <div className="animate-pulse-subtle">Loading...</div>
           </div>
@@ -884,8 +885,8 @@ const SeasonDetail = () => {
 
   if (!season) {
     return (
-      <div className="fixed inset-0 z-50 bg-background overflow-y-auto animate-season-fullscreen">
-        <div className="container mx-auto px-6 py-8">
+      <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
+        <div className="container mx-auto px-6 py-8 animate-season-fullscreen">
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <p className="text-muted-foreground mb-4">Series not found</p>
@@ -900,8 +901,9 @@ const SeasonDetail = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-background overflow-y-auto animate-season-fullscreen">
-      <div className="container mx-auto px-6 py-8">
+    <div className={`fixed inset-0 z-50 bg-background ${isSanitizeOpen ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+      <div className="animate-season-fullscreen">
+      <div className={`container mx-auto px-6 py-8 transition-[filter,transform] duration-300 ${isSanitizeOpen ? 'lg:blur-sm lg:pointer-events-none lg:scale-[0.99]' : ''}`}>
       <div className="flex flex-col gap-6">
         <div className="animate-soft-rise flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/80 px-4 py-3 shadow-sm backdrop-blur-sm">
           <Button asChild variant="glass" size="sm" className="rounded-full px-3">
@@ -1641,6 +1643,8 @@ const SeasonDetail = () => {
       </Dialog>
     </div>
     </div>
+    </div>
+    <Outlet />
   </div>
   );
 };

@@ -56,8 +56,9 @@ const App = () => (
                   <Route path="/events/:id" element={<EventDetail />} />
                   <Route path="/attend/:id" element={<Attend />} />
                   <Route path="/excuse/:eventId/:token" element={<Excuse />} />
-                  <Route path="/series/:id" element={<SeasonDetail />} />
-                  <Route path="/series/:id/sanitize" element={<SeasonSanitize />} />
+                  <Route path="/series/:id" element={<SeasonDetail />}>
+                    <Route path="sanitize" element={<SeasonSanitize />} />
+                  </Route>
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/moderate/:eventId/:token" element={<ModeratorView />} />
                   <Route path="/privacy" element={<Privacy />} />

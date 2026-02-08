@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, Mail, Users } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, Check, Mail, Users, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useToast } from '@/hooks/use-toast';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import WorkspaceLayout from '@/components/WorkspaceLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -138,6 +137,7 @@ const getSuggestionKey = (emailA: string, emailB: string) =>
 const SeasonSanitize = () => {
   usePageTitle('Series Sanitization - Attendly');
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
@@ -678,99 +678,192 @@ const SeasonSanitize = () => {
     toast({ title: 'Name updated' });
   };
 
+  const handleBackdropClick = () => {
+    navigate(`/series/${id}`);
+  };
+
   if (loading) {
     return (
-      <WorkspaceLayout title="Series sanitization">
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-pulse-subtle">Loading...</div>
+      <div className="fixed inset-0 z-[60] flex items-start justify-center bg-background lg:bg-black/30 lg:backdrop-blur-none lg:items-center overflow-y-auto animate-sanitize-overlay">
+        <div className="w-full min-h-full lg:min-h-0 lg:max-w-4xl lg:max-h-[90vh] lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-border lg:shadow-2xl bg-background lg:my-8 animate-sanitize-card">
+          <div className="container mx-auto px-6 py-8 lg:px-8">
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-pulse-subtle">Loading...</div>
+            </div>
+          </div>
         </div>
-      </WorkspaceLayout>
+      </div>
     );
   }
 
   if (!season) {
     return (
-      <WorkspaceLayout title="Series sanitization">
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <p className="text-muted-foreground mb-4">Series not found</p>
-            <Link to="/series">
-              <Button>Back to Series</Button>
-            </Link>
+      <div className="fixed inset-0 z-[60] flex items-start justify-center bg-background lg:bg-black/30 lg:backdrop-blur-none lg:items-center overflow-y-auto animate-sanitize-overlay">
+        <div className="w-full min-h-full lg:min-h-0 lg:max-w-4xl lg:max-h-[90vh] lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-border lg:shadow-2xl bg-background lg:my-8 animate-sanitize-card">
+          <div className="container mx-auto px-6 py-8 lg:px-8">
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <p className="text-muted-foreground mb-4">Series not found</p>
+                <Link to="/series">
+                  <Button>Back to Series</Button>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
-      </WorkspaceLayout>
+      </div>
     );
   }
 
   return (
-    <WorkspaceLayout title="Series sanitization">
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/80 px-4 py-3 shadow-sm backdrop-blur-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link to={`/series/${season.id}`}>
-              <Button variant="glass" size="sm" className="rounded-full px-3">
-                <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Back to series</span>
-              </Button>
-            </Link>
-            {step === 'names' && (
-              <Button
-                variant="outline"
-                onClick={() => setStep('emails')}
-                className="rounded-full"
-              >
-                Back to email typos
-              </Button>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {step === 'emails' ? (
-              <Button onClick={() => setStep('names')} className="gap-2 rounded-full">
-                Continue to name conflicts
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            ) : (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-background lg:bg-black/30 lg:backdrop-blur-none lg:items-center overflow-y-auto animate-sanitize-overlay" onClick={handleBackdropClick}>
+      <div className="w-full min-h-full lg:min-h-0 lg:max-w-4xl lg:max-h-[90vh] lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border lg:shadow-2xl bg-background lg:my-8 animate-sanitize-card lg:flex lg:flex-col" onClick={(e) => e.stopPropagation()}>
+
+        {/* Mobile header */}
+        <div className="lg:hidden px-6 pt-6 pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/80 px-4 py-3 shadow-sm backdrop-blur-sm">
+            <div className="flex flex-wrap items-center gap-2">
               <Link to={`/series/${season.id}`}>
-                <Button variant="hero" className="rounded-full">
-                  <Check className="h-5 w-5 sm:hidden" strokeWidth={2.6} />
-                  <span className="hidden sm:inline">Finish</span>
+                <Button variant="glass" size="sm" className="rounded-full px-3">
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="hidden sm:inline">Back to series</span>
                 </Button>
               </Link>
-            )}
+              {step === 'names' && (
+                <Button
+                  variant="outline"
+                  onClick={() => setStep('emails')}
+                  className="rounded-full"
+                >
+                  Back to email typos
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {step === 'emails' ? (
+                <Button onClick={() => setStep('names')} className="gap-2 rounded-full">
+                  Continue to name conflicts
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Link to={`/series/${season.id}`}>
+                  <Button variant="hero" className="rounded-full">
+                    <Check className="h-5 w-5 sm:hidden" strokeWidth={2.6} />
+                    <span className="hidden sm:inline">Finish</span>
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
 
-        <div>
-          <p className="text-sm text-muted-foreground">Series sanitization</p>
-          <h1 className="text-2xl font-bold">{season.name}</h1>
-          <p className="text-muted-foreground">
-            Fix email typos and name conflicts so analytics stay accurate.
-          </p>
+        {/* Desktop popup header */}
+        <div className="hidden lg:block sticky top-0 z-10 bg-background rounded-t-2xl border-b border-border px-8 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <h1 className="text-lg font-semibold leading-tight truncate">{season.name}</h1>
+              <p className="text-sm text-muted-foreground">
+                Fix email typos and name conflicts so analytics stay accurate.
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full shrink-0 -mr-2 -mt-1"
+              onClick={() => navigate(`/series/${season.id}`)}
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center gap-3 text-sm">
+              <span
+                className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${
+                  step === 'emails' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground'
+                }`}
+              >
+                1
+              </span>
+              <span className={step === 'emails' ? 'font-semibold' : 'text-muted-foreground'}>
+                Email typos
+              </span>
+              <ArrowRight className="w-4 h-4 text-muted-foreground" />
+              <span
+                className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${
+                  step === 'names' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground'
+                }`}
+              >
+                2
+              </span>
+              <span className={step === 'names' ? 'font-semibold' : 'text-muted-foreground'}>
+                Name conflicts
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {step === 'names' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setStep('emails')}
+                  className="rounded-full"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back
+                </Button>
+              )}
+              {step === 'emails' ? (
+                <Button size="sm" onClick={() => setStep('names')} className="gap-2 rounded-full">
+                  Continue
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Link to={`/series/${season.id}`}>
+                  <Button variant="hero" size="sm" className="rounded-full">
+                    Finish
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 mb-8 text-sm">
-        <span
-          className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${
-            step === 'emails' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground'
-          }`}
-        >
-          1
-        </span>
-        <span className={step === 'emails' ? 'font-semibold' : 'text-muted-foreground'}>
-          Email typos
-        </span>
-        <ArrowRight className="w-4 h-4 text-muted-foreground" />
-        <span
-          className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${
-            step === 'names' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground'
-          }`}
-        >
-          2
-        </span>
-        <span className={step === 'names' ? 'font-semibold' : 'text-muted-foreground'}>
-          Name conflicts
-        </span>
+        <div className="lg:overflow-y-auto lg:flex-1">
+        <div className="container mx-auto px-6 py-6 lg:px-8">
+      <div className="flex flex-col gap-6">
+
+        {/* Mobile title + stepper */}
+        <div className="lg:hidden">
+          <div className="mb-4">
+            <p className="text-sm text-muted-foreground">Series sanitization</p>
+            <h1 className="text-2xl font-bold">{season.name}</h1>
+            <p className="text-muted-foreground">
+              Fix email typos and name conflicts so analytics stay accurate.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 mb-4 text-sm">
+            <span
+              className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${
+                step === 'emails' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground'
+              }`}
+            >
+              1
+            </span>
+            <span className={step === 'emails' ? 'font-semibold' : 'text-muted-foreground'}>
+              Email typos
+            </span>
+            <ArrowRight className="w-4 h-4 text-muted-foreground" />
+            <span
+              className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${
+                step === 'names' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground'
+              }`}
+            >
+              2
+            </span>
+            <span className={step === 'names' ? 'font-semibold' : 'text-muted-foreground'}>
+              Name conflicts
+            </span>
+          </div>
         </div>
 
         {step === 'emails' ? (
@@ -1070,7 +1163,10 @@ const SeasonSanitize = () => {
           </div>
         )}
       </div>
-    </WorkspaceLayout>
+        </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
