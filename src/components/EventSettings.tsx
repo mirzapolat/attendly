@@ -370,30 +370,25 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
                     )}
 
                     {!rotatingQrEnabled && (
-                      <div className="mt-3 rounded-lg border border-border/60 bg-background/80 p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-medium text-muted-foreground">Static QR sharing</p>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleCopyStaticLink}
-                              disabled={copyingLink}
-                              className="gap-2"
-                            >
-                              <Copy className="h-4 w-4" />
-                              {copyingLink ? 'Copying...' : 'Copy link'}
-                            </Button>
-                            <QRCodeExport
-                              url={staticQrUrl}
-                              eventName={event.name}
-                              eventDate={event.event_date}
-                              brandLogoUrl={exportLogoUrl}
-                              label="Download JPG"
-                            />
-                          </div>
-                        </div>
+                      <div className="mt-3 flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCopyStaticLink}
+                          disabled={copyingLink}
+                          className="gap-2"
+                        >
+                          <Copy className="h-4 w-4" />
+                          {copyingLink ? 'Copying...' : 'Copy link'}
+                        </Button>
+                        <QRCodeExport
+                          url={staticQrUrl}
+                          eventName={event.name}
+                          eventDate={event.event_date}
+                          brandLogoUrl={exportLogoUrl}
+                          label="Download JPG"
+                        />
                       </div>
                     )}
                   </div>

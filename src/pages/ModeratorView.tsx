@@ -103,6 +103,7 @@ const ModeratorView = () => {
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
   type StatusFilter = 'all' | 'verified' | 'suspicious' | 'excused';
+  type BubblePhase = '' | 'a' | 'b';
   type CloudBurst = { x: number; y: number; id: number; strength: number };
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -112,6 +113,13 @@ const ModeratorView = () => {
     suspicious: null,
     excused: null,
   });
+  const [countBubblePhase, setCountBubblePhase] = useState<Record<StatusFilter, BubblePhase>>({
+    all: '',
+    verified: '',
+    suspicious: '',
+    excused: '',
+  });
+  const previousFilterCountsRef = useRef<Record<StatusFilter, number> | null>(null);
 
   const toggleCompactExpand = useCallback((recordId: string) => {
     if (!compactView) return;
@@ -539,6 +547,47 @@ const ModeratorView = () => {
   };
 
   const qrUrl = `${window.location.origin}/attend/${eventId}?token=${qrToken}`;
+  const verifiedCount = attendance.filter(a => a.status === 'verified' || a.status === 'cleared').length;
+  const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
+  const excusedCount = attendance.filter(a => a.status === 'excused').length;
+  const attendedCount = attendance.length - excusedCount;
+
+  useEffect(() => {
+    const nextCounts: Record<StatusFilter, number> = {
+      all: attendance.length,
+      excused: excusedCount,
+      verified: verifiedCount,
+      suspicious: suspiciousCount,
+    };
+
+    const previousCounts = previousFilterCountsRef.current;
+    if (!previousCounts) {
+      previousFilterCountsRef.current = nextCounts;
+      return;
+    }
+
+    setCountBubblePhase((current) => {
+      let changed = false;
+      const nextPhase = { ...current };
+
+      (Object.keys(nextCounts) as StatusFilter[]).forEach((filter) => {
+        if (nextCounts[filter] > previousCounts[filter]) {
+          nextPhase[filter] = current[filter] === 'a' ? 'b' : 'a';
+          changed = true;
+        }
+      });
+
+      return changed ? nextPhase : current;
+    });
+
+    previousFilterCountsRef.current = nextCounts;
+  }, [attendance.length, excusedCount, verifiedCount, suspiciousCount]);
+
+  const getCountBubbleClass = (filter: StatusFilter) => {
+    if (countBubblePhase[filter] === 'a') return 'filter-count-bubble-a';
+    if (countBubblePhase[filter] === 'b') return 'filter-count-bubble-b';
+    return '';
+  };
 
   if (loading) {
     return (
@@ -566,10 +615,6 @@ const ModeratorView = () => {
     );
   }
 
-  const verifiedCount = attendance.filter(a => a.status === 'verified' || a.status === 'cleared').length;
-  const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
-  const excusedCount = attendance.filter(a => a.status === 'excused').length;
-  const attendedCount = attendance.length - excusedCount;
   const totalCloudStyle = (() => {
     const baseStyle = getCloudOriginStyle('all') ?? {};
     if (statusFilter === 'all' && !cloudBursts.all) {
@@ -613,8 +658,13 @@ const ModeratorView = () => {
           <div className="min-w-0">
             <Card className="bg-gradient-card">
               <CardHeader>
-                <CardTitle className="min-w-0">
-                  <span className="block min-w-0 overflow-hidden whitespace-nowrap" style={{ maskImage: 'linear-gradient(to right, black 85%, transparent)', WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent)' }}>{event.name}</span>
+                <CardTitle className="min-w-0 leading-tight">
+                  <span
+                    className="block min-w-0 overflow-hidden whitespace-nowrap pb-0.5"
+                    style={{ maskImage: 'linear-gradient(to right, black 85%, transparent)', WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent)' }}
+                  >
+                    {event.name}
+                  </span>
                 </CardTitle>
                 {event.description && (
                   <p className="text-sm text-muted-foreground mt-1 break-words">{event.description}</p>
@@ -684,7 +734,7 @@ const ModeratorView = () => {
                 {cloudBursts.all && (
                   <span key={cloudBursts.all.id} className="filter-cloud-burst" />
                 )}
-                <CardContent className="py-4 text-center relative z-10">
+                <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('all')}`}>
                   <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
                   <p className="text-2xl font-bold"><AnimatedCount value={attendance.length} /></p>
                   <p className="text-xs text-muted-foreground">Total</p>
@@ -698,7 +748,7 @@ const ModeratorView = () => {
                 {cloudBursts.excused && (
                   <span key={cloudBursts.excused.id} className="filter-cloud-burst" />
                 )}
-                <CardContent className="py-4 text-center relative z-10">
+                <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('excused')}`}>
                   <UserMinus className="w-5 h-5 mx-auto mb-1 text-warning" />
                   <p className="text-2xl font-bold"><AnimatedCount value={excusedCount} /></p>
                   <p className="text-xs text-muted-foreground">Excused</p>
@@ -712,7 +762,7 @@ const ModeratorView = () => {
                 {cloudBursts.verified && (
                   <span key={cloudBursts.verified.id} className="filter-cloud-burst" />
                 )}
-                <CardContent className="py-4 text-center relative z-10">
+                <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('verified')}`}>
                   <CheckCircle className="w-5 h-5 mx-auto mb-1 text-success" />
                   <p className="text-2xl font-bold"><AnimatedCount value={verifiedCount} /></p>
                   <p className="text-xs text-muted-foreground">Verified</p>
@@ -726,7 +776,7 @@ const ModeratorView = () => {
                 {cloudBursts.suspicious && (
                   <span key={cloudBursts.suspicious.id} className="filter-cloud-burst" />
                 )}
-                <CardContent className="py-4 text-center relative z-10">
+                <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('suspicious')}`}>
                   <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-destructive" />
                   <p className="text-2xl font-bold"><AnimatedCount value={suspiciousCount} /></p>
                   <p className="text-xs text-muted-foreground">Suspicious</p>
@@ -1017,7 +1067,7 @@ const ModeratorView = () => {
                               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1.5">
                                   <Clock className="w-3 h-3" />
-                                  {format(new Date(record.recorded_at), 'p')}
+                                  {format(new Date(record.recorded_at), 'HH:mm')}
                                 </span>
                                 {event?.location_check_enabled && (
                                   <span className="flex items-center gap-1">

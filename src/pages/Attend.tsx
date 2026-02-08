@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useRef, type CSSProperties } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useState, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,9 +36,19 @@ const attendeeSchema = z.object({
   email: z.string().email('Please enter a valid email').max(255),
 });
 
-type SubmitState = 'form' | 'loading' | 'success' | 'error' | 'expired' | 'already-submitted' | 'inactive' | 'time-expired';
+type SubmitState =
+  | 'form'
+  | 'loading'
+  | 'success-transition'
+  | 'success'
+  | 'error'
+  | 'expired'
+  | 'already-submitted'
+  | 'inactive'
+  | 'time-expired';
 
 const FORM_TIME_LIMIT_MS = 2 * 60 * 1000; // 2 minutes
+const SUCCESS_TRANSITION_MS = 1380;
 const REMEMBER_COOKIE = 'attendly:remember-attendee';
 const REMEMBER_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 const CLIENT_ID_COOKIE = 'attendly:client-id';
@@ -161,6 +171,7 @@ const Attend = () => {
   const timerRef = useRef<number | null>(null);
   const pendingLocationSubmitRef = useRef(false);
   const rememberConfettiTimerRef = useRef<number | null>(null);
+  const successTransitionTimerRef = useRef<number | null>(null);
 
   const rememberConfettiPieces = useMemo(() => {
     const colors = [
@@ -182,7 +193,12 @@ const Attend = () => {
   }, []);
 
   useEffect(() => {
-    if (!sessionExpiresAt || submitState === 'success' || submitState === 'already-submitted') {
+    if (
+      !sessionExpiresAt ||
+      submitState === 'success' ||
+      submitState === 'success-transition' ||
+      submitState === 'already-submitted'
+    ) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -235,6 +251,10 @@ const Attend = () => {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    if (successTransitionTimerRef.current) {
+      window.clearTimeout(successTransitionTimerRef.current);
+      successTransitionTimerRef.current = null;
+    }
 
     setEvent(null);
     setSessionId(null);
@@ -285,8 +305,33 @@ const Attend = () => {
         window.clearTimeout(rememberConfettiTimerRef.current);
         rememberConfettiTimerRef.current = null;
       }
+      if (successTransitionTimerRef.current) {
+        window.clearTimeout(successTransitionTimerRef.current);
+        successTransitionTimerRef.current = null;
+      }
     };
   }, []);
+
+  const prefersReducedMotion = () =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const triggerSuccessTransition = () => {
+    if (successTransitionTimerRef.current) {
+      window.clearTimeout(successTransitionTimerRef.current);
+      successTransitionTimerRef.current = null;
+    }
+
+    if (prefersReducedMotion()) {
+      setSubmitState('success');
+      return;
+    }
+
+    setSubmitState('success-transition');
+    successTransitionTimerRef.current = window.setTimeout(() => {
+      setSubmitState('success');
+      successTransitionTimerRef.current = null;
+    }, SUCCESS_TRANSITION_MS);
+  };
 
   const startAttendanceSession = async (existingClientId?: string) => {
     if (!id) return;
@@ -420,7 +465,7 @@ const Attend = () => {
         if (isRemembered) {
           storeRememberCookie({ name: name.trim(), email: email.trim().toLowerCase() });
         }
-        setSubmitState('success');
+        triggerSuccessTransition();
       }
     } catch (error: unknown) {
       setSubmitState('error');
@@ -509,101 +554,47 @@ const Attend = () => {
     });
   };
 
-  // Render states
-  if (submitState === 'loading' && !event) {
-    return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading event...</p>
-        </div>
-      </div>
-    );
-  }
+  const withLoadDelay = (step: number): CSSProperties => ({
+    ['--load-delay' as string]: `${step * 80}ms`,
+  });
 
-  if (submitState === 'error' && !event) {
-    return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
-        <Card className="max-w-md w-full bg-gradient-card text-center">
-          <CardContent className="py-12">
-            <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-4" />
-            <h1 className="text-xl font-semibold mb-2">Something went wrong</h1>
-            <p className="text-muted-foreground">
-              {startErrorMessage ?? 'Please rescan the QR code and try again.'}
-            </p>
-          </CardContent>
-        </Card>
+  const renderPageShell = (content: ReactNode) => (
+    <div className="relative isolate min-h-screen overflow-hidden bg-gradient-subtle p-6 flex items-center justify-center">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute left-1/2 top-[-16rem] h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute -left-20 bottom-[-6rem] h-72 w-72 rounded-full bg-accent/10 blur-3xl" />
+        <div className="absolute -right-16 top-1/3 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
       </div>
-    );
-  }
+      {content}
+    </div>
+  );
 
-  if (submitState === 'inactive') {
-    return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
-        <Card className="max-w-md w-full bg-gradient-card text-center">
-          <CardContent className="py-12">
-            <XCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h1 className="text-xl font-semibold mb-2">Event Not Active</h1>
-            <p className="text-muted-foreground">
-              This event is not currently accepting attendance.
-            </p>
-          </CardContent>
-        </Card>
+  const renderAttendCard = (
+    content: ReactNode,
+    options?: { className?: string; style?: CSSProperties },
+  ) => (
+    <div className="relative w-full max-w-md">
+      <div className="pointer-events-none absolute -inset-4 -z-10" aria-hidden="true">
+        <div className="absolute inset-x-8 -top-2 h-16 rounded-full bg-primary/25 blur-2xl" />
+        <div className="absolute -left-4 top-1/2 h-16 w-16 -translate-y-1/2 rounded-full bg-accent/20 blur-2xl" />
+        <div className="absolute -bottom-4 right-8 h-20 w-20 rounded-full bg-primary/20 blur-2xl" />
       </div>
-    );
-  }
+      <Card
+        className={`relative w-full overflow-hidden border border-border/95 ring-1 ring-black/10 dark:ring-white/15 bg-gradient-card backdrop-blur-sm shadow-[0_30px_90px_-50px_hsl(var(--primary)/0.72),0_20px_45px_-28px_rgba(15,23,42,0.52)] ${options?.className ?? ''}`}
+        style={options?.style}
+      >
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/45 to-transparent dark:from-white/10"
+          aria-hidden="true"
+        />
+        {content}
+      </Card>
+    </div>
+  );
 
-  if (submitState === 'expired') {
-    return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
-        <Card className="max-w-md w-full bg-gradient-card text-center">
-          <CardContent className="py-12">
-            <XCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
-            <h1 className="text-xl font-semibold mb-2">QR Code Expired</h1>
-            <p className="text-muted-foreground">
-              This QR code has expired. Please scan the current QR code.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (submitState === 'time-expired') {
-    return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
-        <Card className="max-w-md w-full bg-gradient-card text-center">
-          <CardContent className="py-12">
-            <Clock className="w-16 h-16 text-destructive mx-auto mb-4" />
-            <h1 className="text-xl font-semibold mb-2">Time Expired</h1>
-            <p className="text-muted-foreground">
-              You had 2 minutes to complete the form. Please scan the QR code again to get a fresh start.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (submitState === 'already-submitted') {
-    return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
-        <Card className="max-w-md w-full bg-gradient-card text-center">
-          <CardContent className="py-12">
-            <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
-            <h1 className="text-xl font-semibold mb-2">Already Recorded</h1>
-            <p className="text-muted-foreground">
-              Your attendance has already been recorded for this event.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (submitState === 'success') {
-    return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
+  const renderRecordedState = (alreadySubmitted = false) =>
+    renderPageShell(
+      <>
         {showRememberConfetti && (
           <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden="true">
             {rememberConfettiPieces.map((piece) => {
@@ -620,30 +611,49 @@ const Attend = () => {
             })}
           </div>
         )}
-        <Card className="max-w-md w-full bg-gradient-card text-center">
-          <CardContent className="py-12">
-            <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
-            <h1 className="text-xl font-semibold mb-2">Attendance Recorded!</h1>
+        {renderAttendCard(
+          <CardContent className="py-12 text-center">
+            <div className="attend-success-mark mx-auto mb-4" role="img" aria-label="Attendance confirmed">
+              <div className="attend-success-flipper" aria-hidden="true">
+                <div className="attend-success-face attend-success-face-front">
+                  <div className="attend-success-glow" />
+                  <svg viewBox="0 0 120 120" className="attend-success-svg">
+                    <circle cx="60" cy="60" r="42" className="attend-success-fill" />
+                    <circle cx="60" cy="60" r="42" className="attend-success-ring" />
+                    <path d="M39 62.5L54 77L83 48" className="attend-success-tick" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <h1 className="text-xl font-semibold mb-2">
+              {alreadySubmitted ? 'Already Recorded' : 'Attendance Recorded!'}
+            </h1>
             <p className="text-muted-foreground">
-              Thank you for checking in to {event?.name}.
+              {alreadySubmitted
+                ? `Your attendance has already been recorded for ${event?.name}.`
+                : `Thank you for checking in to ${event?.name}.`}
             </p>
             <div className="mt-6 flex flex-col gap-2">
               {isRemembered ? (
-                <>
-                  <div className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">
-                    <p className="font-medium">Remembered as</p>
-                    <p className="text-muted-foreground">{name.trim()}</p>
+                <div className="overflow-hidden rounded-xl border border-accent/30 bg-gradient-to-br from-accent/16 via-accent/8 to-transparent text-sm">
+                  <div className="px-4 pt-3 pb-2 text-left">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-accent/90">
+                      Remembered as
+                    </p>
+                    <p className="mt-1 font-medium text-foreground">{name.trim()}</p>
                     <p className="text-muted-foreground">{email.trim().toLowerCase()}</p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleForgetMe}
-                  >
-                    Forget me
-                  </Button>
-                </>
+                  <div className="border-t border-accent/25 bg-accent/10 px-2 py-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-full justify-center rounded-md text-muted-foreground hover:bg-background/40 hover:text-foreground"
+                      onClick={handleForgetMe}
+                    >
+                      Forget me
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <Button
                   size="sm"
@@ -655,24 +665,139 @@ const Attend = () => {
                   {rememberSaved ? 'Saved for next time' : 'Remember me'}
                 </Button>
               )}
-              <Link to="/">
-                <Button variant="outline" size="sm" className="w-full">
-                  Try Attendly
-                </Button>
-              </Link>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </CardContent>,
+        )}
+      </>,
+    );
+
+  // Render states
+  if (submitState === 'loading' && !event) {
+    return renderPageShell(
+      <div className="text-center attend-load-in" style={withLoadDelay(0)}>
+        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+        <p className="text-muted-foreground">Loading event...</p>
+      </div>,
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
-      <Card className="max-w-md w-full bg-gradient-card">
-        <CardHeader className="text-center">
+  if (submitState === 'error' && !event) {
+    return renderPageShell(
+      renderAttendCard(
+        <CardContent className="py-12 text-center">
+          <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-4" />
+          <h1 className="text-xl font-semibold mb-2">Something went wrong</h1>
+          <p className="text-muted-foreground">
+            {startErrorMessage ?? 'Please rescan the QR code and try again.'}
+          </p>
+        </CardContent>,
+      ),
+    );
+  }
+
+  if (submitState === 'inactive') {
+    return renderPageShell(
+      renderAttendCard(
+        <CardContent className="py-12 text-center">
+          <XCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <h1 className="text-xl font-semibold mb-2">Event Not Active</h1>
+          <p className="text-muted-foreground">
+            This event is not currently accepting attendance.
+          </p>
+        </CardContent>,
+      ),
+    );
+  }
+
+  if (submitState === 'expired') {
+    return renderPageShell(
+      renderAttendCard(
+        <CardContent className="py-12 text-center">
+          <XCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+          <h1 className="text-xl font-semibold mb-2">QR Code Expired</h1>
+          <p className="text-muted-foreground">
+            This QR code has expired. Please scan the current QR code.
+          </p>
+        </CardContent>,
+      ),
+    );
+  }
+
+  if (submitState === 'time-expired') {
+    return renderPageShell(
+      renderAttendCard(
+        <CardContent className="py-12 text-center">
+          <Clock className="w-16 h-16 text-destructive mx-auto mb-4" />
+          <h1 className="text-xl font-semibold mb-2">Time Expired</h1>
+          <p className="text-muted-foreground">
+            You had 2 minutes to complete the form. Please scan the QR code again to get a fresh start.
+          </p>
+        </CardContent>,
+      ),
+    );
+  }
+
+  if (submitState === 'already-submitted') {
+    return renderRecordedState(true);
+  }
+
+  if (submitState === 'success-transition') {
+    return renderPageShell(
+      renderAttendCard(
+        <CardContent className="relative py-16">
+          <div className="attend-transition-stage" role="status" aria-live="polite">
+            <span className="sr-only">Attendance recorded. Preparing confirmation.</span>
+            <div className="attend-transition-ghost" aria-hidden="true">
+              <span className="attend-transition-line attend-transition-line-lg" />
+              <span className="attend-transition-line attend-transition-line-sm" />
+              <span className="attend-transition-line attend-transition-line-lg" />
+              <span className="attend-transition-pill" />
+            </div>
+            <div
+              className={`attend-transition-check ${event?.brand_logo_url ? 'attend-transition-check--with-logo' : ''}`}
+              aria-hidden="true"
+            >
+              <div className="attend-transition-flipper">
+                <div className="attend-transition-face attend-transition-face-front">
+                  <div className="attend-transition-check-glow" />
+                  <svg viewBox="0 0 120 120" className="attend-transition-check-svg">
+                    <circle cx="60" cy="60" r="42" className="attend-transition-check-fill" />
+                    <circle cx="60" cy="60" r="42" className="attend-transition-check-ring" />
+                    <path d="M39 62.5L54 77L83 48" className="attend-transition-check-tick" />
+                  </svg>
+                </div>
+                {event?.brand_logo_url && (
+                  <div className="attend-transition-face attend-transition-face-back">
+                    <div className="attend-transition-logo-shell">
+                      <img
+                        src={event.brand_logo_url}
+                        alt=""
+                        loading="lazy"
+                        className="attend-transition-logo"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+              {event?.brand_logo_url && <div className="attend-transition-logo-shadow-overlay" />}
+            </div>
+          </div>
+        </CardContent>,
+        { className: 'attend-card-morph' },
+      ),
+    );
+  }
+
+  if (submitState === 'success') {
+    return renderRecordedState();
+  }
+
+  return renderPageShell(
+    renderAttendCard(
+      <>
+        <CardHeader className="text-center attend-load-in" style={withLoadDelay(1)}>
           {event?.brand_logo_url ? (
-            <div className="w-12 h-12 rounded-xl overflow-hidden border border-border bg-background mx-auto mb-4">
+            <div className="w-12 h-12 rounded-xl overflow-hidden bg-background mx-auto mb-4 attend-load-in" style={withLoadDelay(2)}>
               <img
                 src={event.brand_logo_url}
                 alt={`${event.name} workspace logo`}
@@ -681,10 +806,12 @@ const Attend = () => {
               />
             </div>
           ) : (
-            <AttendlyLogo className="mx-auto mb-4 h-12 w-12" />
+            <div className="attend-load-in" style={withLoadDelay(2)}>
+              <AttendlyLogo className="mx-auto mb-4 h-12 w-12" />
+            </div>
           )}
-          <CardTitle>{event?.name}</CardTitle>
-          <CardDescription className="flex flex-col items-center gap-1">
+          <CardTitle className="attend-load-in" style={withLoadDelay(3)}>{event?.name}</CardTitle>
+          <CardDescription className="flex flex-col items-center gap-1 attend-load-in" style={withLoadDelay(4)}>
             {event?.event_date && (
               <span className="flex flex-wrap items-center justify-center gap-3">
                 <span className="flex items-center gap-1">
@@ -709,7 +836,7 @@ const Attend = () => {
           {/* Time remaining indicator */}
           <div className={`mb-4 p-3 rounded-lg flex items-center justify-center gap-2 ${
             timeRemaining <= 30000 ? 'bg-destructive/10 text-destructive' : 'bg-secondary/50 text-muted-foreground'
-          }`}>
+          } attend-load-in`} style={withLoadDelay(5)}>
             <Clock className="w-4 h-4" />
             <span className="font-mono font-medium">
               {formatTimeRemaining(timeRemaining)}
@@ -717,13 +844,16 @@ const Attend = () => {
             <span className="text-sm">remaining</span>
           </div>
           {prefilledFromRemember && (
-            <div className="mb-4 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-center text-sm text-foreground">
-              On your request, your details were prefilled from your last saved check-in. 🎉
+            <div
+              className="mb-4 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-center text-sm text-foreground attend-load-in"
+              style={withLoadDelay(6)}
+            >
+              Your details were prefilled from your last saved check-in. 🎉
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2 attend-load-in" style={withLoadDelay(7)}>
               <Label htmlFor="name">Your Name</Label>
               <Input
                 id="name"
@@ -735,7 +865,7 @@ const Attend = () => {
               {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 attend-load-in" style={withLoadDelay(8)}>
               <Label htmlFor="email">Your Email</Label>
               <Input
                 id="email"
@@ -750,7 +880,7 @@ const Attend = () => {
 
             {/* Location status - only show if location check is enabled */}
             {event?.location_check_enabled && (
-              <div className="p-3 rounded-lg bg-secondary/50 text-sm">
+              <div className="p-3 rounded-lg bg-secondary/50 text-sm attend-load-in" style={withLoadDelay(9)}>
                 {!locationRequested ? (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <MapPin className="w-4 h-4" />
@@ -777,9 +907,10 @@ const Attend = () => {
 
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full rounded-full attend-load-in" 
               size="lg"
               disabled={submitState === 'loading'}
+              style={withLoadDelay(10)}
             >
               {submitState === 'loading' ? (
                 <>
@@ -793,14 +924,15 @@ const Attend = () => {
                 </>
               )}
             </Button>
-            <p className="text-xs text-muted-foreground text-center">
-              By submitting, you consent to your name and email being stored. If enabled for this event, location and
-              a device identifier stored in your browser may also be processed.
+            <p className="text-xs text-muted-foreground text-center attend-load-in" style={withLoadDelay(11)}>
+              By submitting, you consent to storing your name/email and functional cookies for attendance checks.
+              Location may also be processed if enabled for this event.
             </p>
           </form>
         </CardContent>
-      </Card>
-    </div>
+      </>,
+      { className: 'attend-load-in', style: withLoadDelay(0) },
+    ),
   );
 };
 

@@ -11,9 +11,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X, Settings, FileText, AlertTriangle, Wand2, DoorOpen, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X, Settings, FileText, AlertTriangle, Wand2, DoorOpen, MoreHorizontal, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, LineChart, Line, ComposedChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { sanitizeError } from '@/utils/errorHandler';
 
 interface Season {
@@ -31,6 +31,7 @@ interface Event {
 }
 
 type AttendanceStatus = 'verified' | 'suspicious' | 'cleared' | 'excused';
+type AttendanceChartType = 'column' | 'line' | 'bubble';
 
 interface AttendanceRecord {
   id: string;
@@ -170,6 +171,10 @@ const SeasonDetail = () => {
   const [selectedMember, setSelectedMember] = useState<MemberStats | null>(null);
   const [memberEventSearch, setMemberEventSearch] = useState('');
   const [memberEventFilter, setMemberEventFilter] = useState<'all' | 'attended' | 'excused' | 'not_attended'>('all');
+  const [memberEditName, setMemberEditName] = useState('');
+  const [memberEditEmail, setMemberEditEmail] = useState('');
+  const [memberEditSaving, setMemberEditSaving] = useState(false);
+  const [memberEditOpen, setMemberEditOpen] = useState(false);
 
   // Events list state
   const [eventSearch, setEventSearch] = useState('');
@@ -191,6 +196,7 @@ const SeasonDetail = () => {
   const [weightSaving, setWeightSaving] = useState(false);
   const [weightValue, setWeightValue] = useState('1');
   const [weightEvent, setWeightEvent] = useState<Event | null>(null);
+  const [attendanceChartType, setAttendanceChartType] = useState<AttendanceChartType>('line');
 
   useEffect(() => {
     if (id && currentWorkspace) {
@@ -647,13 +653,21 @@ const SeasonDetail = () => {
 
   // Calculate analytics with deduplication (only count one attendance per member per event)
   const eventAttendanceData = events.map(event => {
-    const eventAttendance = attendance.filter(a => a.event_id === event.id && isActualAttendance(a));
-    // Deduplicate by email
-    const uniqueEmails = new Set(eventAttendance.map(a => a.attendee_email));
+    const eventRecords = attendance.filter((record) => record.event_id === event.id);
+    const uniqueAttendanceEmails = new Set(
+      eventRecords.filter((record) => isActualAttendance(record)).map((record) => record.attendee_email),
+    );
+    const uniqueExcusedEmails = new Set(
+      eventRecords
+        .filter((record) => record.status === 'excused' && !uniqueAttendanceEmails.has(record.attendee_email))
+        .map((record) => record.attendee_email),
+    );
+
     return {
       name: format(new Date(event.event_date), 'MMM d'),
       fullName: event.name,
-      attendance: uniqueEmails.size,
+      attendance: uniqueAttendanceEmails.size,
+      excused: uniqueExcusedEmails.size,
     };
   });
 
@@ -736,6 +750,11 @@ const SeasonDetail = () => {
   }, 0);
   const uniqueAttendees = memberStats.filter(member => member.eventsAttended > 0).length;
   const avgAttendance = events.length > 0 ? Math.round(totalUniqueAttendance / events.length) : 0;
+  const chartDescriptionByType: Record<AttendanceChartType, string> = {
+    column: 'Columns show attendance; the amber line shows excused members',
+    line: 'Blue line is attendance; amber line is excused members',
+    bubble: 'Bubble size shows attendance; the amber line shows excused members',
+  };
   const getNotAttendedCount = (member: MemberStats) =>
     Math.max(0, totalWeight - member.eventsAttended - member.eventsExcused);
 
@@ -776,6 +795,107 @@ const SeasonDetail = () => {
         return true;
       })
       .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+  };
+
+  const handleMemberIdentitySave = async () => {
+    if (!selectedMember) return;
+
+    const trimmedName = memberEditName.trim();
+    const trimmedEmail = normalizeEmail(memberEditEmail);
+    const originalName = selectedMember.name.trim();
+    const originalEmail = selectedMember.email;
+
+    if (!trimmedName) {
+      toast({
+        title: 'Name required',
+        description: 'Please enter a valid name.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (
+      !trimmedEmail ||
+      !trimmedEmail.includes('@') ||
+      trimmedEmail.startsWith('@') ||
+      trimmedEmail.endsWith('@')
+    ) {
+      toast({
+        title: 'Invalid email',
+        description: 'Please enter a valid email address.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (trimmedName === originalName && trimmedEmail === normalizeEmail(originalEmail)) {
+      toast({ title: 'No changes' });
+      return;
+    }
+
+    const eventIds = events.map((event) => event.id);
+    if (eventIds.length === 0) return;
+
+    const updatePayload: { attendee_name?: string; attendee_email?: string } = {};
+    if (trimmedName !== originalName) {
+      updatePayload.attendee_name = trimmedName;
+    }
+    if (trimmedEmail !== normalizeEmail(originalEmail)) {
+      updatePayload.attendee_email = trimmedEmail;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      toast({ title: 'No changes' });
+      return;
+    }
+
+    setMemberEditSaving(true);
+    const { error } = await supabase
+      .from('attendance_records')
+      .update(updatePayload)
+      .eq('attendee_email', originalEmail)
+      .in('event_id', eventIds);
+    setMemberEditSaving(false);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: sanitizeError(error),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const targetEventIds = new Set(eventIds);
+    setAttendance((prev) =>
+      prev.map((record) => {
+        if (record.attendee_email !== originalEmail || !targetEventIds.has(record.event_id)) {
+          return record;
+        }
+        return {
+          ...record,
+          ...(updatePayload.attendee_name ? { attendee_name: updatePayload.attendee_name } : {}),
+          ...(updatePayload.attendee_email ? { attendee_email: updatePayload.attendee_email } : {}),
+        };
+      }),
+    );
+    setSelectedMember((prev) =>
+      prev
+        ? {
+            ...prev,
+            name: updatePayload.attendee_name ?? prev.name,
+            email: updatePayload.attendee_email ?? prev.email,
+          }
+        : prev,
+    );
+    setMemberEditName(trimmedName);
+    setMemberEditEmail(trimmedEmail);
+    setMemberEditOpen(false);
+
+    toast({
+      title: 'Member updated',
+      description: 'Name/email was updated for this series.',
+    });
   };
 
   // Export full attendance matrix CSV
@@ -1009,53 +1129,199 @@ const SeasonDetail = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="animate-soft-rise grid lg:grid-cols-2 gap-8" style={{ '--delay': '160ms' } as React.CSSProperties}>
+          <div
+            className="animate-soft-rise grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1.15fr)]"
+            style={{ '--delay': '160ms' } as React.CSSProperties}
+          >
             {/* Attendance Chart */}
             <Card className="bg-gradient-card">
-              <CardHeader>
-                <CardTitle className="text-lg">Attendance Over Time</CardTitle>
-                <CardDescription>Unique attendees per event</CardDescription>
+              <CardHeader className="space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-lg">Attendance Over Time</CardTitle>
+                    <CardDescription>{chartDescriptionByType[attendanceChartType]}</CardDescription>
+                  </div>
+                  <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-background/60 p-1">
+                    <Button
+                      variant={attendanceChartType === 'line' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Line chart"
+                      aria-label="Line chart"
+                      aria-pressed={attendanceChartType === 'line'}
+                      onClick={() => setAttendanceChartType('line')}
+                    >
+                      <TrendingUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={attendanceChartType === 'column' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Column chart"
+                      aria-label="Column chart"
+                      aria-pressed={attendanceChartType === 'column'}
+                      onClick={() => setAttendanceChartType('column')}
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={attendanceChartType === 'bubble' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Bubble chart"
+                      aria-label="Bubble chart"
+                      aria-pressed={attendanceChartType === 'bubble'}
+                      onClick={() => setAttendanceChartType('bubble')}
+                    >
+                      <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                        <circle cx="6" cy="12" r="3" />
+                        <circle cx="12.5" cy="7" r="2.5" />
+                        <circle cx="14.5" cy="13.5" r="3.5" />
+                      </svg>
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="h-80">
+                <div className="h-[26rem]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={eventAttendanceData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis 
-                        dataKey="name" 
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={12}
-                      />
-                      <YAxis 
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={12}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                        }}
-                        labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
-                      />
-                      <Bar 
-                        dataKey="attendance" 
-                        fill="hsl(var(--primary))" 
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
+                    {attendanceChartType === 'column' ? (
+                      <ComposedChart data={eventAttendanceData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="name"
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                        />
+                        <YAxis
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                          allowDecimals={false}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                          }}
+                          labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+                        />
+                        <Legend />
+                        <Bar
+                          dataKey="attendance"
+                          name="Attendance"
+                          fill="hsl(var(--primary))"
+                          radius={[4, 4, 0, 0]}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="excused"
+                          name="Excused"
+                          stroke="#f59e0b"
+                          strokeWidth={2}
+                          dot={{ fill: '#f59e0b', r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      </ComposedChart>
+                    ) : attendanceChartType === 'line' ? (
+                      <LineChart data={eventAttendanceData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="name"
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                        />
+                        <YAxis
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                          allowDecimals={false}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                          }}
+                          labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="attendance"
+                          name="Attendance"
+                          stroke="hsl(var(--primary))"
+                          strokeWidth={3}
+                          dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="excused"
+                          name="Excused"
+                          stroke="#f59e0b"
+                          strokeWidth={2}
+                          dot={{ fill: '#f59e0b', r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      </LineChart>
+                    ) : (
+                      <ComposedChart data={eventAttendanceData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="name"
+                          type="category"
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                        />
+                        <YAxis
+                          dataKey="attendance"
+                          type="number"
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                          allowDecimals={false}
+                        />
+                        <ZAxis
+                          dataKey="attendance"
+                          type="number"
+                          range={[80, 420]}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                          }}
+                          labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+                        />
+                        <Legend />
+                        <Scatter
+                          name="Attendance"
+                          data={eventAttendanceData}
+                          fill="hsl(var(--primary))"
+                          fillOpacity={0.75}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="excused"
+                          name="Excused"
+                          stroke="#f59e0b"
+                          strokeWidth={2}
+                          dot={{ fill: '#f59e0b', r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      </ComposedChart>
+                    )}
                   </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Member Leaderboard */}
             <Card className="bg-gradient-card">
-              <CardHeader>
-                <div className="flex items-center justify-between">
+              <CardHeader className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
                   <div>
                     <CardTitle className="text-lg">Member Attendance</CardTitle>
-                    <CardDescription>Click on a member to see details</CardDescription>
+                    <CardDescription>Click a member to inspect attendance details</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -1087,7 +1353,7 @@ const SeasonDetail = () => {
                   </div>
                 </div>
                 {memberSearchOpen && (
-                  <div className="relative mt-2">
+                  <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       placeholder="Search by name or email..."
@@ -1100,36 +1366,39 @@ const SeasonDetail = () => {
               </CardHeader>
               <CardContent>
                 {filteredMemberStats.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
+                  <p className="py-8 text-center text-muted-foreground">
                     {memberSearch ? 'No members found' : 'No attendance records yet'}
                   </p>
                 ) : (
-                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                  <div className="max-h-[26rem] space-y-2 overflow-y-auto">
                     {filteredMemberStats.map((member, index) => (
-                      <div 
-                        key={member.email} 
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                      <div
+                        key={member.email}
+                        className="grid cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl border border-transparent bg-background/40 p-2.5 transition-colors hover:border-border hover:bg-muted/30"
                         onClick={() => {
                           setSelectedMember(member);
                           setMemberEventSearch('');
                           setMemberEventFilter('all');
+                          setMemberEditName(member.name);
+                          setMemberEditEmail(member.email);
+                          setMemberEditOpen(false);
                         }}
                       >
-                        <span className="text-sm text-muted-foreground w-6">
+                        <span className="w-6 text-sm text-muted-foreground">
                           {memberSortAsc ? filteredMemberStats.length - index : index + 1}.
                         </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{member.name}</p>
-                          <p className="text-sm text-muted-foreground truncate">{member.email}</p>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{member.name}</p>
+                          <p className="truncate text-sm text-muted-foreground">{member.email}</p>
                         </div>
-                        <div className="flex items-center gap-3 text-sm font-semibold">
-                          <span className="text-success" title="Attended">
+                        <div className="flex items-center gap-2 text-sm font-semibold">
+                          <span className="rounded-full bg-success/10 px-2 py-0.5 text-success" title="Attended">
                             {member.eventsAttended}
                           </span>
-                          <span className="text-warning" title="Excused">
+                          <span className="rounded-full bg-warning/10 px-2 py-0.5 text-warning" title="Excused">
                             {member.eventsExcused}
                           </span>
-                          <span className="text-muted-foreground" title="Not attended">
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground" title="Not attended">
                             {getNotAttendedCount(member)}
                           </span>
                         </div>
@@ -1288,14 +1557,67 @@ const SeasonDetail = () => {
       </div>
 
       {/* Member Detail Modal */}
-      <Dialog open={!!selectedMember} onOpenChange={(open) => !open && setSelectedMember(null)}>
+      <Dialog
+        open={!!selectedMember}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedMember(null);
+            setMemberEditName('');
+            setMemberEditEmail('');
+            setMemberEditOpen(false);
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <button
+            type="button"
+            className="absolute right-14 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/55 bg-white/75 text-foreground shadow-[0_8px_22px_-10px_rgba(0,0,0,0.55)] backdrop-blur-md transition-all hover:scale-105 hover:bg-white active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:pointer-events-none"
+            onClick={() => setMemberEditOpen((prev) => !prev)}
+            title={memberEditOpen ? 'Hide member edit fields' : 'Edit member'}
+            aria-label={memberEditOpen ? 'Hide member edit fields' : 'Edit member'}
+            aria-pressed={memberEditOpen}
+          >
+            <Pencil className="h-4 w-4" />
+            <span className="sr-only">Edit member</span>
+          </button>
           <DialogHeader>
             <DialogTitle>{selectedMember?.name}</DialogTitle>
             <DialogDescription>{selectedMember?.email}</DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 flex-1 min-h-0 flex flex-col">
+            {memberEditOpen && (
+              <div className="space-y-3 rounded-lg border border-border bg-background/40 p-3">
+                <p className="text-sm font-medium">Edit member identity</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="member-edit-name">Name</Label>
+                    <Input
+                      id="member-edit-name"
+                      value={memberEditName}
+                      onChange={(e) => setMemberEditName(e.target.value)}
+                      placeholder="Member name"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="member-edit-email">Email</Label>
+                    <Input
+                      id="member-edit-email"
+                      type="email"
+                      value={memberEditEmail}
+                      onChange={(e) => setMemberEditEmail(e.target.value)}
+                      placeholder="member@example.com"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={handleMemberIdentitySave} disabled={memberEditSaving}>
+                    {memberEditSaving ? 'Saving...' : 'Save identity'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

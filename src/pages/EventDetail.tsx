@@ -81,6 +81,7 @@ const QR_HOST_HEARTBEAT_MS = 10000;
 const ATTENDANCE_LIST_BOTTOM_GAP = 64;
 const ATTENDANCE_LIST_MIN_HEIGHT = 240;
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
+const INITIAL_LIST_STAGGER_MS = 80;
 
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -109,6 +110,8 @@ const EventDetail = () => {
   const [revealedNames, setRevealedNames] = useState<Set<string>>(new Set());
   const [revealedEmails, setRevealedEmails] = useState<Set<string>>(new Set());
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
+  const [initialListAnimationDone, setInitialListAnimationDone] = useState(false);
+  const [revealedInitialRecordIds, setRevealedInitialRecordIds] = useState<Set<string>>(new Set());
   
   // Manual add attendee
   const [showAddForm, setShowAddForm] = useState(false);
@@ -133,6 +136,7 @@ const EventDetail = () => {
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
   type StatusFilter = 'all' | 'verified' | 'suspicious' | 'excused';
+  type BubblePhase = '' | 'a' | 'b';
   type CloudBurst = { x: number; y: number; id: number; strength: number };
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -142,6 +146,13 @@ const EventDetail = () => {
     suspicious: null,
     excused: null,
   });
+  const [countBubblePhase, setCountBubblePhase] = useState<Record<StatusFilter, BubblePhase>>({
+    all: '',
+    verified: '',
+    suspicious: '',
+    excused: '',
+  });
+  const previousFilterCountsRef = useRef<Record<StatusFilter, number> | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [compactView, setCompactView] = useState(false);
   const [qrEntrance, setQrEntrance] = useState(false);
@@ -153,6 +164,8 @@ const EventDetail = () => {
   const [isQrRefreshing, setIsQrRefreshing] = useState(false);
   const qrRefreshTimerRef = useRef<number | null>(null);
   const prevQrTokenRef = useRef<string | null>(null);
+  const initialListAnimationStartedRef = useRef(false);
+  const initialListAnimationTimersRef = useRef<number[]>([]);
 
   const toggleCompactExpand = useCallback((recordId: string) => {
     if (!compactView) return;
@@ -197,6 +210,13 @@ const EventDetail = () => {
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showSuggestions]);
+
+  useEffect(() => {
+    return () => {
+      initialListAnimationTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      initialListAnimationTimersRef.current = [];
+    };
+  }, []);
 
   const getClientIdKey = (record: AttendanceRecord) =>
     (record.client_id_raw ?? record.client_id ?? '').trim();
@@ -1254,6 +1274,90 @@ const EventDetail = () => {
     }
   };
 
+  useEffect(() => {
+    if (authLoading || loading || initialListAnimationDone || initialListAnimationStartedRef.current) {
+      return;
+    }
+    if (attendance.length === 0) return;
+
+    initialListAnimationStartedRef.current = true;
+    initialListAnimationTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    initialListAnimationTimersRef.current = [];
+
+    const listElement = attendanceListRef.current;
+    const isDesktop = window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
+    const fallbackVisibleArea = Math.round(window.innerHeight * (isDesktop ? 0.45 : 0.38));
+    const visibleArea = listElement?.clientHeight ?? attendanceListMaxHeight ?? fallbackVisibleArea;
+    const firstCardElement = listElement?.querySelector<HTMLElement>('[data-attendance-card="true"]');
+    const measuredCardHeight = firstCardElement?.getBoundingClientRect().height;
+    const estimatedCardHeight = compactView ? 56 : 96;
+    const cardHeight = measuredCardHeight && measuredCardHeight > 0 ? measuredCardHeight : estimatedCardHeight;
+    const firstGlanceCount = Math.max(3, Math.ceil(visibleArea / cardHeight) + 1);
+
+    const stagedIds = attendance.slice(0, firstGlanceCount).map((record) => record.id);
+    const remainingIds = attendance.slice(firstGlanceCount).map((record) => record.id);
+
+    setRevealedInitialRecordIds(new Set(remainingIds));
+
+    stagedIds.forEach((recordId, index) => {
+      const timer = window.setTimeout(() => {
+        setRevealedInitialRecordIds((current) => {
+          const next = new Set(current);
+          next.add(recordId);
+          return next;
+        });
+      }, index * INITIAL_LIST_STAGGER_MS);
+      initialListAnimationTimersRef.current.push(timer);
+    });
+
+    const finishTimer = window.setTimeout(() => {
+      setInitialListAnimationDone(true);
+    }, stagedIds.length * INITIAL_LIST_STAGGER_MS + 200);
+    initialListAnimationTimersRef.current.push(finishTimer);
+  }, [authLoading, loading, initialListAnimationDone, attendance, attendanceListMaxHeight, compactView]);
+
+  const verifiedCount = attendance.filter(a => a.status === 'verified' || a.status === 'cleared').length;
+  const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
+  const excusedCount = attendance.filter(a => a.status === 'excused').length;
+  const attendedCount = attendance.length - excusedCount;
+
+  useEffect(() => {
+    const nextCounts: Record<StatusFilter, number> = {
+      all: attendance.length,
+      excused: excusedCount,
+      verified: verifiedCount,
+      suspicious: suspiciousCount,
+    };
+
+    const previousCounts = previousFilterCountsRef.current;
+    if (!previousCounts) {
+      previousFilterCountsRef.current = nextCounts;
+      return;
+    }
+
+    setCountBubblePhase((current) => {
+      let changed = false;
+      const nextPhase = { ...current };
+
+      (Object.keys(nextCounts) as StatusFilter[]).forEach((filter) => {
+        if (nextCounts[filter] > previousCounts[filter]) {
+          nextPhase[filter] = current[filter] === 'a' ? 'b' : 'a';
+          changed = true;
+        }
+      });
+
+      return changed ? nextPhase : current;
+    });
+
+    previousFilterCountsRef.current = nextCounts;
+  }, [attendance.length, excusedCount, verifiedCount, suspiciousCount]);
+
+  const getCountBubbleClass = (filter: StatusFilter) => {
+    if (countBubblePhase[filter] === 'a') return 'filter-count-bubble-a';
+    if (countBubblePhase[filter] === 'b') return 'filter-count-bubble-b';
+    return '';
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -1275,10 +1379,6 @@ const EventDetail = () => {
     );
   }
 
-  const verifiedCount = attendance.filter(a => a.status === 'verified' || a.status === 'cleared').length;
-  const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
-  const excusedCount = attendance.filter(a => a.status === 'excused').length;
-  const attendedCount = attendance.length - excusedCount;
   const totalCloudStyle = (() => {
     const baseStyle = getCloudOriginStyle('all') ?? {};
     if (statusFilter === 'all' && !cloudBursts.all) {
@@ -1368,7 +1468,7 @@ const EventDetail = () => {
                     <div className="flex items-center gap-2">
                       <div className="text-right text-xs text-muted-foreground">
                         <span className="block">{match.status}</span>
-                        <span className="block">{format(new Date(match.recorded_at), 'p')}</span>
+                        <span className="block">{format(new Date(match.recorded_at), 'HH:mm')}</span>
                       </div>
                       <Button
                         type="button"
@@ -1496,8 +1596,13 @@ const EventDetail = () => {
           <div className="min-w-0">
             <Card className="bg-gradient-card">
               <CardHeader>
-                <CardTitle className="min-w-0">
-                  <span className="block min-w-0 overflow-hidden whitespace-nowrap" style={{ maskImage: 'linear-gradient(to right, black 85%, transparent)', WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent)' }}>{event.name}</span>
+                <CardTitle className="min-w-0 leading-tight">
+                  <span
+                    className="block min-w-0 overflow-hidden whitespace-nowrap pb-0.5"
+                    style={{ maskImage: 'linear-gradient(to right, black 85%, transparent)', WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent)' }}
+                  >
+                    {event.name}
+                  </span>
                 </CardTitle>
                 {event.description && (
                   <p className="text-sm text-muted-foreground mt-1 break-words">{event.description}</p>
@@ -1610,7 +1715,7 @@ const EventDetail = () => {
                 {cloudBursts.all && (
                   <span key={cloudBursts.all.id} className="filter-cloud-burst" />
                 )}
-                <CardContent className="py-4 text-center relative z-10">
+                <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('all')}`}>
                   <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
                   <p className="text-2xl font-bold"><AnimatedCount value={attendance.length} /></p>
                   <p className="text-xs text-muted-foreground">Total</p>
@@ -1624,7 +1729,7 @@ const EventDetail = () => {
                 {cloudBursts.excused && (
                   <span key={cloudBursts.excused.id} className="filter-cloud-burst" />
                 )}
-                <CardContent className="py-4 text-center relative z-10">
+                <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('excused')}`}>
                   <UserMinus className="w-5 h-5 mx-auto mb-1 text-warning" />
                   <p className="text-2xl font-bold"><AnimatedCount value={excusedCount} /></p>
                   <p className="text-xs text-muted-foreground">Excused</p>
@@ -1638,7 +1743,7 @@ const EventDetail = () => {
                 {cloudBursts.verified && (
                   <span key={cloudBursts.verified.id} className="filter-cloud-burst" />
                 )}
-                <CardContent className="py-4 text-center relative z-10">
+                <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('verified')}`}>
                   <CheckCircle className="w-5 h-5 mx-auto mb-1 text-success" />
                   <p className="text-2xl font-bold"><AnimatedCount value={verifiedCount} /></p>
                   <p className="text-xs text-muted-foreground">Verified</p>
@@ -1652,7 +1757,7 @@ const EventDetail = () => {
                 {cloudBursts.suspicious && (
                   <span key={cloudBursts.suspicious.id} className="filter-cloud-burst" />
                 )}
-                <CardContent className="py-4 text-center relative z-10">
+                <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('suspicious')}`}>
                   <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-destructive" />
                   <p className="text-2xl font-bold"><AnimatedCount value={suspiciousCount} /></p>
                   <p className="text-xs text-muted-foreground">Suspicious</p>
@@ -1917,10 +2022,19 @@ const EventDetail = () => {
                   >
                     {filteredAttendance.map((record) => {
                       const isExpanded = compactView && expandedRecordId === record.id;
+                      const isInitialCardVisible =
+                        initialListAnimationDone || revealedInitialRecordIds.has(record.id);
                       return (
                     <Card
+                      data-attendance-card="true"
                       key={record.id}
-                      className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}
+                      className={`bg-gradient-card transition-all duration-300 ${
+                        record.status === 'suspicious' ? 'border-warning/50' : ''
+                      } ${
+                        isInitialCardVisible
+                          ? 'translate-y-0 opacity-100'
+                          : 'pointer-events-none translate-y-2 opacity-0'
+                      }`}
                     >
                       <CardContent
                         className={`${compactView && !isExpanded ? 'py-2 cursor-pointer' : 'py-3'}${compactView ? ' cursor-pointer' : ''}`}
@@ -1990,7 +2104,7 @@ const EventDetail = () => {
                               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1.5">
                                   <Clock className="w-3 h-3" />
-                                  {format(new Date(record.recorded_at), 'p')}
+                                  {format(new Date(record.recorded_at), 'HH:mm')}
                                 </span>
                                 {event?.location_check_enabled && (
                                   <span className="flex items-center gap-1">
