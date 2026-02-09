@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import WorkspaceHeader from '@/components/WorkspaceHeader';
@@ -22,6 +22,7 @@ const WorkspaceLayout = ({
   const { user, loading: authLoading } = useAuth();
   const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem(STORAGE_KEYS.sidebarCollapsed) === 'true';
@@ -58,7 +59,12 @@ const WorkspaceLayout = ({
           />
         ) : null}
         <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-          <div className="container mx-auto px-4 py-6 sm:px-6 sm:py-8">{children}</div>
+          <div
+            key={`${location.pathname}${location.search}`}
+            className="workspace-route-stage container mx-auto px-4 py-6 sm:px-6 sm:py-8"
+          >
+            {children}
+          </div>
         </main>
       </div>
     </div>

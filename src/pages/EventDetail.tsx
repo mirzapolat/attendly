@@ -82,6 +82,7 @@ const ATTENDANCE_LIST_BOTTOM_GAP = 64;
 const ATTENDANCE_LIST_MIN_HEIGHT = 240;
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
 const INITIAL_LIST_STAGGER_MS = 80;
+const NEW_ATTENDEE_POP_MS = 920;
 
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -112,6 +113,7 @@ const EventDetail = () => {
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [initialListAnimationDone, setInitialListAnimationDone] = useState(false);
   const [revealedInitialRecordIds, setRevealedInitialRecordIds] = useState<Set<string>>(new Set());
+  const [newlyArrivedRecordIds, setNewlyArrivedRecordIds] = useState<Set<string>>(new Set());
   
   // Manual add attendee
   const [showAddForm, setShowAddForm] = useState(false);
@@ -166,6 +168,9 @@ const EventDetail = () => {
   const prevQrTokenRef = useRef<string | null>(null);
   const initialListAnimationStartedRef = useRef(false);
   const initialListAnimationTimersRef = useRef<number[]>([]);
+  const seenAttendanceIdsRef = useRef<Set<string>>(new Set());
+  const hasHydratedAttendanceRef = useRef(false);
+  const newlyArrivedTimersRef = useRef<number[]>([]);
 
   const toggleCompactExpand = useCallback((recordId: string) => {
     if (!compactView) return;
@@ -215,8 +220,18 @@ const EventDetail = () => {
     return () => {
       initialListAnimationTimersRef.current.forEach((timer) => window.clearTimeout(timer));
       initialListAnimationTimersRef.current = [];
+      newlyArrivedTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      newlyArrivedTimersRef.current = [];
     };
   }, []);
+
+  useEffect(() => {
+    hasHydratedAttendanceRef.current = false;
+    seenAttendanceIdsRef.current = new Set();
+    setNewlyArrivedRecordIds(new Set());
+    newlyArrivedTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    newlyArrivedTimersRef.current = [];
+  }, [id]);
 
   const getClientIdKey = (record: AttendanceRecord) =>
     (record.client_id_raw ?? record.client_id ?? '').trim();
@@ -1316,6 +1331,42 @@ const EventDetail = () => {
     initialListAnimationTimersRef.current.push(finishTimer);
   }, [authLoading, loading, initialListAnimationDone, attendance, attendanceListMaxHeight, compactView]);
 
+  useEffect(() => {
+    const currentIds = attendance.map((record) => record.id);
+
+    if (!hasHydratedAttendanceRef.current) {
+      seenAttendanceIdsRef.current = new Set(currentIds);
+      hasHydratedAttendanceRef.current = true;
+      return;
+    }
+
+    const previouslySeenIds = seenAttendanceIdsRef.current;
+    const incomingIds = currentIds.filter((recordId) => !previouslySeenIds.has(recordId));
+    seenAttendanceIdsRef.current = new Set(currentIds);
+
+    if (!initialListAnimationDone || incomingIds.length === 0) {
+      return;
+    }
+
+    setNewlyArrivedRecordIds((current) => {
+      const next = new Set(current);
+      incomingIds.forEach((recordId) => next.add(recordId));
+      return next;
+    });
+
+    incomingIds.forEach((recordId, index) => {
+      const timer = window.setTimeout(() => {
+        setNewlyArrivedRecordIds((current) => {
+          if (!current.has(recordId)) return current;
+          const next = new Set(current);
+          next.delete(recordId);
+          return next;
+        });
+      }, NEW_ATTENDEE_POP_MS + index * 70);
+      newlyArrivedTimersRef.current.push(timer);
+    });
+  }, [attendance, initialListAnimationDone]);
+
   const verifiedCount = attendance.filter(a => a.status === 'verified' || a.status === 'cleared').length;
   const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
   const excusedCount = attendance.filter(a => a.status === 'excused').length;
@@ -2024,12 +2075,15 @@ const EventDetail = () => {
                       const isExpanded = compactView && expandedRecordId === record.id;
                       const isInitialCardVisible =
                         initialListAnimationDone || revealedInitialRecordIds.has(record.id);
+                      const isNewlyArrived = isInitialCardVisible && newlyArrivedRecordIds.has(record.id);
                       return (
                     <Card
                       data-attendance-card="true"
                       key={record.id}
                       className={`bg-gradient-card transition-all duration-300 ${
                         record.status === 'suspicious' ? 'border-warning/50' : ''
+                      } ${
+                        isNewlyArrived ? 'attendee-card-pop-in' : ''
                       } ${
                         isInitialCardVisible
                           ? 'translate-y-0 opacity-100'

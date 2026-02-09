@@ -60,7 +60,7 @@ const WorkspaceSidebar = ({ collapsed = false, onToggle }: WorkspaceSidebarProps
       </div>
       <nav
         className={cn(
-          "grid grid-cols-4 gap-1 px-2 py-2 transition-all duration-200 md:flex md:flex-col md:gap-1 md:py-0 md:pb-6 md:overflow-y-auto md:overflow-x-hidden md:pr-2 md:flex-1 md:min-h-0",
+          "workspace-tablist grid grid-cols-4 gap-1 px-2 py-2 transition-all duration-200 md:flex md:flex-col md:gap-1 md:py-0 md:pb-6 md:overflow-y-auto md:overflow-x-hidden md:pr-2 md:flex-1 md:min-h-0",
           collapsed ? "md:px-2" : "md:px-3",
         )}
       >
@@ -74,20 +74,20 @@ const WorkspaceSidebar = ({ collapsed = false, onToggle }: WorkspaceSidebarProps
               title={collapsed ? item.label : undefined}
               className={({ isActive }) =>
                 cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium leading-tight transition-colors text-center",
+                  "workspace-tab-trigger flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium leading-tight text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                   "md:min-h-0 md:flex-row md:justify-start md:gap-2 md:px-3 md:py-2 md:rounded-full md:text-sm md:whitespace-nowrap md:text-left",
                   collapsed && "md:justify-center md:gap-0 md:px-2",
                   isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                    ? "workspace-tab-trigger-active bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/75",
                   isSettings && "gear-trigger",
                 )
               }
             >
-              <Icon className={`w-4 h-4${isSettings ? ' gear-icon' : ''}`} />
+              <Icon className={cn("h-4 w-4 workspace-tab-icon", isSettings && "gear-icon")} />
               <span
                 className={cn(
-                  "transition-all duration-200",
+                  "workspace-tab-label transition-all duration-200",
                   collapsed && "md:w-0 md:opacity-0 md:translate-x-2 md:overflow-hidden",
                 )}
               >

@@ -134,8 +134,43 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">;
 
+const ERROR_TOAST_KEYWORDS = [
+  "error",
+  "failed",
+  "failure",
+  "invalid",
+  "unable",
+  "required",
+  "denied",
+  "forbidden",
+  "unauthorized",
+  "not allowed",
+  "already",
+];
+
+const toText = (value: React.ReactNode): string => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return "";
+};
+
+const isErrorToast = (props: Toast): boolean => {
+  if (props.variant === "destructive") return true;
+
+  const content = `${toText(props.title)} ${toText(props.description)}`.toLowerCase();
+  return ERROR_TOAST_KEYWORDS.some((keyword) => content.includes(keyword));
+};
+
 function toast({ ...props }: Toast) {
   const id = genId();
+
+  if (!isErrorToast(props)) {
+    return {
+      id,
+      dismiss: () => undefined,
+      update: () => undefined,
+    };
+  }
 
   const update = (props: ToasterToast) =>
     dispatch({

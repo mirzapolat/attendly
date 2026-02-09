@@ -428,6 +428,106 @@
     animation: sidebar-icon-squeeze 420ms ease-in-out;
   }
 
+  .workspace-tab-trigger {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    transform: translateZ(0);
+    transition:
+      color 240ms ease,
+      background-color 240ms ease,
+      box-shadow 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+
+  .workspace-tab-trigger::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      120deg,
+      hsl(var(--primary) / 0.16) 0%,
+      hsl(var(--primary) / 0.1) 48%,
+      transparent 100%
+    );
+    opacity: 0;
+    transform: scale(0.9);
+    transition:
+      opacity 260ms ease,
+      transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 0;
+  }
+
+  .workspace-tab-trigger::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -68%;
+    width: 52%;
+    height: 100%;
+    transform: skewX(-18deg);
+    opacity: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--background) / 0.52) 50%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .workspace-tab-trigger > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .workspace-tab-trigger:hover {
+    transform: translateY(-1px);
+  }
+
+  .workspace-tab-trigger:active {
+    transform: scale(0.975);
+  }
+
+  .workspace-tab-trigger:hover::after,
+  .workspace-tab-trigger:focus-visible::after {
+    opacity: 0.82;
+    animation: workspace-tab-sheen 680ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+  }
+
+  .workspace-tab-trigger-active {
+    box-shadow:
+      inset 0 0 0 1px hsl(var(--primary) / 0.22),
+      0 10px 24px -18px hsl(var(--primary) / 0.72);
+    animation: workspace-tab-settle 420ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  }
+
+  .workspace-tab-trigger-active::before {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .workspace-tab-trigger-active::after {
+    opacity: 0.82;
+    animation: workspace-tab-sheen 760ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+  }
+
+  .workspace-tab-trigger-active .workspace-tab-icon {
+    animation: workspace-tab-icon-pop 420ms cubic-bezier(0.2, 0.92, 0.3, 1) both;
+    transform-origin: center;
+  }
+
+  .workspace-tab-trigger-active .workspace-tab-label {
+    animation: workspace-tab-label-rise 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .workspace-route-stage {
+    animation: workspace-route-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    will-change: opacity, transform;
+  }
+
   .start-event-icon,
   .stop-event-icon {
     transform-origin: center;
@@ -519,6 +619,14 @@
     backface-visibility: hidden;
     will-change: transform, opacity, clip-path, filter;
     animation: attend-card-morph 1220ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  }
+
+  .attendee-card-pop-in {
+    animation:
+      attendee-card-pop-in 620ms cubic-bezier(0.2, 0.9, 0.28, 1) both,
+      attendee-card-glow 940ms ease-out both;
+    transform-origin: top center;
+    will-change: transform, opacity, box-shadow;
   }
 
   .attend-transition-stage {
@@ -928,7 +1036,8 @@
   .attend-success-glow,
   .attend-success-fill,
   .attend-success-ring,
-  .attend-success-tick {
+  .attend-success-tick,
+  .attendee-card-pop-in {
     animation: none;
     transform: none;
     opacity: 1;
@@ -962,6 +1071,17 @@
     animation: none;
     transform: translate(var(--sanitize-x, 0), var(--sanitize-y, 0));
     opacity: 1;
+  }
+
+  .workspace-tab-trigger,
+  .workspace-tab-trigger::before,
+  .workspace-tab-trigger::after,
+  .workspace-tab-icon,
+  .workspace-tab-label,
+  .workspace-route-stage {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
   }
 }
 
@@ -1362,6 +1482,70 @@
   }
 }
 
+@keyframes workspace-tab-sheen {
+  0% {
+    transform: translateX(0) skewX(-18deg);
+    opacity: 0;
+  }
+  24% {
+    opacity: 0.82;
+  }
+  100% {
+    transform: translateX(340%) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
+@keyframes workspace-tab-settle {
+  0% {
+    transform: scale(0.95) translateY(1px);
+  }
+  62% {
+    transform: scale(1.015) translateY(-1px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes workspace-tab-icon-pop {
+  0% {
+    transform: scale(0.86) translateY(1px);
+  }
+  56% {
+    transform: scale(1.13) translateY(-1px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes workspace-tab-label-rise {
+  0% {
+    opacity: 0.76;
+    transform: translate3d(-1px, 1px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes workspace-route-in {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.995);
+  }
+  66% {
+    opacity: 1;
+    transform: translate3d(0, -1px, 0) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 @keyframes confetti-fall {
   0% {
     transform: translate3d(0, -10px, 0) rotate(0deg);
@@ -1415,6 +1599,39 @@
     clip-path: circle(56px at 50% 50%);
     filter: blur(1.2px);
     transform: scale(0.56) translate3d(0, 4px, 0);
+  }
+}
+
+@keyframes attendee-card-pop-in {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -14px, 0) scale(0.965);
+  }
+  60% {
+    opacity: 1;
+    transform: translate3d(0, 1px, 0) scale(1.012);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes attendee-card-glow {
+  0% {
+    box-shadow:
+      0 0 0 0 hsl(var(--primary) / 0),
+      inset 0 0 0 0 hsl(var(--primary) / 0);
+  }
+  36% {
+    box-shadow:
+      0 18px 34px -24px hsl(var(--primary) / 0.52),
+      inset 0 0 0 1px hsl(var(--primary) / 0.22);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 hsl(var(--primary) / 0),
+      inset 0 0 0 0 hsl(var(--primary) / 0);
   }
 }
 
