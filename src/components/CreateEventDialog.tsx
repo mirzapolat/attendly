@@ -219,11 +219,6 @@ const CreateEventDialog = ({ open, onOpenChange, initialDate = null }: CreateEve
       if (error) throw error;
       if (!data?.id) throw new Error('Missing event id');
 
-      toast({
-        title: 'Event created',
-        description: 'Your event has been created successfully.',
-      });
-
       handleDialogOpenChange(false);
       navigate(`/events/${data.id}`, { state: { justCreated: true } });
     } catch (error: unknown) {

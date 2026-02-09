@@ -77,7 +77,8 @@ const Dashboard = () => {
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'calendar'>(() => {
     if (typeof window === 'undefined') return 'grid';
     const saved = window.localStorage.getItem(STORAGE_KEYS.eventsView);
-    return saved === 'list' || saved === 'grid' || saved === 'calendar' ? saved : 'grid';
+    if (saved === 'list' || saved === 'grid' || saved === 'calendar') return saved;
+    return window.matchMedia('(max-width: 639px)').matches ? 'list' : 'grid';
   });
   const [isSmallScreen, setIsSmallScreen] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)').matches : false,
@@ -157,7 +158,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!isSmallScreen || viewMode !== 'calendar') return;
-    setViewMode('grid');
+    setViewMode('list');
   }, [isSmallScreen, viewMode]);
 
   useEffect(() => {
@@ -165,7 +166,7 @@ const Dashboard = () => {
     setMobileControlsOpen(false);
   }, [isSmallScreen]);
 
-  const effectiveViewMode = isSmallScreen && viewMode === 'calendar' ? 'grid' : viewMode;
+  const effectiveViewMode = isSmallScreen && viewMode === 'calendar' ? 'list' : viewMode;
 
   const fetchData = async () => {
     if (!currentWorkspace) return;
@@ -315,7 +316,7 @@ const Dashboard = () => {
     return { todayEvents: today, upcomingEvents: upcoming, pastEvents: past };
   }, [paginatedEvents]);
 
-  const displayedUpcomingEvents = isSmallScreen ? [...todayEvents, ...upcomingEvents] : upcomingEvents;
+  const displayedUpcomingEvents = upcomingEvents;
 
   const eventsGridClass = effectiveViewMode === 'grid'
     ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3 items-stretch'
@@ -440,7 +441,9 @@ const Dashboard = () => {
       {isSmallScreen ? (
         <div className="mb-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h1 className="text-xl font-semibold">Upcoming events</h1>
+            <h1 className="text-xl font-semibold">
+              {todayEvents.length > 0 ? 'Events today' : 'Upcoming events'}
+            </h1>
             <div className="flex items-center gap-2">
               {pastEvents.length > 0 && (
                 <Button asChild variant="glass" size="sm" className="h-9 rounded-full px-3 text-xs">
@@ -841,9 +844,9 @@ const Dashboard = () => {
         </Card>
       ) : (
         <>
-          {!isSmallScreen && todayEvents.length > 0 && (
-            <div className="mb-10">
-              <h2 className="text-xl font-semibold mb-4">Events today</h2>
+          {todayEvents.length > 0 && (
+            <div className={isSmallScreen ? 'mb-6' : 'mb-10'}>
+              {!isSmallScreen && <h2 className="text-xl font-semibold mb-4">Events today</h2>}
               <div className={eventsGridClass}>
                 {todayEvents.map((event) => (
                   <EventCard
@@ -895,6 +898,9 @@ const Dashboard = () => {
           <div>
             {displayedUpcomingEvents.length > 0 && (
               <>
+                {isSmallScreen && todayEvents.length > 0 && (
+                  <h2 className="mb-4 text-xl font-semibold">Upcoming events</h2>
+                )}
                 {!isSmallScreen && (
                   <div className="mb-4 flex flex-wrap items-center gap-3">
                     <h2 className="text-xl font-semibold">Upcoming events</h2>

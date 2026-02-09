@@ -230,7 +230,7 @@ const WorkspaceHeader = ({
   const headerTitle = 'Attendly';
 
   return (
-    <header className="bg-background/80 backdrop-blur-sm border-b border-border sticky top-0 z-50 overflow-x-hidden">
+    <header className="bg-background/80 backdrop-blur-sm border-b border-border sticky top-0 z-50 overflow-hidden">
       <div className={`${withContainer ? 'container mx-auto px-3 sm:px-6' : 'px-3 sm:px-6'} h-16 w-full min-w-0 flex items-center justify-between`}>
         <div className="flex min-w-0 items-center gap-3">
           <div className="w-8 h-8">

@@ -78,11 +78,6 @@ const EventCard = ({
         .eq('id', event.id);
 
       if (error) throw error;
-
-      toast({
-        title: 'Event deleted',
-        description: 'Event and all related records have been removed',
-      });
       onEventDeleted();
     } catch (error) {
       toast({
@@ -233,7 +228,7 @@ const EventCard = ({
   const actionButtons = (
     <div
       data-no-drag="true"
-      className="flex items-center gap-2 shrink-0"
+      className="flex items-center gap-1.5 shrink-0 sm:gap-2"
       onClick={(eventClick) => eventClick.stopPropagation()}
       onPointerDown={(eventClick) => eventClick.stopPropagation()}
       onMouseDown={(eventClick) => {
@@ -248,6 +243,7 @@ const EventCard = ({
       <Button
         variant="outline"
         size="sm"
+        className="h-8 w-8 p-0 sm:h-9 sm:w-9"
         onClick={() => setShowSeasonPicker(true)}
         title={event.series_id ? 'Change series' : 'Assign to series'}
       >
@@ -260,7 +256,7 @@ const EventCard = ({
       <Button
         variant="outline"
         size="sm"
-        className="text-destructive hover:text-destructive"
+        className="h-8 w-8 p-0 text-destructive hover:text-destructive sm:h-9 sm:w-9"
         onClick={() => setShowDeleteDialog(true)}
         title="Delete event"
       >
@@ -352,12 +348,12 @@ const EventCard = ({
     return (
       <>
         <Card
-          className="group relative h-full min-h-[230px] overflow-hidden bg-gradient-card border border-border/80 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_18px_40px_-24px_hsl(var(--primary)/0.35)] cursor-pointer active:cursor-grabbing select-none"
+          className="group relative h-full min-h-[190px] sm:min-h-[230px] overflow-hidden bg-gradient-card border border-border/80 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_18px_40px_-24px_hsl(var(--primary)/0.35)] cursor-pointer active:cursor-grabbing select-none"
           {...cardProps}
         >
-          <div className="pointer-events-none absolute -top-16 -right-10 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-12 -left-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
-          <CardContent className="relative z-10 flex h-full flex-col gap-4 p-5">
+          <div className="pointer-events-none absolute -top-14 -right-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl sm:-top-16 sm:h-28 sm:w-28" />
+          <div className="pointer-events-none absolute -bottom-10 -left-8 h-20 w-20 rounded-full bg-primary/10 blur-2xl sm:-bottom-12 sm:-left-10 sm:h-24 sm:w-24" />
+          <CardContent className="relative z-10 flex h-full flex-col gap-3 p-3.5 sm:gap-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               {scheduleLabel && (
                 <div className="flex items-center gap-2">
@@ -366,7 +362,7 @@ const EventCard = ({
                       event.is_active ? 'bg-success animate-pulse' : 'bg-muted-foreground/60'
                     }`}
                   />
-                  <span className={`text-xs font-semibold ${event.is_active ? 'text-success' : 'text-muted-foreground'}`}>
+                  <span className={`text-[11px] font-semibold sm:text-xs ${event.is_active ? 'text-success' : 'text-muted-foreground'}`}>
                     {scheduleLabel}
                   </span>
                 </div>
@@ -388,7 +384,7 @@ const EventCard = ({
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-7 w-7 sm:h-8 sm:w-8"
                   onClick={() => setShowSeasonPicker(true)}
                   title={event.series_id ? 'Change series' : 'Assign to series'}
                 >
@@ -401,7 +397,7 @@ const EventCard = ({
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  className="h-7 w-7 text-destructive hover:text-destructive sm:h-8 sm:w-8"
                   onClick={() => setShowDeleteDialog(true)}
                   title="Delete event"
                 >
@@ -410,32 +406,32 @@ const EventCard = ({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-lg font-semibold leading-snug line-clamp-2">{event.name}</p>
+            <div className="space-y-1.5">
+              <p className="text-base font-semibold leading-snug line-clamp-2 sm:text-lg">{event.name}</p>
             </div>
 
-            <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2 text-sm text-muted-foreground shadow-sm">
+            <div className="rounded-xl border border-border/70 bg-background/70 px-2.5 py-1.5 text-[13px] text-muted-foreground shadow-sm sm:px-3 sm:py-2 sm:text-sm">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 <span className="font-medium text-foreground">{format(eventDate, 'EEE, MMM d')}</span>
               </div>
-              <div className="mt-1 flex items-center gap-2 text-xs">
+              <div className="mt-1 flex items-center gap-2 text-[11px] sm:text-xs">
                 <Clock className="h-3.5 w-3.5" />
                 <span>{format(eventDate, 'HH:mm')}</span>
               </div>
             </div>
 
-            <div className="mt-auto flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <div className="mt-auto flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground sm:gap-2 sm:text-xs">
               {typeof attendeesCount === 'number' ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-1">
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 sm:py-1">
                   <UserCheck className="h-3.5 w-3.5" />
                   <span className="font-medium">{attendeesCount}</span>
                 </span>
               ) : (
-                <span className="rounded-full bg-muted/60 px-2 py-1">No attendance</span>
+                <span className="rounded-full bg-muted/60 px-2 py-0.5 sm:py-1">No attendance</span>
               )}
               {currentSeason && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-1 text-xs font-medium">
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-medium sm:py-1 sm:text-xs">
                   <Folder className="w-3 h-3" />
                   {currentSeason.name}
                 </span>
@@ -454,12 +450,12 @@ const EventCard = ({
         className="group relative overflow-hidden bg-gradient-card border border-border/80 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_18px_40px_-30px_hsl(var(--primary)/0.35)] cursor-pointer active:cursor-grabbing select-none"
         {...cardProps}
       >
-        <div className="pointer-events-none absolute -left-16 -top-12 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
-        <div className="pointer-events-none absolute -right-16 -bottom-14 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
-        <CardContent className="relative z-10 flex flex-col gap-3 p-3">
+        <div className="pointer-events-none absolute -left-14 -top-10 h-20 w-20 rounded-full bg-primary/10 blur-2xl sm:-left-16 sm:-top-12 sm:h-24 sm:w-24" />
+        <div className="pointer-events-none absolute -right-14 -bottom-12 h-24 w-24 rounded-full bg-primary/10 blur-2xl sm:-right-16 sm:-bottom-14 sm:h-28 sm:w-28" />
+        <CardContent className="relative z-10 flex flex-col gap-2.5 p-2.5 sm:gap-3 sm:p-3">
           <div className="flex items-center justify-between gap-2">
             {scheduleLabel ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[9px] text-muted-foreground sm:text-[10px]">
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${event.is_active ? 'bg-success' : 'bg-muted-foreground/70'}`}
                 />
@@ -471,26 +467,27 @@ const EventCard = ({
             {actionButtons}
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
-            <div className="flex items-center gap-2.5 sm:flex-col sm:items-start sm:gap-1.5 sm:w-24">
-              <div className="rounded-xl border border-border/70 bg-background/70 px-2.5 py-1.5 text-center shadow-sm">
+          <div className="flex items-start gap-2.5 sm:items-center sm:gap-5">
+            <div className="w-[76px] shrink-0 sm:w-24">
+              <div className="rounded-xl border border-border/70 bg-background/70 px-2 py-1 text-center shadow-sm sm:px-2.5 sm:py-1.5">
                 <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">{format(eventDate, 'EEE')}</p>
-                <p className="text-base font-semibold">{format(eventDate, 'MMM d')}</p>
-                <p className="text-xs text-muted-foreground">{format(eventDate, 'HH:mm')}</p>
+                <p className="text-sm font-semibold sm:text-base">{format(eventDate, 'MMM d')}</p>
+                <p className="text-[11px] text-muted-foreground sm:text-xs">{format(eventDate, 'HH:mm')}</p>
               </div>
             </div>
 
-            <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="min-w-0 flex-1 space-y-1">
               <div className="space-y-1">
-                <p className="text-base font-semibold leading-snug line-clamp-1">{event.name}</p>
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                <p className="text-[15px] font-semibold leading-snug line-clamp-1 sm:text-base">{event.name}</p>
+                <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground sm:text-[11px]">
                   <span className="inline-flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {format(eventDate, 'PPP')}
+                    <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    <span className="sm:hidden">{format(eventDate, 'EEE, MMM d')}</span>
+                    <span className="hidden sm:inline">{format(eventDate, 'PPP')}</span>
                   </span>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:gap-2 sm:text-[11px]">
                 {currentSeason && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 font-medium">
                     <Folder className="w-3 h-3" />
