@@ -1,10 +1,7 @@
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { NavLink } from 'react-router-dom';
 import { CalendarDays, ChevronLeft, ChevronRight, Layers, Settings, Users } from 'lucide-react';
-import { useWorkspace } from '@/hooks/useWorkspace';
-import { themeColors } from '@/hooks/useThemeColor';
 import { cn } from '@/lib/utils';
-import { STORAGE_KEYS } from '@/constants/storageKeys';
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
 
 const navItems = [
   { to: '/dashboard', label: 'Events', icon: CalendarDays },
@@ -19,65 +16,10 @@ interface WorkspaceSidebarProps {
 }
 
 const WorkspaceSidebar = ({ collapsed = false, onToggle }: WorkspaceSidebarProps) => {
-  const { currentWorkspace } = useWorkspace();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const navRef = useRef<HTMLElement>(null);
-  const scrollPositionRef = useRef<number>(0);
-  const color = themeColors.find((item) => item.id === currentWorkspace?.brand_color);
-
-  const initials = currentWorkspace?.name
-    ? currentWorkspace.name
-        .split(' ')
-        .map((part) => part[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
-    : 'WS';
-
-  const hasLogo = Boolean(currentWorkspace?.brand_logo_url);
-
-  // Save and restore scroll position for the mobile horizontal nav.
-  useEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return;
-
-    const saved = sessionStorage.getItem(STORAGE_KEYS.sidebarScroll);
-    if (saved) {
-      const parsed = Number(saved);
-      if (Number.isFinite(parsed)) {
-        nav.scrollLeft = parsed;
-        scrollPositionRef.current = parsed;
-      }
-    }
-
-    const handleScroll = () => {
-      scrollPositionRef.current = nav.scrollLeft;
-      sessionStorage.setItem(STORAGE_KEYS.sidebarScroll, String(nav.scrollLeft));
-    };
-
-    nav.addEventListener('scroll', handleScroll);
-    return () => nav.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // Restore scroll position after navigation
-  useEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return;
-
-    const saved = sessionStorage.getItem(STORAGE_KEYS.sidebarScroll);
-    const scrollLeft = saved ? Number(saved) : scrollPositionRef.current;
-
-    // Use requestAnimationFrame to ensure DOM has updated
-    requestAnimationFrame(() => {
-      nav.scrollLeft = Number.isFinite(scrollLeft) ? scrollLeft : 0;
-    });
-  }, [location.pathname]);
-
   return (
     <aside
       className={cn(
-        "relative border-r border-border bg-background/60 transition-[width] duration-300 ease-out md:overflow-visible md:self-start md:flex md:flex-col md:h-full md:min-h-0",
+        "relative border-b border-border bg-background/60 transition-[width] duration-300 ease-out md:border-b-0 md:border-r md:overflow-visible md:self-start md:flex md:flex-col md:h-full md:min-h-0",
         collapsed ? "md:w-[82px]" : "md:w-60",
       )}
     >
@@ -100,52 +42,25 @@ const WorkspaceSidebar = ({ collapsed = false, onToggle }: WorkspaceSidebarProps
       </button>
       <div
         className={cn(
-          "group flex items-center gap-3 px-6 py-6 cursor-pointer hover:bg-muted/50 transition-colors rounded-lg md:shrink-0",
-          collapsed && "md:px-3 md:justify-center md:gap-0",
+          "hidden md:block md:shrink-0 md:py-4",
+          collapsed ? "md:px-2" : "md:px-3"
         )}
-        onClick={() => navigate('/workspaces')}
       >
-        <div
+        <WorkspaceSwitcher
+          compact={collapsed}
+          centered={!collapsed}
           className={cn(
-            "h-12 w-12 shrink-0 rounded-xl flex items-center justify-center text-sm font-semibold group-hover:animate-wiggle",
-            hasLogo ? "overflow-hidden" : "text-primary-foreground",
+            "w-full",
+            collapsed
+              ? "md:h-10 md:w-full md:justify-center md:rounded-full md:px-2"
+              : "md:min-h-10 md:justify-start md:rounded-full md:border-0 md:bg-transparent md:shadow-none md:px-3 md:py-2 md:hover:bg-muted"
           )}
-          style={hasLogo ? undefined : { backgroundColor: color?.hex ?? 'hsl(var(--primary))' }}
-        >
-          {hasLogo ? (
-            <img
-              src={currentWorkspace!.brand_logo_url as string}
-              alt={currentWorkspace!.name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            initials
-          )}
-        </div>
-        <div
-          className={cn(
-            "min-w-0 transition-all duration-200",
-            collapsed && "md:w-0 md:opacity-0 md:translate-x-2 md:overflow-hidden md:pointer-events-none",
-          )}
-        >
-          <p
-            className="font-semibold leading-snug break-words"
-            style={{
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-            }}
-          >
-            {currentWorkspace?.name ?? 'Unknown'}
-          </p>
-          <p className="text-sm text-muted-foreground group-hover:text-primary transition-colors">Switch Space</p>
-        </div>
+          align="start"
+        />
       </div>
-      <nav 
-        ref={navRef}
+      <nav
         className={cn(
-          "flex md:flex-col gap-1 px-6 pb-6 overflow-x-auto scrollbar-none transition-all duration-200 md:overflow-y-auto md:overflow-x-hidden md:pr-2 md:flex-1 md:min-h-0",
+          "grid grid-cols-4 gap-1 px-2 py-2 transition-all duration-200 md:flex md:flex-col md:gap-1 md:py-0 md:pb-6 md:overflow-y-auto md:overflow-x-hidden md:pr-2 md:flex-1 md:min-h-0",
           collapsed ? "md:px-2" : "md:px-3",
         )}
       >
@@ -159,7 +74,8 @@ const WorkspaceSidebar = ({ collapsed = false, onToggle }: WorkspaceSidebarProps
               title={collapsed ? item.label : undefined}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium leading-tight transition-colors text-center",
+                  "md:min-h-0 md:flex-row md:justify-start md:gap-2 md:px-3 md:py-2 md:rounded-full md:text-sm md:whitespace-nowrap md:text-left",
                   collapsed && "md:justify-center md:gap-0 md:px-2",
                   isActive
                     ? "bg-primary/10 text-primary"

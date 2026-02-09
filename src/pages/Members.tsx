@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Crown, Search, UserPlus } from 'lucide-react';
+import { Crown, LogOut, Search, SlidersHorizontal, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useAuth } from '@/hooks/useAuth';
@@ -45,6 +45,10 @@ const Members = () => {
   const [inviting, setInviting] = useState(false);
   const [transferringId, setTransferringId] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
+  const [isCompactScreen, setIsCompactScreen] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false,
+  );
   const showActions = isOwner;
 
   useEffect(() => {
@@ -52,6 +56,27 @@ const Members = () => {
       fetchMembers();
     }
   }, [currentWorkspace]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsCompactScreen(event.matches);
+    };
+    setIsCompactScreen(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (isCompactScreen) return;
+    setMobileControlsOpen(false);
+  }, [isCompactScreen]);
+
+  useEffect(() => {
+    if (members.length > 0) return;
+    setMobileControlsOpen(false);
+  }, [members.length]);
 
   const fetchMembers = async () => {
     if (!currentWorkspace) return;
@@ -291,63 +316,136 @@ const Members = () => {
 
   return (
     <WorkspaceLayout title="Workspace members">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold sm:text-2xl">Members</h1>
-          <p className="text-sm text-muted-foreground sm:text-base">Manage who can access this workspace.</p>
-        </div>
-        <div className="flex w-full items-center gap-2 sm:w-auto">
-          {isOwner ? (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="hero" className="w-full sm:w-auto">
-                  <UserPlus className="w-4 h-4" />
-                  Invite member
+      {isCompactScreen ? (
+        <div className="mb-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-xl font-semibold">Members</h1>
+            <div className="flex items-center gap-2">
+              {members.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setMobileControlsOpen((prev) => !prev)}
+                  title={mobileControlsOpen ? 'Hide filters' : 'Show filters'}
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  <span className="sr-only">{mobileControlsOpen ? 'Hide filters' : 'Show filters'}</span>
                 </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Invite a member</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="inviteEmail">Email address</Label>
-                    <Input
-                      id="inviteEmail"
-                      value={inviteEmail}
-                      onChange={(event) => setInviteEmail(event.target.value)}
-                      placeholder="name@company.com"
-                      type="email"
-                    />
-                  </div>
-                  <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}>
-                    {inviting ? 'Sending...' : 'Send invite'}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          ) : (
-            <Button variant="outline" className="w-full sm:w-auto" onClick={handleLeaveWorkspace}>
-              Leave workspace
-            </Button>
+              )}
+              {isOwner ? (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="hero" size="icon" title="Invite member">
+                      <UserPlus className="w-4 h-4" />
+                      <span className="sr-only">Invite member</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Invite a member</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="inviteEmail">Email address</Label>
+                        <Input
+                          id="inviteEmail"
+                          value={inviteEmail}
+                          onChange={(event) => setInviteEmail(event.target.value)}
+                          placeholder="name@company.com"
+                          type="email"
+                        />
+                      </div>
+                      <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}>
+                        {inviting ? 'Sending...' : 'Send invite'}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              ) : (
+                <Button variant="outline" size="sm" className="h-9 rounded-full px-3 text-xs" onClick={handleLeaveWorkspace}>
+                  <LogOut className="w-4 h-4" />
+                  Leave
+                </Button>
+              )}
+            </div>
+          </div>
+          {mobileControlsOpen && members.length > 0 && (
+            <div className="space-y-2 rounded-2xl border border-border/70 bg-background/60 p-3">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search members..."
+                  value={memberSearch}
+                  onChange={(event) => setMemberSearch(event.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
           )}
         </div>
-      </div>
-
-      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-xl font-semibold">Workspace members</h2>
-        {members.length > 0 && (
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search members..."
-              value={memberSearch}
-              onChange={(event) => setMemberSearch(event.target.value)}
-              className="pl-9"
-            />
+      ) : (
+        <>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold sm:text-2xl">Members</h1>
+              <p className="text-sm text-muted-foreground sm:text-base">Manage who can access this workspace.</p>
+            </div>
+            <div className="flex w-full items-center gap-2 sm:w-auto">
+              {isOwner ? (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="hero" className="w-full sm:w-auto">
+                      <UserPlus className="w-4 h-4" />
+                      Invite member
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Invite a member</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="inviteEmail">Email address</Label>
+                        <Input
+                          id="inviteEmail"
+                          value={inviteEmail}
+                          onChange={(event) => setInviteEmail(event.target.value)}
+                          placeholder="name@company.com"
+                          type="email"
+                        />
+                      </div>
+                      <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}>
+                        {inviting ? 'Sending...' : 'Send invite'}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              ) : (
+                <Button variant="outline" className="w-full sm:w-auto" onClick={handleLeaveWorkspace}>
+                  <LogOut className="w-4 h-4" />
+                  Leave workspace
+                </Button>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+
+          <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-xl font-semibold">Workspace members</h2>
+            {members.length > 0 && (
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search members..."
+                  value={memberSearch}
+                  onChange={(event) => setMemberSearch(event.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {loading ? (
         <div className="py-6 text-center text-muted-foreground">Loading members...</div>
@@ -357,74 +455,68 @@ const Members = () => {
         </div>
       ) : (
         <>
-          <div className="space-y-3 lg:hidden">
-            {filteredMembers.map((member) => {
-              const isWorkspaceOwner = member.profile_id === currentWorkspace?.owner_id;
-              const isSelf = member.profile_id === user?.id;
-              const highlightOwner = isWorkspaceOwner;
-              const highlightSelf = isSelf && !isWorkspaceOwner;
-              return (
-                <div
-                  key={member.profile_id}
-                  className="rounded-xl border border-border/80 bg-gradient-card p-4"
-                  style={
-                    highlightOwner
-                      ? { borderColor: '#f59e0b66', backgroundColor: '#f59e0b14' }
-                      : highlightSelf
-                        ? { borderColor: `${brandColor}66`, backgroundColor: `${brandColor}14` }
-                        : undefined
-                  }
-                >
-                  <div className="space-y-2">
+          <div className="overflow-hidden rounded-xl border border-border/80 bg-gradient-card lg:hidden">
+            <div className="divide-y divide-border/70">
+              {filteredMembers.map((member) => {
+                const isWorkspaceOwner = member.profile_id === currentWorkspace?.owner_id;
+                const isSelf = member.profile_id === user?.id;
+                const highlightOwner = isWorkspaceOwner && isOwner;
+                const highlightSelf = isSelf && !isWorkspaceOwner;
+                return (
+                  <div
+                    key={member.profile_id}
+                    className="border-l-2 border-transparent px-3 py-3"
+                    style={
+                      highlightOwner
+                        ? { borderLeftColor: '#f59e0b', backgroundColor: '#f59e0b12' }
+                        : highlightSelf
+                          ? { borderLeftColor: brandColor, backgroundColor: `${brandColor}12` }
+                          : undefined
+                    }
+                  >
                     <div className="min-w-0">
-                      <p className="font-medium break-words">
+                      <p className="truncate text-sm font-medium">
                         {member.profiles?.full_name ?? 'Unknown'}
                         {isWorkspaceOwner && (
-                          <span className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700">
+                          <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-orange-600">
                             <Crown className="h-3.5 w-3.5" />
                             Owner
                           </span>
                         )}
                         {isSelf && !isWorkspaceOwner && (
-                          <span className="ml-2 text-xs text-muted-foreground">You</span>
+                          <span className="ml-2 text-[11px] text-muted-foreground">You</span>
                         )}
                       </p>
-                      <p className="text-sm text-muted-foreground break-all">{member.profiles?.email ?? 'No email'}</p>
+                      <p className="truncate text-xs text-muted-foreground">{member.profiles?.email ?? 'No email'}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        Member since {member.created_at ? format(new Date(member.created_at), 'PPP') : '—'}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Member since {member.created_at ? format(new Date(member.created_at), 'PPP') : '—'}
-                    </p>
-                    {showActions && (
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        {isOwner && !isWorkspaceOwner ? (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 min-w-[120px] text-destructive hover:text-destructive"
-                              onClick={() => handleRemoveMember(member.profile_id)}
-                            >
-                              Remove
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 min-w-[140px]"
-                              onClick={() => handleTransferOwnershipToMember(member.profile_id)}
-                              disabled={transferringId === member.profile_id}
-                            >
-                              {transferringId === member.profile_id ? 'Transferring...' : 'Transfer ownership'}
-                            </Button>
-                          </>
-                        ) : (
-                          <div className="h-1" />
-                        )}
+                    {showActions && isOwner && !isWorkspaceOwner && (
+                      <div className="mt-2 flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 flex-1 text-destructive hover:text-destructive"
+                          onClick={() => handleRemoveMember(member.profile_id)}
+                        >
+                          Remove
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 flex-1"
+                          onClick={() => handleTransferOwnershipToMember(member.profile_id)}
+                          disabled={transferringId === member.profile_id}
+                        >
+                          {transferringId === member.profile_id ? 'Transferring...' : 'Transfer'}
+                        </Button>
                       </div>
                     )}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
           <div className="hidden lg:block overflow-x-auto">
@@ -447,7 +539,7 @@ const Members = () => {
               {filteredMembers.map((member) => {
                 const isWorkspaceOwner = member.profile_id === currentWorkspace?.owner_id;
                 const isSelf = member.profile_id === user?.id;
-                const highlightOwner = isWorkspaceOwner;
+                const highlightOwner = isWorkspaceOwner && isOwner;
                 const highlightSelf = isSelf && !isWorkspaceOwner;
                 return (
                   <div
@@ -472,7 +564,7 @@ const Members = () => {
                         <p className="font-medium truncate">
                           {member.profiles?.full_name ?? 'Unknown'}
                           {isWorkspaceOwner && (
-                            <span className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700">
+                            <span className="ml-2 inline-flex items-center gap-1 text-xs text-orange-600">
                               <Crown className="h-3.5 w-3.5" />
                               Owner
                             </span>

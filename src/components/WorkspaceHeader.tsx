@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import AccountMenu from '@/components/AccountMenu';
 import { getNotificationLastSeenKey } from '@/constants/storageKeys';
 import AttendlyLogo from '@/components/AttendlyLogo';
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
 
 interface WorkspaceInvite {
   id: string;
@@ -229,23 +230,26 @@ const WorkspaceHeader = ({
   const headerTitle = 'Attendly';
 
   return (
-    <header className="bg-background/80 backdrop-blur-sm border-b border-border shadow-sm sticky top-0 z-50">
-        <div className={`${withContainer ? 'container mx-auto px-6' : 'px-6'} h-16 flex items-center justify-between`}>
-        <div className="flex items-center gap-3">
+    <header className="bg-background/80 backdrop-blur-sm border-b border-border sticky top-0 z-50 overflow-x-hidden">
+      <div className={`${withContainer ? 'container mx-auto px-3 sm:px-6' : 'px-3 sm:px-6'} h-16 w-full min-w-0 flex items-center justify-between`}>
+        <div className="flex min-w-0 items-center gap-3">
           <div className="w-8 h-8">
             <AttendlyLogo className="h-full w-full" />
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="font-semibold text-lg leading-tight">{headerTitle}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="shrink-0 flex items-center gap-1.5 sm:gap-2">
+          {showChangeWorkspace ? (
+            <WorkspaceSwitcher compact className="md:hidden" align="end" />
+          ) : null}
           <DropdownMenu onOpenChange={handleNotificationsOpen}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative bell-trigger shadow-none hover:shadow-none" title="Notifications">
                 <Bell className="w-5 h-5 bell-icon" />
                 {pendingInvites.length + acceptedInvites.length + workspaceNotifications.length > 0 && (
-                  <span className="absolute -top-1 -right-1 h-4 min-w-[1rem] rounded-full bg-primary text-primary-foreground text-[10px] px-1 flex items-center justify-center">
+                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[1rem] rounded-full bg-primary text-primary-foreground text-[10px] px-1 flex items-center justify-center">
                     {pendingInvites.length + acceptedInvites.length + workspaceNotifications.length}
                   </span>
                 )}

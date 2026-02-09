@@ -13,6 +13,7 @@ import { STORAGE_KEYS } from '@/constants/storageKeys';
 import { OTPInput, SlotProps } from 'input-otp';
 import { cn } from '@/lib/utils';
 import AttendlyLogo from '@/components/AttendlyLogo';
+import { useWorkspace } from '@/hooks/useWorkspace';
 
 const signInSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -55,14 +56,31 @@ const Auth = () => {
   const [verificationSuccess, setVerificationSuccess] = useState(false);
 
   const { signIn, signUp, user } = useAuth();
+  const {
+    workspaces,
+    currentWorkspace,
+    loading: workspaceLoading,
+    selectWorkspace,
+  } = useWorkspace();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (user && !signupPendingEmail) {
-      navigate('/workspaces');
+    if (!user || signupPendingEmail || workspaceLoading) return;
+
+    if (currentWorkspace) {
+      navigate('/dashboard');
+      return;
     }
-  }, [user, signupPendingEmail, navigate]);
+
+    if (workspaces.length > 0) {
+      selectWorkspace(workspaces[0].id);
+      navigate('/dashboard');
+      return;
+    }
+
+    navigate('/dashboard');
+  }, [user, signupPendingEmail, workspaceLoading, currentWorkspace, workspaces, selectWorkspace, navigate]);
 
   const validateForm = () => {
     try {
@@ -213,7 +231,6 @@ const Auth = () => {
       setVerificationError(null);
       setSignupPendingEmail(null);
       setSignupAutoConfirmed(false);
-      navigate('/workspaces');
       return;
     } catch (err) {
       setVerificationError(err instanceof Error ? err.message : 'Unable to verify code. Please try again.');
@@ -326,7 +343,7 @@ const Auth = () => {
                     onClick={() => {
                       setSignupPendingEmail(null);
                       setSignupAutoConfirmed(false);
-                      navigate('/workspaces');
+                      navigate('/dashboard');
                     }}
                   >
                     Continue to workspace

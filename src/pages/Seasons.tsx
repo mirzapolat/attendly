@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowDown, ArrowUp, BarChart3, Check, FolderOpen, Search, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, BarChart3, Check, FolderOpen, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { sanitizeError } from '@/utils/errorHandler';
@@ -80,6 +80,7 @@ const Seasons = () => {
   const [selectedSeasonIds, setSelectedSeasonIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'created' | 'name' | 'events' | 'earliest' | 'latest'>('created');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
   const [isCompactScreen, setIsCompactScreen] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false,
   );
@@ -225,6 +226,16 @@ const Seasons = () => {
     }
   }, [isCompactScreen, selectedSeasonIds.length]);
 
+  useEffect(() => {
+    if (isCompactScreen) return;
+    setMobileControlsOpen(false);
+  }, [isCompactScreen]);
+
+  useEffect(() => {
+    if (seasons.length > 0) return;
+    setMobileControlsOpen(false);
+  }, [seasons.length]);
+
   const eventCounts = useMemo(() => {
     const counts = new Map<string, number>();
     events.forEach((event) => {
@@ -341,105 +352,212 @@ const Seasons = () => {
 
   return (
     <WorkspaceLayout title="Series overview">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold sm:text-2xl">Series</h1>
-          <p className="text-sm text-muted-foreground sm:text-base">Organize events into series and track attendance.</p>
-        </div>
-        <Dialog open={seasonDialogOpen} onOpenChange={setSeasonDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="hero" className="w-full sm:w-auto">
-              <FolderOpen className="w-4 h-4" />
-              Create series
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Series</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleCreateSeason} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="seasonName">Series Name</Label>
-                <Input
-                  id="seasonName"
-                  value={seasonName}
-                  onChange={(e) => setSeasonName(e.target.value)}
-                  placeholder="Spring 2025"
-                  maxLength={40}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="seasonDescription">Description (Optional)</Label>
-                <Textarea
-                  id="seasonDescription"
-                  value={seasonDescription}
-                  onChange={(e) => setSeasonDescription(e.target.value)}
-                  placeholder="Weekly team meetings..."
-                  rows={3}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={seasonCreating || !seasonName.trim()}>
-                {seasonCreating ? 'Creating...' : 'Create Series'}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-xl font-semibold">All series</h2>
-        {seasons.length > 0 && (
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search series..."
-                value={seasonSearch}
-                onChange={(e) => setSeasonSearch(e.target.value)}
-                className="pl-9"
-              />
+      {isCompactScreen ? (
+        <div className="mb-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-xl font-semibold">Series</h1>
+            <div className="flex items-center gap-2">
+              {seasons.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setMobileControlsOpen((prev) => !prev)}
+                  title={mobileControlsOpen ? 'Hide filters' : 'Show filters'}
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  <span className="sr-only">{mobileControlsOpen ? 'Hide filters' : 'Show filters'}</span>
+                </Button>
+              )}
+              <Dialog open={seasonDialogOpen} onOpenChange={setSeasonDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="hero" size="icon" title="Create series">
+                    <Plus className="w-4 h-4" />
+                    <span className="sr-only">Create series</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Series</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleCreateSeason} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="seasonName">Series Name</Label>
+                      <Input
+                        id="seasonName"
+                        value={seasonName}
+                        onChange={(e) => setSeasonName(e.target.value)}
+                        placeholder="Spring 2025"
+                        maxLength={40}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="seasonDescription">Description (Optional)</Label>
+                      <Textarea
+                        id="seasonDescription"
+                        value={seasonDescription}
+                        onChange={(e) => setSeasonDescription(e.target.value)}
+                        placeholder="Weekly team meetings..."
+                        rows={3}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={seasonCreating || !seasonName.trim()}>
+                      {seasonCreating ? 'Creating...' : 'Create Series'}
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </div>
-            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:w-auto sm:items-center">
-              <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
-                <SelectTrigger className="w-full sm:w-[170px]">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="latest">Latest event date</SelectItem>
-                  <SelectItem value="earliest">Earliest event date</SelectItem>
-                  <SelectItem value="name">Alphabetically</SelectItem>
-                  <SelectItem value="created">Created date</SelectItem>
-                  <SelectItem value="events">Event amount</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 w-10 p-0"
-                onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-                title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
-              >
-                {sortDirection === 'asc' ? (
-                  <>
-                    <ArrowUp className="w-4 h-4" />
-                    <span className="sr-only">Ascending</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowDown className="w-4 h-4" />
-                    <span className="sr-only">Descending</span>
-                  </>
-                )}
-              </Button>
-            </div>
-            {selectedSeasonIds.length > 0 && !isCompactScreen && (
-              <Button variant="destructive" className="hidden md:inline-flex" onClick={handleDeleteSelectedSeasons}>
-                Delete selected ({selectedSeasonIds.length})
-              </Button>
-            )}
           </div>
-        )}
-      </div>
+          {mobileControlsOpen && seasons.length > 0 && (
+            <div className="space-y-2 rounded-2xl border border-border/70 bg-background/60 p-3">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search series..."
+                  value={seasonSearch}
+                  onChange={(e) => setSeasonSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="latest">Latest event date</SelectItem>
+                    <SelectItem value="earliest">Earliest event date</SelectItem>
+                    <SelectItem value="name">Alphabetically</SelectItem>
+                    <SelectItem value="created">Created date</SelectItem>
+                    <SelectItem value="events">Event amount</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 w-10 p-0"
+                  onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
+                >
+                  {sortDirection === 'asc' ? (
+                    <>
+                      <ArrowUp className="w-4 h-4" />
+                      <span className="sr-only">Ascending</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowDown className="w-4 h-4" />
+                      <span className="sr-only">Descending</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold sm:text-2xl">Series</h1>
+            <p className="text-sm text-muted-foreground sm:text-base">Organize events into series and track attendance.</p>
+          </div>
+          <Dialog open={seasonDialogOpen} onOpenChange={setSeasonDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="hero" className="w-full sm:w-auto">
+                <FolderOpen className="w-4 h-4" />
+                Create series
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Series</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreateSeason} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="seasonName">Series Name</Label>
+                  <Input
+                    id="seasonName"
+                    value={seasonName}
+                    onChange={(e) => setSeasonName(e.target.value)}
+                    placeholder="Spring 2025"
+                    maxLength={40}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="seasonDescription">Description (Optional)</Label>
+                  <Textarea
+                    id="seasonDescription"
+                    value={seasonDescription}
+                    onChange={(e) => setSeasonDescription(e.target.value)}
+                    placeholder="Weekly team meetings..."
+                    rows={3}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={seasonCreating || !seasonName.trim()}>
+                  {seasonCreating ? 'Creating...' : 'Create Series'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
+      {!isCompactScreen && (
+        <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="text-xl font-semibold">All series</h2>
+          {seasons.length > 0 && (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search series..."
+                  value={seasonSearch}
+                  onChange={(e) => setSeasonSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:w-auto sm:items-center">
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+                  <SelectTrigger className="w-full sm:w-[170px]">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="latest">Latest event date</SelectItem>
+                    <SelectItem value="earliest">Earliest event date</SelectItem>
+                    <SelectItem value="name">Alphabetically</SelectItem>
+                    <SelectItem value="created">Created date</SelectItem>
+                    <SelectItem value="events">Event amount</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 w-10 p-0"
+                  onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
+                >
+                  {sortDirection === 'asc' ? (
+                    <>
+                      <ArrowUp className="w-4 h-4" />
+                      <span className="sr-only">Ascending</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowDown className="w-4 h-4" />
+                      <span className="sr-only">Descending</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+              {selectedSeasonIds.length > 0 && !isCompactScreen && (
+                <Button variant="destructive" className="hidden md:inline-flex" onClick={handleDeleteSelectedSeasons}>
+                  Delete selected ({selectedSeasonIds.length})
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <Card className="bg-gradient-card">
@@ -456,74 +574,74 @@ const Seasons = () => {
       ) : (
         <>
           <div className="grid gap-3 md:hidden">
-            {sortedSeasons.map((season) => (
-              <Card
-                key={season.id}
-                className="bg-gradient-card border-border/80"
-                role="link"
-                tabIndex={0}
-                onClick={() => navigate(`/series/${season.id}`)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    navigate(`/series/${season.id}`);
-                  }
-                }}
-              >
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-start justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        handleDeleteSeason(season.id);
-                      }}
-                      title="Delete series"
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
+            {sortedSeasons.map((season) => {
+              const seasonRange = seasonDateRanges.get(season.id);
+              const eventCount = eventCounts.get(season.id) ?? 0;
+              return (
+                <Card
+                  key={season.id}
+                  className="bg-gradient-card border-border/80"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => navigate(`/series/${season.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      navigate(`/series/${season.id}`);
+                    }
+                  }}
+                >
+                  <CardContent className="space-y-3 p-3.5">
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <ClampedSeasonName name={season.name} />
+                        {season.description && (
+                          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{season.description}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 rounded-full"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          handleDeleteSeason(season.id);
+                        }}
+                        title="Delete series"
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
 
-                  <div className="min-w-0">
-                    <ClampedSeasonName name={season.name} />
-                    {season.description && (
-                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{season.description}</p>
-                    )}
-                  </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-2 py-1 font-medium text-muted-foreground">
+                        <BarChart3 className="h-3.5 w-3.5" />
+                        {eventCount} event{eventCount === 1 ? '' : 's'}
+                      </span>
+                      <span className="inline-flex items-center rounded-full border border-border/60 bg-background/70 px-2 py-1 text-muted-foreground">
+                        Created {season.created_at ? format(new Date(season.created_at), 'MMM d, yyyy') : '—'}
+                      </span>
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-lg border border-border/60 bg-background/70 px-2 py-1.5">
-                      <p className="text-muted-foreground">Events</p>
-                      <p className="font-medium">{eventCounts.get(season.id) ?? 0}</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-lg border border-border/60 bg-background/70 px-2 py-1.5">
+                        <p className="text-muted-foreground">Earliest</p>
+                        <p className="font-medium truncate">
+                          {seasonRange?.earliest ? format(new Date(seasonRange.earliest), 'PPP') : '—'}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-border/60 bg-background/70 px-2 py-1.5">
+                        <p className="text-muted-foreground">Latest</p>
+                        <p className="font-medium truncate">
+                          {seasonRange?.latest ? format(new Date(seasonRange.latest), 'PPP') : '—'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-background/70 px-2 py-1.5">
-                      <p className="text-muted-foreground">Created</p>
-                      <p className="font-medium truncate">
-                        {season.created_at ? format(new Date(season.created_at), 'PPP') : '—'}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-background/70 px-2 py-1.5">
-                      <p className="text-muted-foreground">Earliest</p>
-                      <p className="font-medium truncate">
-                        {seasonDateRanges.get(season.id)?.earliest
-                          ? format(new Date(seasonDateRanges.get(season.id)!.earliest as string), 'PPP')
-                          : '—'}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-background/70 px-2 py-1.5">
-                      <p className="text-muted-foreground">Latest</p>
-                      <p className="font-medium truncate">
-                        {seasonDateRanges.get(season.id)?.latest
-                          ? format(new Date(seasonDateRanges.get(season.id)!.latest as string), 'PPP')
-                          : '—'}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           <div className="hidden md:block overflow-x-auto">

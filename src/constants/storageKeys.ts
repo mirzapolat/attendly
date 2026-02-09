@@ -1,5 +1,6 @@
 export const STORAGE_KEYS = {
   workspaceId: 'attendly:workspace',
+  workspaceCookie: 'attendly_workspace',
   themeColor: 'attendly:theme-color',
   resumeEventPrefix: 'attendly:resume-event:',
   clientId: 'attendly:client-id',

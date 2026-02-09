@@ -32,14 +32,12 @@ const defaultOptions: Required<Pick<ConfirmOptions, "confirmText" | "cancelText"
 const getAccentClasses = (variant: ConfirmOptions["variant"]) => {
   if (variant === "destructive") {
     return {
-      accent: "from-rose-500/20 via-rose-500/10 to-transparent",
       ring: "ring-rose-500/10",
       icon: "bg-rose-500/15 text-rose-600",
       action: "bg-rose-600 hover:bg-rose-600/90",
     };
   }
   return {
-    accent: "from-primary/15 via-primary/10 to-transparent",
     ring: "ring-primary/10",
     icon: "bg-primary/15 text-primary",
     action: "",
@@ -97,7 +95,6 @@ export const ConfirmDialogProvider = ({ children }: { children: React.ReactNode 
         <AlertDialogContent
           className={`overflow-hidden border-0 bg-background p-0 shadow-xl ring-1 ${accent.ring}`}
         >
-          <div className={`h-1 w-full bg-gradient-to-r ${accent.accent}`} />
           <div className="px-6 py-6">
             <AlertDialogHeader>
               <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">

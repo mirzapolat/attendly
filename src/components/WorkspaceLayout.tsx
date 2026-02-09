@@ -37,23 +37,18 @@ const WorkspaceLayout = ({
     }
   }, [authLoading, user, navigate]);
 
-  useEffect(() => {
-    if (!requireWorkspace) return;
-    if (!authLoading && user && !workspaceLoading && !currentWorkspace) {
-      navigate('/workspaces');
-    }
-  }, [authLoading, user, workspaceLoading, currentWorkspace, navigate, requireWorkspace]);
-
-  if (authLoading || (requireWorkspace && workspaceLoading)) {
+  if (authLoading || (requireWorkspace && (workspaceLoading || !currentWorkspace))) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse-subtle">Loading...</div>
+      <div className="min-h-dvh bg-background flex items-center justify-center">
+        <div className="animate-pulse-subtle">
+          {requireWorkspace && !workspaceLoading ? 'Preparing workspace...' : 'Loading...'}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-gradient-subtle overflow-hidden flex flex-col">
+    <div className="h-dvh min-h-dvh bg-gradient-subtle overflow-hidden flex flex-col">
       <WorkspaceHeader title={title} />
       <div className="flex flex-1 min-h-0 flex-col md:flex-row">
         {showSidebar ? (

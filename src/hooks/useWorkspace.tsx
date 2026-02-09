@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
+import { persistWorkspaceCookie, readWorkspaceCookie } from '@/lib/workspaceCookie';
 
 export type Workspace = {
   id: string;
@@ -73,7 +74,89 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     localStorage.setItem(STORAGE_KEYS.workspaceId, currentWorkspaceId);
+    persistWorkspaceCookie(currentWorkspaceId);
   }, [currentWorkspaceId, user, hydrated]);
+
+  const resolveDefaultWorkspaceName = () => {
+    const metadataName =
+      typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '';
+    const fallbackEmailName = user?.email?.split('@')[0]?.trim() ?? '';
+    const source = metadataName || fallbackEmailName;
+    const normalized =
+      source
+        .replace(/[._-]+/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)[0] ?? 'My';
+    const name = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    return `${name}'s Workspace`;
+  };
+
+  const createDefaultWorkspace = async () => {
+    if (!user) {
+      return null;
+    }
+
+    const { data: workspaceData, error: workspaceError } = await supabase
+      .from('workspaces')
+      .insert({
+        name: resolveDefaultWorkspaceName(),
+        owner_id: user.id,
+        brand_color: 'default',
+      })
+      .select('id, name, brand_logo_url, brand_color, owner_id')
+      .maybeSingle();
+
+    if (workspaceError || !workspaceData) {
+      return null;
+    }
+
+    await supabase.from('workspace_members').insert({
+      workspace_id: workspaceData.id,
+      profile_id: user.id,
+    });
+
+    return workspaceData as Workspace;
+  };
+
+  const fetchOwnedFallbackWorkspaces = async () => {
+    if (!user) {
+      return [] as Workspace[];
+    }
+
+    const { data, error } = await supabase
+      .from('workspaces')
+      .select('id, name, brand_logo_url, brand_color, owner_id')
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return [] as Workspace[];
+    }
+
+    return (data ?? []) as Workspace[];
+  };
+
+  const applyResolvedWorkspaces = (resolved: Workspace[]) => {
+    setWorkspaces(resolved);
+
+    const stored = localStorage.getItem(STORAGE_KEYS.workspaceId);
+    const cookieStored = readWorkspaceCookie();
+    const preferredWorkspaceId =
+      (stored && resolved.some((workspace) => workspace.id === stored) && stored) ||
+      (cookieStored && resolved.some((workspace) => workspace.id === cookieStored) && cookieStored) ||
+      null;
+    const hasCurrentWorkspace =
+      currentWorkspaceId && resolved.some((workspace) => workspace.id === currentWorkspaceId);
+
+    if (preferredWorkspaceId) {
+      setCurrentWorkspaceId(preferredWorkspaceId);
+    } else if (hasCurrentWorkspace && currentWorkspaceId) {
+      setCurrentWorkspaceId(currentWorkspaceId);
+    } else {
+      setCurrentWorkspaceId(resolved[0]?.id ?? null);
+    }
+  };
 
   const refresh = async () => {
     if (!user) {
@@ -101,8 +184,22 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     const workspaceIds = memberships?.map((member) => member.workspace_id) ?? [];
 
     if (workspaceIds.length === 0) {
-      setWorkspaces([]);
-      setCurrentWorkspaceId(null);
+      const ownedFallback = await fetchOwnedFallbackWorkspaces();
+      if (ownedFallback.length > 0) {
+        applyResolvedWorkspaces(ownedFallback);
+        setLoading(false);
+        setHydrated(true);
+        return;
+      }
+
+      const defaultWorkspace = await createDefaultWorkspace();
+      if (defaultWorkspace) {
+        setWorkspaces([defaultWorkspace]);
+        setCurrentWorkspaceId(defaultWorkspace.id);
+      } else {
+        setWorkspaces([]);
+        setCurrentWorkspaceId(null);
+      }
       setLoading(false);
       setHydrated(true);
       return;
@@ -115,14 +212,30 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       .order('created_at', { ascending: false });
 
     const resolved = (workspaceData ?? []) as Workspace[];
-    setWorkspaces(resolved);
+    if (resolved.length > 0) {
+      applyResolvedWorkspaces(resolved);
+      setLoading(false);
+      setHydrated(true);
+      return;
+    }
 
-    const stored = localStorage.getItem(STORAGE_KEYS.workspaceId);
-    if (stored && resolved.some((workspace) => workspace.id === stored)) {
-      setCurrentWorkspaceId(stored);
+    const ownedFallback = await fetchOwnedFallbackWorkspaces();
+    if (ownedFallback.length > 0) {
+      applyResolvedWorkspaces(ownedFallback);
+      setLoading(false);
+      setHydrated(true);
+      return;
+    }
+
+    const defaultWorkspace = await createDefaultWorkspace();
+    if (defaultWorkspace) {
+      setWorkspaces([defaultWorkspace]);
+      setCurrentWorkspaceId(defaultWorkspace.id);
     } else {
+      setWorkspaces([]);
       setCurrentWorkspaceId(null);
     }
+
     setLoading(false);
     setHydrated(true);
   };
