@@ -156,20 +156,10 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
       if (error) throw error;
 
       onUpdate(updates);
-
-      toast({
-        title: 'Settings saved',
-        description: 'All event settings have been updated.',
-      });
       
       // Close the modal after successful save
       onClose();
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to save settings.',
-      });
+    } catch {
     } finally {
       setSaving(false);
     }
@@ -199,7 +189,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="lg:max-w-5xl lg:max-h-[90vh]">
+      <DialogContent className="pb-0 sm:pb-0 lg:max-h-[90vh] lg:max-w-5xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -218,7 +208,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
         >
           <div className="grid gap-6 lg:grid-cols-[1.55fr_1fr]">
             <div className="space-y-6">
-              <section className="space-y-4 rounded-2xl border border-border/70 bg-background/60 p-4 sm:p-5">
+              <section className="space-y-4 sm:rounded-2xl sm:border sm:border-border/70 sm:bg-background/60 sm:p-5">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Basics</p>
                   <h3 className="text-base font-semibold">Event details</h3>
@@ -276,7 +266,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
               </section>
 
               {locationCheckEnabled && (
-                <section className="space-y-4 rounded-2xl border border-border/70 bg-background/60 p-4 sm:p-5">
+                <section className="space-y-4 sm:rounded-2xl sm:border sm:border-border/70 sm:bg-background/60 sm:p-5">
                   <div>
                     <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Location</p>
                     <h3 className="text-base font-semibold">Attendance area</h3>
@@ -323,7 +313,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
             </div>
 
             <div className="space-y-4">
-              <section className="space-y-4 rounded-2xl border border-border/70 bg-background/60 p-4 sm:p-5">
+              <section className="space-y-4 sm:rounded-2xl sm:border sm:border-border/70 sm:bg-background/60 sm:p-5">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Security</p>
                   <h3 className="text-base font-semibold">Protection settings</h3>
@@ -458,7 +448,7 @@ const EventSettings = ({ event, onClose, onUpdate }: EventSettingsProps) => {
             </div>
           </div>
 
-          <div className="sticky bottom-0 -mx-5 mt-2 border-t border-border/70 bg-background/80 px-5 py-4 backdrop-blur-md sm:-mx-6 sm:px-6">
+          <div className="sticky bottom-0 -mx-5 mt-2 border-t border-border/70 bg-background/80 px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-md sm:-mx-6 sm:px-6 sm:pb-[calc(1rem+env(safe-area-inset-bottom))]">
             <div className="flex items-center justify-between gap-3">
               <div className="ml-auto flex items-center gap-2">
                 <Button type="button" variant="outline" onClick={onClose}>

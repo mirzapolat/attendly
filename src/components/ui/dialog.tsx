@@ -33,10 +33,10 @@ const DialogContent = React.forwardRef<
 >(({ className, children, style, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-1rem)] max-h-[92dvh] max-w-lg -translate-x-1/2 -translate-y-1/2 origin-center gap-4 overflow-y-auto rounded-3xl border border-border/70 bg-gradient-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-[0_34px_84px_-30px_rgba(0,0,0,0.65)] duration-200 animate-sanitize-card sm:w-[calc(100%-2rem)] sm:p-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:max-h-[90vh]",
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(
+        "fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-1rem)] max-h-[92dvh] max-w-lg -translate-x-1/2 -translate-y-1/2 origin-center flex-col overflow-hidden rounded-3xl border border-border/70 bg-gradient-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-[0_34px_84px_-30px_rgba(0,0,0,0.65)] duration-200 animate-sanitize-card sm:w-[calc(100%-2rem)] sm:p-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:max-h-[90vh]",
         className,
       )}
       style={{
@@ -46,14 +46,16 @@ const DialogContent = React.forwardRef<
       }}
       {...props}
     >
-      {children}
       <DialogPrimitive.Close
         title="Close"
-        className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/55 bg-white/75 text-foreground shadow-[0_8px_22px_-10px_rgba(0,0,0,0.55)] backdrop-blur-md transition-all hover:scale-105 hover:bg-white active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:pointer-events-none"
+        className="absolute right-3 top-3 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/55 bg-white/75 text-foreground shadow-[0_8px_22px_-10px_rgba(0,0,0,0.55)] backdrop-blur-md transition-all hover:scale-105 hover:bg-white active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:pointer-events-none sm:right-4 sm:top-4"
       >
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
+      <div className="min-h-0 overflow-y-auto scrollbar-none">
+        <div className="grid gap-4">{children}</div>
+      </div>
     </DialogPrimitive.Content>
   </DialogPortal>
 ));

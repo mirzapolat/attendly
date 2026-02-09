@@ -517,9 +517,6 @@ const WorkspaceSwitcher = ({
             <DialogTitle>Manage workspaces</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Delete workspaces you own. At least one workspace must always remain.
-            </p>
             {ownedWorkspaces.length === 0 ? (
               <p className="text-sm text-muted-foreground">You do not own any workspaces.</p>
             ) : (
@@ -530,12 +527,12 @@ const WorkspaceSwitcher = ({
                   return (
                     <div
                       key={workspace.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/70 px-3 py-2"
+                      className="flex items-start justify-between gap-3 rounded-lg border border-border/70 bg-background/70 px-3 py-2"
                     >
-                      <div className="min-w-0 flex flex-1 items-center gap-3">
+                      <div className="min-w-0 flex flex-1 items-start gap-3">
                         <WorkspaceAvatar workspace={workspace} sizeClass="h-9 w-9" />
                         <div className="min-w-0">
-                          <p className="truncate font-medium">{workspace.name}</p>
+                          <p className="font-medium leading-tight whitespace-normal break-words">{workspace.name}</p>
                           <p className="text-xs text-muted-foreground">{getWorkspaceMembershipLabel(workspace.id)}</p>
                         </div>
                       </div>
@@ -543,7 +540,7 @@ const WorkspaceSwitcher = ({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="text-destructive hover:text-destructive"
+                        className="shrink-0 text-destructive hover:text-destructive"
                         disabled={deleting || !canDeleteWorkspace}
                         onClick={() => handleDeleteWorkspace(workspace)}
                       >
@@ -563,12 +560,12 @@ const WorkspaceSwitcher = ({
                   return (
                     <div
                       key={workspace.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/70 px-3 py-2"
+                      className="flex items-start justify-between gap-3 rounded-lg border border-border/70 bg-background/70 px-3 py-2"
                     >
-                      <div className="min-w-0 flex flex-1 items-center gap-3">
+                      <div className="min-w-0 flex flex-1 items-start gap-3">
                         <WorkspaceAvatar workspace={workspace} sizeClass="h-9 w-9" />
                         <div className="min-w-0">
-                          <p className="truncate font-medium">{workspace.name}</p>
+                          <p className="font-medium leading-tight whitespace-normal break-words">{workspace.name}</p>
                           <p className="text-xs text-muted-foreground">{getWorkspaceMembershipLabel(workspace.id)}</p>
                         </div>
                       </div>
@@ -576,7 +573,7 @@ const WorkspaceSwitcher = ({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="text-destructive hover:text-destructive"
+                        className="shrink-0 text-destructive hover:text-destructive"
                         disabled={leaving || !canDeleteWorkspace}
                         onClick={() => handleLeaveWorkspace(workspace)}
                       >
@@ -587,9 +584,6 @@ const WorkspaceSwitcher = ({
                   );
                 })}
               </div>
-            ) : null}
-            {!canDeleteWorkspace ? (
-              <p className="text-xs text-muted-foreground">You need at least one remaining workspace.</p>
             ) : null}
           </div>
         </DialogContent>
