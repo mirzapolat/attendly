@@ -1,5 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink"
-    transform="matrix(1,0,0,-1,0,0)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink">
 
     <defs>
         <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
@@ -28,11 +27,11 @@
 
     <!-- Mark (ink) -->
     <g transform="translate(256 256) scale(1.55) translate(-276 -230)" filter="url(#inkShadow)">
-        <path d="M190 140 L260 340" fill="none" stroke="#0b1020" stroke-width="52" stroke-linecap="round"
+        <path d="M190 320 L260 120" fill="none" stroke="#0b1020" stroke-width="52" stroke-linecap="round"
             stroke-linejoin="round"></path>
-        <path d="M260 340 L362 120" fill="none" stroke="#0b1020" stroke-width="52" stroke-linecap="round"
+        <path d="M260 120 L362 340" fill="none" stroke="#0b1020" stroke-width="52" stroke-linecap="round"
             stroke-linejoin="round"></path>
-        <path d="M170 220 L380 190" fill="none" stroke="#0b1020" stroke-width="52" stroke-linecap="round"
+        <path d="M170 240 L380 270" fill="none" stroke="#0b1020" stroke-width="52" stroke-linecap="round"
             stroke-linejoin="round"></path>
     </g>
 
