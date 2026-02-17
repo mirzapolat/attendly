@@ -31,6 +31,8 @@ interface ModerationSettingsProps {
   }) => void;
 }
 
+const MODERATION_LINK_FETCH_LIMIT = 200;
+
 const ModerationSettings = ({
   eventId,
   eventName,
@@ -63,7 +65,8 @@ const ModerationSettings = ({
       .from('moderation_links')
       .select('*')
       .eq('event_id', eventId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(MODERATION_LINK_FETCH_LIMIT);
 
     if (data) setLinks(data);
     setLoading(false);

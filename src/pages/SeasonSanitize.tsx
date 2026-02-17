@@ -52,6 +52,10 @@ interface NameConflict {
   names: { name: string; count: number }[];
 }
 
+const SEASON_EVENT_FETCH_LIMIT = 1000;
+const ATTENDANCE_FETCH_LIMIT = 50000;
+const DISMISSAL_FETCH_LIMIT = 5000;
+
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 const normalizeLocalPart = (localPart: string) =>
@@ -146,6 +150,8 @@ const SeasonSanitize = () => {
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seasonEventsLimited, setSeasonEventsLimited] = useState(false);
+  const [attendanceLimited, setAttendanceLimited] = useState(false);
   const [step, setStep] = useState<'emails' | 'names'>('emails');
 
   const [suggestionSelections, setSuggestionSelections] = useState<Record<string, string>>({});
@@ -189,7 +195,8 @@ const SeasonSanitize = () => {
           .select('id, name, event_date')
           .eq('series_id', id)
           .eq('workspace_id', currentWorkspace.id)
-          .order('event_date', { ascending: true }),
+          .order('event_date', { ascending: true })
+          .limit(SEASON_EVENT_FETCH_LIMIT),
       ]);
 
       if (seasonRes.error || eventsRes.error) {
@@ -200,12 +207,14 @@ const SeasonSanitize = () => {
         setSeason(seasonRes.data);
       }
       setEvents(eventsRes.data ?? []);
+      setSeasonEventsLimited((eventsRes.data?.length ?? 0) === SEASON_EVENT_FETCH_LIMIT);
 
       const eventIds = (eventsRes.data ?? []).map((event) => event.id);
       const { data: dismissedData, error: dismissedError } = await supabase
         .from('series_sanitize_dismissals')
         .select('suggestion_id')
-        .eq('series_id', id);
+        .eq('series_id', id)
+        .limit(DISMISSAL_FETCH_LIMIT);
 
       if (dismissedError) {
         toast({
@@ -223,6 +232,7 @@ const SeasonSanitize = () => {
       setDismissalsLoaded(true);
       if (eventIds.length === 0) {
         setAttendance([]);
+        setAttendanceLimited(false);
         setLoading(false);
         return;
       }
@@ -230,12 +240,14 @@ const SeasonSanitize = () => {
       const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance_records')
         .select('id, event_id, attendee_email, attendee_name, status, client_id, client_id_raw')
-        .in('event_id', eventIds);
+        .in('event_id', eventIds)
+        .limit(ATTENDANCE_FETCH_LIMIT);
 
       if (attendanceError) {
         throw attendanceError;
       }
 
+      setAttendanceLimited((attendanceData?.length ?? 0) === ATTENDANCE_FETCH_LIMIT);
       setAttendance((attendanceData ?? []) as AttendanceRecord[]);
     } catch (error: unknown) {
       toast({
@@ -803,6 +815,13 @@ const SeasonSanitize = () => {
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y">
           <div className="px-4 py-5 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-6">
+        {(seasonEventsLimited || attendanceLimited) && (
+          <div className="rounded-xl border border-border/70 bg-background/60 px-3 py-2 text-xs text-muted-foreground">
+            {seasonEventsLimited && `Showing the first ${SEASON_EVENT_FETCH_LIMIT} events in this series.`}
+            {seasonEventsLimited && attendanceLimited ? ' ' : ''}
+            {attendanceLimited && `Suggestions are based on the first ${ATTENDANCE_FETCH_LIMIT.toLocaleString()} attendance records.`}
+          </div>
+        )}
         {step === 'emails' ? (
           <div className="space-y-8">
           <Card className="bg-gradient-card">

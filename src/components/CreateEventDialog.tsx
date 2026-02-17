@@ -30,6 +30,7 @@ const MIN_RADIUS_METERS = 1;
 const MAX_RADIUS_METERS = 1_000_000;
 const ROTATION_MIN_SECONDS = 2;
 const ROTATION_MAX_SECONDS = 60;
+const SEASON_FETCH_LIMIT = 200;
 
 const radiusToSlider = (radius: number) => {
   const clamped = Math.min(MAX_RADIUS_METERS, Math.max(MIN_RADIUS_METERS, radius || MIN_RADIUS_METERS));
@@ -116,7 +117,8 @@ const CreateEventDialog = ({ open, onOpenChange, initialDate = null }: CreateEve
         .from('series')
         .select('id, name')
         .eq('workspace_id', currentWorkspace.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(SEASON_FETCH_LIMIT);
       if (data) setSeasons(data);
     };
     void fetchSeasons();

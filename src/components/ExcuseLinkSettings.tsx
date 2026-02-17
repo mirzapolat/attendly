@@ -23,6 +23,8 @@ interface ExcuseLinkSettingsProps {
   onClose: () => void;
 }
 
+const EXCUSE_LINK_FETCH_LIMIT = 200;
+
 const formatDateTimeLocal = (date: Date): string => {
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
@@ -55,7 +57,8 @@ const ExcuseLinkSettings = ({ eventId, eventName, onClose }: ExcuseLinkSettingsP
       .from('excuse_links')
       .select('*')
       .eq('event_id', eventId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(EXCUSE_LINK_FETCH_LIMIT);
 
     if (data) setLinks(data);
     setLoading(false);

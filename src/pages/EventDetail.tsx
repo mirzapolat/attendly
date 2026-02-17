@@ -14,18 +14,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/hooks/useConfirm';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   ArrowLeft, QrCode, Users, MapPin, Calendar, Clock, Play, Square, 
   AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Settings, Copy, Users2, Search, UserMinus, List, ListCollapse, Mail, Loader2
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isToday } from 'date-fns';
 import EventSettings from '@/components/EventSettings';
 import ModerationSettings from '@/components/ModerationSettings';
 import ExcuseLinkSettings from '@/components/ExcuseLinkSettings';
 import AttendeeActions from '@/components/AttendeeActions';
 import QRCodeExport from '@/components/QRCodeExport';
-import AnimatedCount from '@/components/AnimatedCount';
+import StatusFilterCards from '@/components/event-detail/StatusFilterCards';
 
 interface Event {
   id: string;
@@ -71,6 +72,11 @@ interface KnownAttendee {
   attendee_email: string;
 }
 
+interface AttendancePageResult {
+  rows: AttendanceRecord[];
+  count: number | null;
+}
+
 const FALLBACK_POLL_MS = 30000;
 const RESUME_WINDOW_MS = 15000;
 const ROTATION_GRACE_MS = 7000;
@@ -89,6 +95,44 @@ const SUGGESTION_EVENT_LIMIT = 200;
 const SUGGESTION_ATTENDEE_LIMIT = 200;
 const ATTENDANCE_SELECT_COLUMNS =
   'id, attendee_name, attendee_email, status, suspicious_reason, location_provided, location_lat, location_lng, recorded_at, client_id, client_id_raw';
+
+const fetchEventById = async (eventId: string) => {
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('id', eventId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as Event | null;
+};
+
+const fetchAttendancePage = async (
+  eventId: string,
+  opts?: { from?: number; to?: number; includeCount?: boolean },
+): Promise<AttendancePageResult> => {
+  const from = opts?.from ?? 0;
+  const to = opts?.to ?? ATTENDANCE_PAGE_SIZE - 1;
+  const includeCount = opts?.includeCount ?? false;
+  const { data, error, count } = await supabase
+    .from('attendance_records')
+    .select(ATTENDANCE_SELECT_COLUMNS, { count: includeCount ? 'exact' : undefined })
+    .eq('event_id', eventId)
+    .order('recorded_at', { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    throw error;
+  }
+
+  return {
+    rows: (data ?? []) as AttendanceRecord[],
+    count: includeCount ? count ?? 0 : null,
+  };
+};
 
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -235,6 +279,7 @@ const EventDetail = () => {
   }, []);
 
   useEffect(() => {
+    setLoading(true);
     setAttendance([]);
     setAttendanceTotalCount(null);
     setIsLoadingMoreAttendance(false);
@@ -315,17 +360,13 @@ const EventDetail = () => {
     if (!ids.length) return;
 
     setClientIdBulkAction('clearing');
-    const { error } = await supabase
-      .from('attendance_records')
-      .update({ status: 'cleared', suspicious_reason: null })
-      .in('id', ids);
-
-    setClientIdBulkAction(null);
-
-    if (!error) {
+    try {
+      await clearClientIdMatchesMutation.mutateAsync(ids);
       await fetchAttendance();
       setClientIdDialogOpen(false);
       setClientIdDialogKey(null);
+    } finally {
+      setClientIdBulkAction(null);
     }
   };
 
@@ -342,17 +383,13 @@ const EventDetail = () => {
     if (!confirmed) return;
 
     setClientIdBulkAction('deleting');
-    const { error } = await supabase
-      .from('attendance_records')
-      .delete()
-      .in('id', clientIdMatches.map((record) => record.id));
-
-    setClientIdBulkAction(null);
-
-    if (!error) {
-      fetchAttendance();
+    try {
+      await deleteClientIdMatchesMutation.mutateAsync(clientIdMatches.map((record) => record.id));
+      await fetchAttendance();
       setClientIdDialogOpen(false);
       setClientIdDialogKey(null);
+    } finally {
+      setClientIdBulkAction(null);
     }
   };
 
@@ -650,75 +687,218 @@ const EventDetail = () => {
     [currentWorkspace?.brand_color, currentWorkspace?.id]
   );
 
-  const fetchEvent = useCallback(async () => {
-    if (!id) return;
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
+  const {
+    data: eventQueryData,
+    error: eventQueryError,
+    refetch: refetchEvent,
+  } = useQuery({
+    queryKey: ['event-detail', id, 'event'],
+    queryFn: () => fetchEventById(id as string),
+    enabled: Boolean(id && user),
+    staleTime: 15_000,
+  });
 
-    if (error) {
-      setLoading(false);
+  const {
+    data: attendanceQueryData,
+    error: attendanceQueryError,
+    refetch: refetchAttendance,
+  } = useQuery({
+    queryKey: ['event-detail', id, 'attendance', ATTENDANCE_PAGE_SIZE],
+    queryFn: () => fetchAttendancePage(id as string, { includeCount: true }),
+    enabled: Boolean(id && user),
+    staleTime: 10_000,
+  });
+
+  useEffect(() => {
+    if (eventQueryData === undefined) {
+      return;
+    }
+    if (eventQueryData) {
+      setEvent(eventQueryData);
+      void syncAccentColor(eventQueryData.workspace_id);
+    } else {
+      setEvent(null);
+    }
+    setLoading(false);
+  }, [eventQueryData, syncAccentColor]);
+
+  useEffect(() => {
+    if (!attendanceQueryData) {
       return;
     }
 
-    if (data) {
-      setEvent(data);
-      void syncAccentColor(data.workspace_id);
+    if (typeof attendanceQueryData.count === 'number') {
+      setAttendanceTotalCount(attendanceQueryData.count);
     }
+
+    const rows = attendanceQueryData.rows;
+    setAttendance((prev) => {
+      if (prev.length <= ATTENDANCE_PAGE_SIZE) {
+        return rows;
+      }
+      const headIds = new Set(rows.map((record) => record.id));
+      const tail = prev.filter((record) => !headIds.has(record.id));
+      return [...rows, ...tail];
+    });
     setLoading(false);
-  }, [id, syncAccentColor]);
+  }, [attendanceQueryData]);
+
+  useEffect(() => {
+    if (eventQueryError || attendanceQueryError) {
+      setLoading(false);
+    }
+  }, [eventQueryError, attendanceQueryError]);
+
+  const fetchEvent = useCallback(async () => {
+    if (!id) return;
+    await refetchEvent();
+  }, [id, refetchEvent]);
 
   const fetchAttendance = useCallback(async (opts?: { silent?: boolean; append?: boolean; offset?: number }) => {
     if (!id) return;
     const append = opts?.append ?? false;
-    const from = append ? Math.max(0, opts?.offset ?? 0) : 0;
-    const to = from + ATTENDANCE_PAGE_SIZE - 1;
-    const { data, error, count } = await supabase
-      .from('attendance_records')
-      .select(ATTENDANCE_SELECT_COLUMNS, { count: append ? undefined : 'exact' })
-      .eq('event_id', id)
-      .order('recorded_at', { ascending: false })
-      .range(from, to);
 
-    if (error) {
+    if (!append) {
+      await refetchAttendance();
       return;
     }
 
-    if (typeof count === 'number') {
-      setAttendanceTotalCount(count);
-    }
+    const from = Math.max(0, opts?.offset ?? 0);
+    const to = from + ATTENDANCE_PAGE_SIZE - 1;
 
-    const rows = (data ?? []) as AttendanceRecord[];
-    setAttendance((prev) => {
-      if (!append) {
-        if (prev.length <= ATTENDANCE_PAGE_SIZE) {
-          return rows;
+    try {
+      const page = await fetchAttendancePage(id, { from, to, includeCount: false });
+      const rows = page.rows;
+      setAttendance((prev) => {
+        if (rows.length === 0) {
+          return prev;
         }
-        const headIds = new Set(rows.map((record) => record.id));
-        const tail = prev.filter((record) => !headIds.has(record.id));
-        return [...rows, ...tail];
-      }
 
-      if (rows.length === 0) {
-        return prev;
-      }
-
-      const merged = [...prev];
-      const indexById = new Map(merged.map((record, index) => [record.id, index]));
-      rows.forEach((record) => {
-        const existingIndex = indexById.get(record.id);
-        if (typeof existingIndex === 'number') {
-          merged[existingIndex] = record;
-          return;
-        }
-        indexById.set(record.id, merged.length);
-        merged.push(record);
+        const merged = [...prev];
+        const indexById = new Map(merged.map((record, index) => [record.id, index]));
+        rows.forEach((record) => {
+          const existingIndex = indexById.get(record.id);
+          if (typeof existingIndex === 'number') {
+            merged[existingIndex] = record;
+            return;
+          }
+          indexById.set(record.id, merged.length);
+          merged.push(record);
+        });
+        return merged;
       });
-      return merged;
-    });
-  }, [id]);
+    } catch {
+      // Keep current data when loading an older page fails.
+    }
+  }, [id, refetchAttendance]);
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async (payload: {
+      newStatus: boolean;
+      nextToken: string | null;
+      expiresAt: string | null;
+      deviceId: string | null;
+      leaseExpiresAt: string | null;
+    }) => {
+      if (!id) {
+        throw new Error('Event id missing');
+      }
+      const { error } = await supabase
+        .from('events')
+        .update({
+          is_active: payload.newStatus,
+          current_qr_token: payload.nextToken,
+          qr_token_expires_at: payload.expiresAt,
+          qr_host_device_id: payload.newStatus ? payload.deviceId : null,
+          qr_host_lease_expires_at: payload.newStatus ? payload.leaseExpiresAt : null,
+        })
+        .eq('id', id);
+
+      if (error) {
+        throw error;
+      }
+    },
+  });
+
+  const addManualAttendeeMutation = useMutation({
+    mutationFn: async (payload: { status: 'verified' | 'excused'; attendeeName: string; attendeeEmail: string }) => {
+      if (!id) {
+        throw new Error('Event id missing');
+      }
+      const { error } = await supabase
+        .from('attendance_records')
+        .insert({
+          event_id: id,
+          attendee_name: payload.attendeeName,
+          attendee_email: payload.attendeeEmail,
+          client_id: `manual-${crypto.randomUUID()}`,
+          status: payload.status,
+          location_provided: false,
+        });
+
+      if (error) {
+        throw error;
+      }
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async (payload: {
+      recordId: string;
+      newStatus: 'verified' | 'suspicious' | 'cleared' | 'excused';
+    }) => {
+      const { error } = await supabase
+        .from('attendance_records')
+        .update({
+          status: payload.newStatus,
+          suspicious_reason: payload.newStatus === 'suspicious' ? undefined : null,
+        })
+        .eq('id', payload.recordId);
+
+      if (error) {
+        throw error;
+      }
+    },
+  });
+
+  const deleteRecordMutation = useMutation({
+    mutationFn: async (recordId: string) => {
+      const { error } = await supabase
+        .from('attendance_records')
+        .delete()
+        .eq('id', recordId);
+
+      if (error) {
+        throw error;
+      }
+    },
+  });
+
+  const clearClientIdMatchesMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('attendance_records')
+        .update({ status: 'cleared', suspicious_reason: null })
+        .in('id', ids);
+
+      if (error) {
+        throw error;
+      }
+    },
+  });
+
+  const deleteClientIdMatchesMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('attendance_records')
+        .delete()
+        .in('id', ids);
+
+      if (error) {
+        throw error;
+      }
+    },
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -1029,23 +1209,19 @@ const EventDetail = () => {
       return;
     }
 
-    const { error } = await supabase
-      .from('attendance_records')
-      .insert({
-        event_id: id,
-        attendee_name: manualName.trim(),
-        attendee_email: manualEmail.trim().toLowerCase(),
-        client_id: `manual-${crypto.randomUUID()}`,
+    try {
+      await addManualAttendeeMutation.mutateAsync({
         status,
-        location_provided: false,
+        attendeeName: manualName.trim(),
+        attendeeEmail: manualEmail.trim().toLowerCase(),
       });
-
-    if (!error) {
       setManualName('');
       setManualEmail('');
       setShowAddForm(false);
       setSuggestions([]);
       // Realtime subscription will update the attendance list automatically
+    } catch {
+      // Keep form values so user can retry.
     }
   };
 
@@ -1323,30 +1499,24 @@ const EventDetail = () => {
 
     setIsTogglingEvent(true);
     try {
-      const { error } = await supabase
-        .from('events')
-        .update({ 
-          is_active: newStatus,
-          current_qr_token: newStatus ? generateToken() : null,
-          qr_token_expires_at: expiresAt,
-          qr_host_device_id: newStatus ? deviceId ?? null : null,
-          qr_host_lease_expires_at: newStatus ? leaseExpiresAt : null,
-        })
-        .eq('id', id);
-
-      if (!error) {
-        setEvent((prev) =>
-          prev
-            ? {
-                ...prev,
-                is_active: newStatus,
-                qr_host_device_id: newStatus ? deviceId ?? null : null,
-                qr_host_lease_expires_at: newStatus ? leaseExpiresAt : null,
-              }
-            : null,
-        );
-        setIsQrHost(Boolean(newStatus && deviceId));
-      }
+      await toggleActiveMutation.mutateAsync({
+        newStatus,
+        nextToken: newStatus ? generateToken() : null,
+        expiresAt,
+        deviceId: deviceId ?? null,
+        leaseExpiresAt,
+      });
+      setEvent((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_active: newStatus,
+              qr_host_device_id: newStatus ? deviceId ?? null : null,
+              qr_host_lease_expires_at: leaseExpiresAt,
+            }
+          : null,
+      );
+      setIsQrHost(Boolean(newStatus && deviceId));
     } finally {
       setIsTogglingEvent(false);
     }
@@ -1356,15 +1526,12 @@ const EventDetail = () => {
     recordId: string,
     newStatus: 'verified' | 'suspicious' | 'cleared' | 'excused'
   ) => {
-    const { error } = await supabase
-      .from('attendance_records')
-      .update({
-        status: newStatus,
-        suspicious_reason: newStatus === 'suspicious' ? undefined : null,
-      })
-      .eq('id', recordId);
-
-    // Realtime subscription will update the attendance list on success
+    try {
+      await updateStatusMutation.mutateAsync({ recordId, newStatus });
+      // Realtime subscription will update the attendance list on success
+    } catch {
+      // Preserve existing silent failure behavior.
+    }
   };
 
   const deleteRecord = async (recordId: string) => {
@@ -1381,12 +1548,12 @@ const EventDetail = () => {
 
     if (!confirmed) return;
 
-    await supabase
-      .from('attendance_records')
-      .delete()
-      .eq('id', recordId);
-
-    // Realtime subscription will update the attendance list on success
+    try {
+      await deleteRecordMutation.mutateAsync(recordId);
+      // Realtime subscription will update the attendance list on success
+    } catch {
+      // Preserve existing silent failure behavior.
+    }
   };
 
   const qrUrl = `${window.location.origin}/attend/${id}?token=${qrToken}`;
@@ -1577,6 +1744,24 @@ const EventDetail = () => {
     }
     return baseStyle as CSSProperties;
   })();
+  const cloudBurstIds = {
+    all: cloudBursts.all?.id ?? null,
+    excused: cloudBursts.excused?.id ?? null,
+    verified: cloudBursts.verified?.id ?? null,
+    suspicious: cloudBursts.suspicious?.id ?? null,
+  };
+  const statusCardStyles = {
+    all: totalCloudStyle,
+    excused: getCloudOriginStyle('excused'),
+    verified: getCloudOriginStyle('verified'),
+    suspicious: getCloudOriginStyle('suspicious'),
+  };
+  const bubbleClassByFilter = {
+    all: getCountBubbleClass('all'),
+    excused: getCountBubbleClass('excused'),
+    verified: getCountBubbleClass('verified'),
+    suspicious: getCountBubbleClass('suspicious'),
+  };
   const clientIdMatches = clientIdDialogKey
     ? attendance.filter((record) => {
         const clientId = (record.client_id_raw ?? record.client_id ?? '').trim();
@@ -1893,64 +2078,17 @@ const EventDetail = () => {
             </Card>
 
             {/* Stats - clickable filters */}
-            <div className="grid grid-cols-2 min-[560px]:grid-cols-4 gap-4 mt-4">
-              <Card 
-                className={`bg-gradient-card relative overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--primary)/0.45)] filter-cloudy-primary ${statusFilter === 'all' ? 'ring-2 ring-primary filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--primary)/0.45)]' : ''}`}
-                onClick={(event) => handleStatusFilter('all', event)}
-                style={totalCloudStyle}
-              >
-                {cloudBursts.all && (
-                  <span key={cloudBursts.all.id} className="filter-cloud-burst" />
-                )}
-                <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('all')}`}>
-                  <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
-                  <p className="text-2xl font-bold"><AnimatedCount value={attendance.length} /></p>
-                  <p className="text-xs text-muted-foreground">Total</p>
-                </CardContent>
-              </Card>
-              <Card
-                className={`bg-gradient-card relative overflow-hidden transition-all ${excusedCount === 0 ? 'opacity-50 cursor-default pointer-events-none' : `cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)] filter-cloudy-warning ${statusFilter === 'excused' ? 'ring-2 ring-warning filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--warning)/0.45)]' : ''}`}`}
-                onClick={(event) => handleStatusFilter('excused', event)}
-                style={getCloudOriginStyle('excused')}
-              >
-                {cloudBursts.excused && (
-                  <span key={cloudBursts.excused.id} className="filter-cloud-burst" />
-                )}
-                <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('excused')}`}>
-                  <UserMinus className="w-5 h-5 mx-auto mb-1 text-warning" />
-                  <p className="text-2xl font-bold"><AnimatedCount value={excusedCount} /></p>
-                  <p className="text-xs text-muted-foreground">Excused</p>
-                </CardContent>
-              </Card>
-              <Card
-                className={`bg-gradient-card relative overflow-hidden transition-all ${verifiedCount === 0 ? 'opacity-50 cursor-default pointer-events-none' : `cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)] filter-cloudy-success ${statusFilter === 'verified' ? 'ring-2 ring-success filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--success)/0.45)]' : ''}`}`}
-                onClick={(event) => handleStatusFilter('verified', event)}
-                style={getCloudOriginStyle('verified')}
-              >
-                {cloudBursts.verified && (
-                  <span key={cloudBursts.verified.id} className="filter-cloud-burst" />
-                )}
-                <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('verified')}`}>
-                  <CheckCircle className="w-5 h-5 mx-auto mb-1 text-success" />
-                  <p className="text-2xl font-bold"><AnimatedCount value={verifiedCount} /></p>
-                  <p className="text-xs text-muted-foreground">Checked-in</p>
-                </CardContent>
-              </Card>
-              <Card
-                className={`bg-gradient-card relative overflow-hidden transition-all ${suspiciousCount === 0 ? 'opacity-50 cursor-default pointer-events-none' : `cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_hsl(var(--destructive)/0.45)] filter-cloudy-destructive ${statusFilter === 'suspicious' ? 'ring-2 ring-destructive filter-cloudy -translate-y-0.5 !shadow-[0_12px_24px_-14px_hsl(var(--destructive)/0.45)]' : ''}`}`}
-                onClick={(event) => handleStatusFilter('suspicious', event)}
-                style={getCloudOriginStyle('suspicious')}
-              >
-                {cloudBursts.suspicious && (
-                  <span key={cloudBursts.suspicious.id} className="filter-cloud-burst" />
-                )}
-                <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('suspicious')}`}>
-                  <AlertTriangle className="w-5 h-5 mx-auto mb-1 text-destructive" />
-                  <p className="text-2xl font-bold"><AnimatedCount value={suspiciousCount} /></p>
-                  <p className="text-xs text-muted-foreground">Suspicious</p>
-                </CardContent>
-              </Card>
-            </div>
+            <StatusFilterCards
+              total={attendance.length}
+              excusedCount={excusedCount}
+              verifiedCount={verifiedCount}
+              suspiciousCount={suspiciousCount}
+              statusFilter={statusFilter}
+              onSelect={handleStatusFilter}
+              cloudBurstIds={cloudBurstIds}
+              styleByFilter={statusCardStyles}
+              bubbleClassByFilter={bubbleClassByFilter}
+            />
           </div>
 
           {/* Attendance List */}
@@ -2213,6 +2351,15 @@ const EventDetail = () => {
                       const isInitialCardVisible =
                         initialListAnimationDone || revealedInitialRecordIds.has(record.id);
                       const isNewlyArrived = isInitialCardVisible && newlyArrivedRecordIds.has(record.id);
+                      const recordedDate = new Date(record.recorded_at);
+                      const hasValidRecordedDate = !Number.isNaN(recordedDate.getTime());
+                      const showRecordedDate = hasValidRecordedDate && !isToday(recordedDate);
+                      const recordedDateLabel = hasValidRecordedDate
+                        ? format(recordedDate, 'MMM d')
+                        : record.recorded_at;
+                      const recordedTimeLabel = hasValidRecordedDate
+                        ? format(recordedDate, 'HH:mm')
+                        : record.recorded_at;
                       return (
                     <Card
                       data-attendance-card="true"
@@ -2293,9 +2440,15 @@ const EventDetail = () => {
                                 )}
                               </div>
                               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                                {showRecordedDate && (
+                                  <span className="flex items-center gap-1.5">
+                                    <Calendar className="w-3 h-3" />
+                                    {recordedDateLabel}
+                                  </span>
+                                )}
                                 <span className="flex items-center gap-1.5">
                                   <Clock className="w-3 h-3" />
-                                  {format(new Date(record.recorded_at), 'HH:mm')}
+                                  {recordedTimeLabel}
                                 </span>
                                 {event?.location_check_enabled && (
                                   <span className="flex items-center gap-1">

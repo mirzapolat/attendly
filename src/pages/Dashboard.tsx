@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowDown,
@@ -26,13 +26,14 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import EventCard from '@/components/EventCard';
+import EventSection from '@/components/dashboard/EventSection';
 import { sanitizeError } from '@/utils/errorHandler';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { useWorkspace } from '@/hooks/useWorkspace';
@@ -55,10 +56,79 @@ interface Season {
   name: string;
 }
 
+interface DashboardQueryResult {
+  events: Event[];
+  seasons: Season[];
+  attendanceCounts: Record<string, number>;
+  eventsLimited: boolean;
+  attendanceCountsLimited: boolean;
+}
+
 const SEASON_PICKER_PAGE_SIZE = 9;
 const EVENTS_FETCH_LIMIT = 300;
 const SEASONS_FETCH_LIMIT = 200;
 const ATTENDANCE_COUNT_FETCH_LIMIT = 20000;
+
+const fetchDashboardData = async (workspaceId: string): Promise<DashboardQueryResult> => {
+  const [eventsRes, seasonsRes] = await Promise.all([
+    supabase
+      .from('events')
+      .select('id, name, event_date, is_active, series_id, created_at')
+      .eq('workspace_id', workspaceId)
+      .order('event_date', { ascending: false })
+      .limit(EVENTS_FETCH_LIMIT),
+    supabase
+      .from('series')
+      .select('id, name')
+      .eq('workspace_id', workspaceId)
+      .order('created_at', { ascending: false })
+      .limit(SEASONS_FETCH_LIMIT),
+  ]);
+
+  const fetchError = eventsRes.error || seasonsRes.error;
+  if (fetchError) {
+    throw fetchError;
+  }
+
+  const events = (eventsRes.data ?? []) as Event[];
+  const seasons = (seasonsRes.data ?? []) as Season[];
+  const eventIds = events.map((event) => event.id);
+  const eventsLimited = events.length === EVENTS_FETCH_LIMIT;
+
+  if (eventIds.length === 0) {
+    return {
+      events,
+      seasons,
+      attendanceCounts: {},
+      eventsLimited,
+      attendanceCountsLimited: false,
+    };
+  }
+
+  const { data: attendanceData, error: attendanceError } = await supabase
+    .from('attendance_records')
+    .select('event_id, status')
+    .in('event_id', eventIds)
+    .limit(ATTENDANCE_COUNT_FETCH_LIMIT);
+
+  if (attendanceError) {
+    throw attendanceError;
+  }
+
+  const attendanceCounts: Record<string, number> = {};
+  (attendanceData ?? []).forEach((record) => {
+    if (record.status === 'excused') return;
+    attendanceCounts[record.event_id] = (attendanceCounts[record.event_id] ?? 0) + 1;
+  });
+
+  return {
+    events,
+    seasons,
+    attendanceCounts,
+    eventsLimited,
+    attendanceCountsLimited: (attendanceData?.length ?? 0) === ATTENDANCE_COUNT_FETCH_LIMIT,
+  };
+};
 
 const Dashboard = () => {
   usePageTitle('Events - Attendly');
@@ -101,11 +171,88 @@ const Dashboard = () => {
   const dragStartTimeRef = useRef<number | null>(null);
   const dragOverlayTimerRef = useRef<number | null>(null);
 
+  const workspaceId = currentWorkspace?.id ?? null;
+  const {
+    data: dashboardData,
+    error: dashboardError,
+    refetch: refetchDashboardData,
+  } = useQuery({
+    queryKey: ['dashboard', workspaceId],
+    queryFn: () => fetchDashboardData(workspaceId as string),
+    enabled: Boolean(workspaceId),
+    staleTime: 15_000,
+  });
+
+  const assignSeasonMutation = useMutation({
+    mutationFn: async ({ eventId, seasonId }: { eventId: string; seasonId: string }) => {
+      const { error } = await supabase
+        .from('events')
+        .update({ series_id: seasonId, attendance_weight: 1 })
+        .eq('id', eventId);
+
+      if (error) {
+        throw error;
+      }
+
+      return { seasonId };
+    },
+    onSuccess: ({ seasonId }) => {
+      toast({
+        title: 'Event updated',
+        description: `Event added to ${seasons.find((season) => season.id === seasonId)?.name ?? 'series'}.`,
+      });
+      setDraggingEventId(null);
+      setDraggingOverSeasonId(null);
+      draggingEventRef.current = null;
+      clearSeasonHoverTimers();
+      void refetchDashboardData();
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: sanitizeError(error),
+      });
+      dropHandledRef.current = false;
+    },
+  });
+
   useEffect(() => {
-    if (currentWorkspace) {
-      fetchData();
+    if (!workspaceId) {
+      setEvents([]);
+      setSeasons([]);
+      setAttendanceCounts({});
+      setEventsLimited(false);
+      setAttendanceCountsLimited(false);
+      setLoading(false);
+      return;
     }
-  }, [currentWorkspace]);
+    setLoading(true);
+  }, [workspaceId]);
+
+  useEffect(() => {
+    if (!dashboardData) {
+      return;
+    }
+    setEvents(dashboardData.events);
+    setSeasons(dashboardData.seasons);
+    setAttendanceCounts(dashboardData.attendanceCounts);
+    setEventsLimited(dashboardData.eventsLimited);
+    setAttendanceCountsLimited(dashboardData.attendanceCountsLimited);
+    setLoading(false);
+  }, [dashboardData]);
+
+  useEffect(() => {
+    if (!dashboardError) {
+      return;
+    }
+    toast({
+      variant: 'destructive',
+      title: 'Error',
+      description: sanitizeError(dashboardError),
+    });
+    setLoading(false);
+  }, [dashboardError, toast]);
 
   useEffect(() => {
     if (searchParams.get('createEvent') !== '1') return;
@@ -172,67 +319,6 @@ const Dashboard = () => {
   }, [isSmallScreen]);
 
   const effectiveViewMode = isSmallScreen && viewMode === 'calendar' ? 'list' : viewMode;
-
-  const fetchData = async () => {
-    if (!currentWorkspace) return;
-
-    try {
-      const [eventsRes, seasonsRes] = await Promise.all([
-        supabase
-          .from('events')
-          .select('id, name, event_date, is_active, series_id, created_at')
-          .eq('workspace_id', currentWorkspace.id)
-          .order('event_date', { ascending: false })
-          .limit(EVENTS_FETCH_LIMIT),
-        supabase
-          .from('series')
-          .select('id, name')
-          .eq('workspace_id', currentWorkspace.id)
-          .order('created_at', { ascending: false })
-          .limit(SEASONS_FETCH_LIMIT),
-      ]);
-
-      const fetchError = eventsRes.error || seasonsRes.error;
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      if (eventsRes.data) {
-        setEvents(eventsRes.data);
-        setEventsLimited(eventsRes.data.length === EVENTS_FETCH_LIMIT);
-        const eventIds = eventsRes.data.map((event) => event.id);
-        if (eventIds.length === 0) {
-          setAttendanceCounts({});
-          setAttendanceCountsLimited(false);
-        } else {
-          const { data: attendanceData, error: attendanceError } = await supabase
-            .from('attendance_records')
-            .select('event_id, status')
-            .in('event_id', eventIds)
-            .limit(ATTENDANCE_COUNT_FETCH_LIMIT);
-          if (attendanceError) {
-            throw attendanceError;
-          }
-          setAttendanceCountsLimited((attendanceData?.length ?? 0) === ATTENDANCE_COUNT_FETCH_LIMIT);
-          const counts: Record<string, number> = {};
-          (attendanceData ?? []).forEach((record) => {
-            if (record.status === 'excused') return;
-            counts[record.event_id] = (counts[record.event_id] ?? 0) + 1;
-          });
-          setAttendanceCounts(counts);
-        }
-      }
-      if (seasonsRes.data) setSeasons(seasonsRes.data);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: sanitizeError(error),
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredEvents = useMemo(() => {
     if (!eventSearch.trim()) return events;
@@ -378,31 +464,7 @@ const Dashboard = () => {
       clearSeasonHoverTimers();
       return;
     }
-    try {
-      const { error } = await supabase
-        .from('events')
-        .update({ series_id: seasonId, attendance_weight: 1 })
-        .eq('id', eventId);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Event updated',
-        description: `Event added to ${seasons.find((season) => season.id === seasonId)?.name ?? 'series'}.`,
-      });
-      setDraggingEventId(null);
-      setDraggingOverSeasonId(null);
-      draggingEventRef.current = null;
-      clearSeasonHoverTimers();
-      fetchData();
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: sanitizeError(error),
-      });
-      dropHandledRef.current = false;
-    }
+    await assignSeasonMutation.mutateAsync({ eventId, seasonId });
   };
 
   const getDraggedEventId = (event?: DragEvent) => {
@@ -441,6 +503,44 @@ const Dashboard = () => {
     setCreateEventDate(date);
     setCreateEventOpen(true);
   };
+
+  const refreshDashboardData = useCallback(() => {
+    void refetchDashboardData();
+  }, [refetchDashboardData]);
+
+  const handleEventCardDragStart = useCallback((eventId: string) => {
+    dropHandledRef.current = false;
+    draggingEventRef.current = eventId;
+    dragStartTimeRef.current = Date.now();
+    if (dragOverlayTimerRef.current) {
+      window.clearTimeout(dragOverlayTimerRef.current);
+    }
+    dragOverlayTimerRef.current = window.setTimeout(() => {
+      setDraggingEventId(eventId);
+    }, 80);
+  }, []);
+
+  const handleEventCardDragEnd = useCallback(() => {
+    if (dragOverlayTimerRef.current) {
+      window.clearTimeout(dragOverlayTimerRef.current);
+      dragOverlayTimerRef.current = null;
+    }
+    window.setTimeout(() => {
+      if (dropHandledRef.current) {
+        return;
+      }
+      const elapsed = dragStartTimeRef.current
+        ? Date.now() - dragStartTimeRef.current
+        : 0;
+      if (elapsed < 200) {
+        return;
+      }
+      setDraggingEventId(null);
+      setDraggingOverSeasonId(null);
+      draggingEventRef.current = null;
+      clearSeasonHoverTimers();
+    }, 60);
+  }, []);
 
   return (
     <WorkspaceLayout title="Events overview">
@@ -866,52 +966,17 @@ const Dashboard = () => {
         <>
           {todayEvents.length > 0 && (
             <div className={isSmallScreen ? 'mb-6' : 'mb-10'}>
-              {!isSmallScreen && <h2 className="text-xl font-semibold mb-4">Events today</h2>}
-              <div className={eventsGridClass}>
-                {todayEvents.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    attendeesCount={attendanceCounts[event.id] ?? 0}
-                    seasons={seasons}
-                    onEventDeleted={fetchData}
-                    onEventUpdated={fetchData}
-                    variant={effectiveViewMode}
-                    onDragStart={(eventId) => {
-                      dropHandledRef.current = false;
-                      draggingEventRef.current = eventId;
-                      dragStartTimeRef.current = Date.now();
-                      if (dragOverlayTimerRef.current) {
-                        window.clearTimeout(dragOverlayTimerRef.current);
-                      }
-                      dragOverlayTimerRef.current = window.setTimeout(() => {
-                        setDraggingEventId(eventId);
-                      }, 80);
-                    }}
-                    onDragEnd={() => {
-                      if (dragOverlayTimerRef.current) {
-                        window.clearTimeout(dragOverlayTimerRef.current);
-                        dragOverlayTimerRef.current = null;
-                      }
-                      window.setTimeout(() => {
-                        if (dropHandledRef.current) {
-                          return;
-                        }
-                        const elapsed = dragStartTimeRef.current
-                          ? Date.now() - dragStartTimeRef.current
-                          : 0;
-                        if (elapsed < 200) {
-                          return;
-                        }
-                        setDraggingEventId(null);
-                        setDraggingOverSeasonId(null);
-                        draggingEventRef.current = null;
-                        clearSeasonHoverTimers();
-                      }, 60);
-                    }}
-                  />
-                ))}
-              </div>
+              <EventSection
+                title={isSmallScreen ? undefined : 'Events today'}
+                events={todayEvents}
+                eventsGridClass={eventsGridClass}
+                attendanceCounts={attendanceCounts}
+                seasons={seasons}
+                viewMode={effectiveViewMode}
+                onRefresh={refreshDashboardData}
+                onDragStart={handleEventCardDragStart}
+                onDragEnd={handleEventCardDragEnd}
+              />
             </div>
           )}
 
@@ -931,104 +996,34 @@ const Dashboard = () => {
                     )}
                   </div>
                 )}
-                <div className={eventsGridClass}>
-                  {displayedUpcomingEvents.map((event) => (
-                    <EventCard
-                      key={event.id}
-                      event={event}
-                      attendeesCount={attendanceCounts[event.id] ?? 0}
-                      seasons={seasons}
-                      onEventDeleted={fetchData}
-                      onEventUpdated={fetchData}
-                      variant={effectiveViewMode}
-                      onDragStart={(eventId) => {
-                        dropHandledRef.current = false;
-                        draggingEventRef.current = eventId;
-                        dragStartTimeRef.current = Date.now();
-                        if (dragOverlayTimerRef.current) {
-                          window.clearTimeout(dragOverlayTimerRef.current);
-                        }
-                        dragOverlayTimerRef.current = window.setTimeout(() => {
-                          setDraggingEventId(eventId);
-                        }, 80);
-                      }}
-                      onDragEnd={() => {
-                        if (dragOverlayTimerRef.current) {
-                          window.clearTimeout(dragOverlayTimerRef.current);
-                          dragOverlayTimerRef.current = null;
-                        }
-                        window.setTimeout(() => {
-                          if (dropHandledRef.current) {
-                            return;
-                          }
-                          const elapsed = dragStartTimeRef.current
-                            ? Date.now() - dragStartTimeRef.current
-                            : 0;
-                          if (elapsed < 200) {
-                            return;
-                          }
-                          setDraggingEventId(null);
-                          setDraggingOverSeasonId(null);
-                          draggingEventRef.current = null;
-                          clearSeasonHoverTimers();
-                        }, 60);
-                      }}
-                    />
-                  ))}
-                </div>
+                <EventSection
+                  events={displayedUpcomingEvents}
+                  eventsGridClass={eventsGridClass}
+                  attendanceCounts={attendanceCounts}
+                  seasons={seasons}
+                  viewMode={effectiveViewMode}
+                  onRefresh={refreshDashboardData}
+                  onDragStart={handleEventCardDragStart}
+                  onDragEnd={handleEventCardDragEnd}
+                />
               </>
             )}
           </div>
 
           {pastEvents.length > 0 && (
-            <div id="past-events" className="mt-10">
-              <h2 className="text-xl font-semibold mb-4">Past events</h2>
-              <div className={eventsGridClass}>
-                {pastEvents.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    attendeesCount={attendanceCounts[event.id] ?? 0}
-                    seasons={seasons}
-                    onEventDeleted={fetchData}
-                    onEventUpdated={fetchData}
-                    variant={effectiveViewMode}
-                    onDragStart={(eventId) => {
-                      dropHandledRef.current = false;
-                      draggingEventRef.current = eventId;
-                      dragStartTimeRef.current = Date.now();
-                      if (dragOverlayTimerRef.current) {
-                        window.clearTimeout(dragOverlayTimerRef.current);
-                      }
-                      dragOverlayTimerRef.current = window.setTimeout(() => {
-                        setDraggingEventId(eventId);
-                      }, 80);
-                    }}
-                    onDragEnd={() => {
-                      if (dragOverlayTimerRef.current) {
-                        window.clearTimeout(dragOverlayTimerRef.current);
-                        dragOverlayTimerRef.current = null;
-                      }
-                      window.setTimeout(() => {
-                        if (dropHandledRef.current) {
-                          return;
-                        }
-                        const elapsed = dragStartTimeRef.current
-                          ? Date.now() - dragStartTimeRef.current
-                          : 0;
-                        if (elapsed < 200) {
-                          return;
-                        }
-                        setDraggingEventId(null);
-                        setDraggingOverSeasonId(null);
-                        draggingEventRef.current = null;
-                        clearSeasonHoverTimers();
-                      }, 60);
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
+            <EventSection
+              id="past-events"
+              title="Past events"
+              className="mt-10"
+              events={pastEvents}
+              eventsGridClass={eventsGridClass}
+              attendanceCounts={attendanceCounts}
+              seasons={seasons}
+              viewMode={effectiveViewMode}
+              onRefresh={refreshDashboardData}
+              onDragStart={handleEventCardDragStart}
+              onDragEnd={handleEventCardDragEnd}
+            />
           )}
         </>
       )}

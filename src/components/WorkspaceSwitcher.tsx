@@ -33,6 +33,7 @@ const PRESERVED_ROUTES = new Set([
   '/workspace-settings',
   '/events/new',
 ]);
+const WORKSPACE_MEMBER_COUNT_FETCH_LIMIT = 5000;
 
 const getWorkspaceColor = (colorId: string | null) =>
   themeColors.find((item) => item.id === colorId)?.hex ?? 'hsl(var(--primary))';
@@ -146,7 +147,8 @@ const WorkspaceSwitcher = ({
       const { data, error } = await supabase
         .from('workspace_members')
         .select('workspace_id')
-        .in('workspace_id', workspaceIds);
+        .in('workspace_id', workspaceIds)
+        .limit(WORKSPACE_MEMBER_COUNT_FETCH_LIMIT);
 
       if (error) return;
 

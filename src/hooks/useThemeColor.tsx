@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
@@ -242,7 +242,7 @@ export const ThemeColorProvider = ({ children }: { children: ReactNode }) => {
     applyThemeColor(themeColor);
   }, [themeColor]);
 
-  const setThemeColor = async (colorId: string) => {
+  const setThemeColor = useCallback(async (colorId: string) => {
     setThemeColorState(colorId);
     const fallbackWorkspaceId =
       typeof window === 'undefined' ? null : localStorage.getItem(STORAGE_KEYS.workspaceId);
@@ -255,10 +255,15 @@ export const ThemeColorProvider = ({ children }: { children: ReactNode }) => {
         .eq('id', currentWorkspace.id);
       await refresh();
     }
-  };
+  }, [currentWorkspace, refresh]);
+
+  const contextValue = useMemo(
+    () => ({ themeColor, setThemeColor, themeColors }),
+    [themeColor, setThemeColor],
+  );
 
   return (
-    <ThemeColorContext.Provider value={{ themeColor, setThemeColor, themeColors }}>
+    <ThemeColorContext.Provider value={contextValue}>
       {children}
     </ThemeColorContext.Provider>
   );

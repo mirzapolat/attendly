@@ -30,6 +30,9 @@ interface EventSummary {
   event_date: string;
 }
 
+const SEASONS_FETCH_LIMIT = 500;
+const EVENTS_FETCH_LIMIT = 5000;
+
 const clampEllipsisClass =
   "relative pr-3 after:content-['...'] after:absolute after:bottom-0 after:right-0 after:pl-1 after:bg-background after:text-muted-foreground";
 
@@ -112,11 +115,13 @@ const Seasons = () => {
           .from('series')
           .select('id, name, description, created_at')
           .eq('workspace_id', currentWorkspace.id)
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(SEASONS_FETCH_LIMIT),
         supabase
           .from('events')
           .select('id, series_id, event_date')
-          .eq('workspace_id', currentWorkspace.id),
+          .eq('workspace_id', currentWorkspace.id)
+          .limit(EVENTS_FETCH_LIMIT),
       ]);
 
       const fetchError = seasonsRes.error || eventsRes.error;

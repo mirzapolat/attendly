@@ -59,6 +59,8 @@ interface WorkspaceHeaderProps {
   withContainer?: boolean;
 }
 
+const PENDING_INVITES_FETCH_LIMIT = 12;
+
 const WorkspaceHeader = ({
   showChangeWorkspace = true,
   withContainer = false,
@@ -104,7 +106,8 @@ const WorkspaceHeader = ({
         .select('id, workspace_id, invited_by, invited_email, created_at, workspaces ( name, brand_logo_url ), inviter:profiles ( full_name, email )')
         .eq('invited_email', user.email)
         .eq('status', 'pending')
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .limit(PENDING_INVITES_FETCH_LIMIT),
       supabase
         .from('workspace_invites')
         .select('id, workspace_id, invited_email, responded_at, workspaces ( name, owner_id, brand_logo_url )')

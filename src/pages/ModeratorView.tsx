@@ -19,7 +19,7 @@ import {
   QrCode, Users, MapPin, Calendar, Clock,
   AlertTriangle, CheckCircle, Shield, Trash2, RefreshCw, Eye, EyeOff, UserPlus, Radio, Search, UserMinus, Mail, List, ListCollapse
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isToday } from 'date-fns';
 import AnimatedCount from '@/components/AnimatedCount';
 
 interface Event {
@@ -1028,6 +1028,15 @@ const ModeratorView = () => {
                   >
                     {filteredAttendance.map((record) => {
                     const isExpanded = compactView && expandedRecordId === record.id;
+                    const recordedDate = new Date(record.recorded_at);
+                    const hasValidRecordedDate = !Number.isNaN(recordedDate.getTime());
+                    const showRecordedDate = hasValidRecordedDate && !isToday(recordedDate);
+                    const recordedDateLabel = hasValidRecordedDate
+                      ? format(recordedDate, 'MMM d')
+                      : record.recorded_at;
+                    const recordedTimeLabel = hasValidRecordedDate
+                      ? format(recordedDate, 'HH:mm')
+                      : record.recorded_at;
                     return (
                     <Card key={record.id} className={`bg-gradient-card ${record.status === 'suspicious' ? 'border-warning/50' : ''}`}>
                       <CardContent
@@ -1078,9 +1087,15 @@ const ModeratorView = () => {
                                 </p>
                               )}
                               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                                {showRecordedDate && (
+                                  <span className="flex items-center gap-1.5">
+                                    <Calendar className="w-3 h-3" />
+                                    {recordedDateLabel}
+                                  </span>
+                                )}
                                 <span className="flex items-center gap-1.5">
                                   <Clock className="w-3 h-3" />
-                                  {format(new Date(record.recorded_at), 'HH:mm')}
+                                  {recordedTimeLabel}
                                 </span>
                                 {event?.location_check_enabled && (
                                   <span className="flex items-center gap-1">

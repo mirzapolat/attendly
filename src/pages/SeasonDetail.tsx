@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useParams, Link, Outlet, useMatch } from 'react-router-dom';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,8 +13,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, BarChart3, Users, Calendar, TrendingUp, UserCheck, Search, ArrowUpDown, Download, Plus, Minus, Check, X, Settings, FileText, AlertTriangle, Wand2, DoorOpen, MoreHorizontal, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
-import { BarChart, Bar, LineChart, Line, ComposedChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { sanitizeError } from '@/utils/errorHandler';
+import type { AttendanceChartType } from '@/components/season/SeasonAttendanceChart';
 
 interface Season {
   id: string;
@@ -31,7 +31,6 @@ interface Event {
 }
 
 type AttendanceStatus = 'verified' | 'suspicious' | 'cleared' | 'excused';
-type AttendanceChartType = 'column' | 'line' | 'bubble';
 
 interface AttendanceRecord {
   id: string;
@@ -62,6 +61,12 @@ interface MemberStats {
   attendedEventIds: Set<string>;
   excusedEventIds: Set<string>;
 }
+
+const SEASON_EVENT_FETCH_LIMIT = 1000;
+const WORKSPACE_EVENT_FETCH_LIMIT = 3000;
+const ATTENDANCE_FETCH_LIMIT = 50000;
+const DISMISSAL_FETCH_LIMIT = 5000;
+const LazySeasonAttendanceChart = lazy(() => import('@/components/season/SeasonAttendanceChart'));
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
@@ -161,6 +166,9 @@ const SeasonDetail = () => {
   const [allUserEvents, setAllUserEvents] = useState<Event[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seasonEventsLimited, setSeasonEventsLimited] = useState(false);
+  const [workspaceEventsLimited, setWorkspaceEventsLimited] = useState(false);
+  const [attendanceLimited, setAttendanceLimited] = useState(false);
 
   // Member list state
   const [memberSearch, setMemberSearch] = useState('');
@@ -222,12 +230,14 @@ const SeasonDetail = () => {
           .select('*')
           .eq('series_id', id)
           .eq('workspace_id', currentWorkspace.id)
-          .order('event_date', { ascending: true }),
+          .order('event_date', { ascending: true })
+          .limit(SEASON_EVENT_FETCH_LIMIT),
         supabase
           .from('events')
           .select('*')
           .eq('workspace_id', currentWorkspace.id)
-          .order('event_date', { ascending: true }),
+          .order('event_date', { ascending: true })
+          .limit(WORKSPACE_EVENT_FETCH_LIMIT),
       ]);
 
       const fetchError = seasonRes.error || eventsRes.error || allEventsRes.error;
@@ -237,13 +247,16 @@ const SeasonDetail = () => {
 
       if (seasonRes.data) setSeason(seasonRes.data);
       if (allEventsRes.data) setAllUserEvents(allEventsRes.data);
+      setSeasonEventsLimited((eventsRes.data?.length ?? 0) === SEASON_EVENT_FETCH_LIMIT);
+      setWorkspaceEventsLimited((allEventsRes.data?.length ?? 0) === WORKSPACE_EVENT_FETCH_LIMIT);
       if (eventsRes.data) {
         setEvents(eventsRes.data);
 
         const { data: dismissedData, error: dismissedError } = await supabase
           .from('series_sanitize_dismissals')
           .select('suggestion_id')
-          .eq('series_id', id);
+          .eq('series_id', id)
+          .limit(DISMISSAL_FETCH_LIMIT);
 
         if (dismissedError) {
           toast({
@@ -266,13 +279,18 @@ const SeasonDetail = () => {
           const { data: attendanceData, error: attendanceError } = await supabase
             .from('attendance_records')
             .select('*')
-            .in('event_id', eventIds);
+            .in('event_id', eventIds)
+            .limit(ATTENDANCE_FETCH_LIMIT);
 
           if (attendanceError) {
             throw attendanceError;
           }
           
+          setAttendanceLimited((attendanceData?.length ?? 0) === ATTENDANCE_FETCH_LIMIT);
           if (attendanceData) setAttendance(attendanceData as AttendanceRecord[]);
+        } else {
+          setAttendanceLimited(false);
+          setAttendance([]);
         }
       }
     } catch (error: unknown) {
@@ -1119,6 +1137,15 @@ const SeasonDetail = () => {
           {season.description && (
             <p className="text-muted-foreground">{season.description}</p>
           )}
+          {(seasonEventsLimited || workspaceEventsLimited || attendanceLimited) && (
+            <div className="rounded-xl border border-border/70 bg-background/60 px-3 py-2 text-xs text-muted-foreground">
+              {seasonEventsLimited && `Showing the first ${SEASON_EVENT_FETCH_LIMIT} series events.`}
+              {(seasonEventsLimited && workspaceEventsLimited) || (seasonEventsLimited && attendanceLimited) ? ' ' : ''}
+              {workspaceEventsLimited && `Showing the first ${WORKSPACE_EVENT_FETCH_LIMIT} workspace events in add/remove lists.`}
+              {(workspaceEventsLimited && attendanceLimited) ? ' ' : ''}
+              {attendanceLimited && `Analytics are based on the first ${ATTENDANCE_FETCH_LIMIT.toLocaleString()} attendance records.`}
+            </div>
+          )}
         </div>
 
         {events.length === 0 ? (
@@ -1184,134 +1211,15 @@ const SeasonDetail = () => {
               </CardHeader>
               <CardContent>
                 <div className="h-[26rem]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    {attendanceChartType === 'column' ? (
-                      <ComposedChart data={eventAttendanceData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis
-                          dataKey="name"
-                          stroke="hsl(var(--muted-foreground))"
-                          fontSize={12}
-                        />
-                        <YAxis
-                          stroke="hsl(var(--muted-foreground))"
-                          fontSize={12}
-                          allowDecimals={false}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px',
-                          }}
-                          labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
-                        />
-                        <Legend />
-                        <Bar
-                          dataKey="attendance"
-                          name="Attendance"
-                          fill="hsl(var(--primary))"
-                          radius={[4, 4, 0, 0]}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="excused"
-                          name="Excused"
-                          stroke="#f59e0b"
-                          strokeWidth={2}
-                          dot={{ fill: '#f59e0b', r: 3 }}
-                          activeDot={{ r: 5 }}
-                        />
-                      </ComposedChart>
-                    ) : attendanceChartType === 'line' ? (
-                      <LineChart data={eventAttendanceData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis
-                          dataKey="name"
-                          stroke="hsl(var(--muted-foreground))"
-                          fontSize={12}
-                        />
-                        <YAxis
-                          stroke="hsl(var(--muted-foreground))"
-                          fontSize={12}
-                          allowDecimals={false}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px',
-                          }}
-                          labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
-                        />
-                        <Legend />
-                        <Line
-                          type="monotone"
-                          dataKey="attendance"
-                          name="Attendance"
-                          stroke="hsl(var(--primary))"
-                          strokeWidth={3}
-                          dot={{ fill: 'hsl(var(--primary))', r: 4 }}
-                          activeDot={{ r: 6 }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="excused"
-                          name="Excused"
-                          stroke="#f59e0b"
-                          strokeWidth={2}
-                          dot={{ fill: '#f59e0b', r: 3 }}
-                          activeDot={{ r: 5 }}
-                        />
-                      </LineChart>
-                    ) : (
-                      <ComposedChart data={eventAttendanceData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis
-                          dataKey="name"
-                          type="category"
-                          stroke="hsl(var(--muted-foreground))"
-                          fontSize={12}
-                        />
-                        <YAxis
-                          dataKey="attendance"
-                          type="number"
-                          stroke="hsl(var(--muted-foreground))"
-                          fontSize={12}
-                          allowDecimals={false}
-                        />
-                        <ZAxis
-                          dataKey="attendance"
-                          type="number"
-                          range={[80, 420]}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px',
-                          }}
-                          labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
-                        />
-                        <Legend />
-                        <Scatter
-                          name="Attendance"
-                          data={eventAttendanceData}
-                          fill="hsl(var(--primary))"
-                          fillOpacity={0.75}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="excused"
-                          name="Excused"
-                          stroke="#f59e0b"
-                          strokeWidth={2}
-                          dot={{ fill: '#f59e0b', r: 3 }}
-                          activeDot={{ r: 5 }}
-                        />
-                      </ComposedChart>
-                    )}
-                  </ResponsiveContainer>
+                  <Suspense
+                    fallback={
+                      <div className="h-full w-full rounded-lg bg-muted/40 flex items-center justify-center text-sm text-muted-foreground">
+                        Loading chart...
+                      </div>
+                    }
+                  >
+                    <LazySeasonAttendanceChart chartType={attendanceChartType} data={eventAttendanceData} />
+                  </Suspense>
                 </div>
               </CardContent>
             </Card>

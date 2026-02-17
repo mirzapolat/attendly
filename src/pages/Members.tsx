@@ -32,6 +32,9 @@ interface PendingInvite {
   created_at: string | null;
 }
 
+const MEMBERS_FETCH_LIMIT = 1000;
+const INVITES_FETCH_LIMIT = 500;
+
 const Members = () => {
   usePageTitle('Members - Attendly');
   const { currentWorkspace, isOwner, refresh } = useWorkspace();
@@ -87,7 +90,8 @@ const Members = () => {
         .from('workspace_members')
         .select('profile_id, created_at, profiles ( id, full_name, email )')
         .eq('workspace_id', currentWorkspace.id)
-        .order('created_at', { ascending: true }),
+        .order('created_at', { ascending: true })
+        .limit(MEMBERS_FETCH_LIMIT),
       isOwner
         ? supabase
             .from('workspace_invites')
@@ -95,6 +99,7 @@ const Members = () => {
             .eq('workspace_id', currentWorkspace.id)
             .eq('status', 'pending')
             .order('created_at', { ascending: false })
+            .limit(INVITES_FETCH_LIMIT)
         : Promise.resolve({ data: [], error: null }),
     ]);
 

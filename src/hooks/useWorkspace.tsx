@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
@@ -26,6 +26,8 @@ interface WorkspaceContextType {
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
+const WORKSPACE_MEMBERSHIP_FETCH_LIMIT = 1000;
+const WORKSPACE_LIST_FETCH_LIMIT = 300;
 
 export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
@@ -49,18 +51,10 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     [workspaces, currentWorkspaceId]
   );
 
-  const isOwner = Boolean(currentWorkspace && currentWorkspace.owner_id === user?.id);
-
-  useEffect(() => {
-    if (!user) {
-      setWorkspaces([]);
-      setCurrentWorkspaceId(null);
-      setLoading(false);
-      setHydrated(true);
-      return;
-    }
-    refresh();
-  }, [user]);
+  const isOwner = useMemo(
+    () => Boolean(currentWorkspace && currentWorkspace.owner_id === user?.id),
+    [currentWorkspace, user?.id],
+  );
 
   useEffect(() => {
     if (!user) {
@@ -77,7 +71,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     persistWorkspaceCookie(currentWorkspaceId);
   }, [currentWorkspaceId, user, hydrated]);
 
-  const resolveDefaultWorkspaceName = () => {
+  const resolveDefaultWorkspaceName = useCallback(() => {
     const metadataName =
       typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '';
     const fallbackEmailName = user?.email?.split('@')[0]?.trim() ?? '';
@@ -90,9 +84,9 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
         .filter(Boolean)[0] ?? 'My';
     const name = normalized.charAt(0).toUpperCase() + normalized.slice(1);
     return `${name}'s Workspace`;
-  };
+  }, [user]);
 
-  const createDefaultWorkspace = async () => {
+  const createDefaultWorkspace = useCallback(async () => {
     if (!user) {
       return null;
     }
@@ -117,9 +111,9 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return workspaceData as Workspace;
-  };
+  }, [resolveDefaultWorkspaceName, user]);
 
-  const fetchOwnedFallbackWorkspaces = async () => {
+  const fetchOwnedFallbackWorkspaces = useCallback(async () => {
     if (!user) {
       return [] as Workspace[];
     }
@@ -128,16 +122,17 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       .from('workspaces')
       .select('id, name, brand_logo_url, brand_color, owner_id')
       .eq('owner_id', user.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(WORKSPACE_LIST_FETCH_LIMIT);
 
     if (error) {
       return [] as Workspace[];
     }
 
     return (data ?? []) as Workspace[];
-  };
+  }, [user]);
 
-  const applyResolvedWorkspaces = (resolved: Workspace[]) => {
+  const applyResolvedWorkspaces = useCallback((resolved: Workspace[]) => {
     setWorkspaces(resolved);
 
     const stored = localStorage.getItem(STORAGE_KEYS.workspaceId);
@@ -156,9 +151,9 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     } else {
       setCurrentWorkspaceId(resolved[0]?.id ?? null);
     }
-  };
+  }, [currentWorkspaceId]);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!user) {
       setWorkspaces([]);
       setCurrentWorkspaceId(null);
@@ -171,7 +166,8 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     const { data: memberships, error: membershipError } = await supabase
       .from('workspace_members')
       .select('workspace_id')
-      .eq('profile_id', user.id);
+      .eq('profile_id', user.id)
+      .limit(WORKSPACE_MEMBERSHIP_FETCH_LIMIT);
 
     if (membershipError) {
       setWorkspaces([]);
@@ -209,7 +205,8 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       .from('workspaces')
       .select('id, name, brand_logo_url, brand_color, owner_id')
       .in('id', workspaceIds)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(WORKSPACE_LIST_FETCH_LIMIT);
 
     const resolved = (workspaceData ?? []) as Workspace[];
     if (resolved.length > 0) {
@@ -238,32 +235,57 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
 
     setLoading(false);
     setHydrated(true);
-  };
+  }, [applyResolvedWorkspaces, createDefaultWorkspace, fetchOwnedFallbackWorkspaces, user]);
 
-  const selectWorkspace = (workspaceId: string) => {
+  useEffect(() => {
+    if (!user) {
+      setWorkspaces([]);
+      setCurrentWorkspaceId(null);
+      setLoading(false);
+      setHydrated(true);
+      return;
+    }
+    void refresh();
+  }, [user, refresh]);
+
+  const selectWorkspace = useCallback((workspaceId: string) => {
     setCurrentWorkspaceId(workspaceId);
-  };
+  }, []);
 
-  const clearWorkspace = () => {
+  const clearWorkspace = useCallback(() => {
     setCurrentWorkspaceId(null);
     localStorage.removeItem(STORAGE_KEYS.workspaceId);
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({
+      workspaces,
+      ownedWorkspaces,
+      joinedWorkspaces,
+      currentWorkspace,
+      currentWorkspaceId,
+      isOwner,
+      loading,
+      selectWorkspace,
+      clearWorkspace,
+      refresh,
+    }),
+    [
+      workspaces,
+      ownedWorkspaces,
+      joinedWorkspaces,
+      currentWorkspace,
+      currentWorkspaceId,
+      isOwner,
+      loading,
+      selectWorkspace,
+      clearWorkspace,
+      refresh,
+    ],
+  );
 
   return (
-    <WorkspaceContext.Provider
-      value={{
-        workspaces,
-        ownedWorkspaces,
-        joinedWorkspaces,
-        currentWorkspace,
-        currentWorkspaceId,
-        isOwner,
-        loading,
-        selectWorkspace,
-        clearWorkspace,
-        refresh,
-      }}
-    >
+    <WorkspaceContext.Provider value={contextValue}>
       {children}
     </WorkspaceContext.Provider>
   );
