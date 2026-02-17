@@ -183,7 +183,7 @@ const Impressum = () => {
 
             <footer className="px-3 sm:px-6 py-8">
                 <div className="container mx-auto flex flex-col items-center gap-4 text-xs text-[color:var(--lp-muted)]">
-                    <p>Built with ❤️ by Mirza Polat. Attendance data should feel trustworthy.</p>
+                    <p>Built with ❤️ by Mirza Polat.</p>
                     <div className="flex items-center gap-4">
                         <Link to="/privacy" className="hover:text-[color:var(--lp-ink)] transition-colors underline">
                             Datenschutzerklärung

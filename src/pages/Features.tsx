@@ -233,7 +233,7 @@ const Features = () => {
                                         className="mt-6 text-lg text-[color:var(--lp-muted)] max-w-xl animate-soft-rise"
                                         style={{ '--delay': '140ms' } as CSSProperties}
                                     >
-                                        Attendly is build to make attendance management effortless and reliable. What is most important is that your attendance data feels trustworthy so you can focus on what matters most.
+                                        Attendly is build to make attendance management effortless and reliable.
                                     </p>
                                     <div className="mt-8 flex flex-wrap gap-3 animate-soft-rise" style={{ '--delay': '190ms' } as CSSProperties}>
                                         <Link to="/auth?mode=signup">
@@ -310,7 +310,7 @@ const Features = () => {
 
             <footer className="px-3 sm:px-6 py-8">
                 <div className="container mx-auto flex flex-col items-center gap-4 text-xs text-[color:var(--lp-muted)]">
-                    <p>Built with ❤️ by Mirza Polat. Attendance data should feel trustworthy.</p>
+                    <p>Built with ❤️ by Mirza Polat.</p>
                     <div className="flex items-center gap-4">
                         <Link to="/privacy" className="hover:text-[color:var(--lp-ink)] transition-colors underline">
                             Datenschutzerklärung
