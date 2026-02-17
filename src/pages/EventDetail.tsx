@@ -84,6 +84,11 @@ const ATTENDANCE_LIST_MIN_HEIGHT = 240;
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
 const INITIAL_LIST_STAGGER_MS = 80;
 const NEW_ATTENDEE_POP_MS = 920;
+const ATTENDANCE_PAGE_SIZE = 500;
+const SUGGESTION_EVENT_LIMIT = 200;
+const SUGGESTION_ATTENDEE_LIMIT = 200;
+const ATTENDANCE_SELECT_COLUMNS =
+  'id, attendee_name, attendee_email, status, suspicious_reason, location_provided, location_lat, location_lng, recorded_at, client_id, client_id_raw';
 
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -96,6 +101,8 @@ const EventDetail = () => {
 
   const [event, setEvent] = useState<Event | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [attendanceTotalCount, setAttendanceTotalCount] = useState<number | null>(null);
+  const [isLoadingMoreAttendance, setIsLoadingMoreAttendance] = useState(false);
   const [loading, setLoading] = useState(true);
   const [qrToken, setQrToken] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(3);
@@ -228,6 +235,9 @@ const EventDetail = () => {
   }, []);
 
   useEffect(() => {
+    setAttendance([]);
+    setAttendanceTotalCount(null);
+    setIsLoadingMoreAttendance(false);
     hasHydratedAttendanceRef.current = false;
     seenAttendanceIdsRef.current = new Set();
     setNewlyArrivedRecordIds(new Set());
@@ -660,19 +670,54 @@ const EventDetail = () => {
     setLoading(false);
   }, [id, syncAccentColor]);
 
-  const fetchAttendance = useCallback(async (_opts?: { silent?: boolean }) => {
+  const fetchAttendance = useCallback(async (opts?: { silent?: boolean; append?: boolean; offset?: number }) => {
     if (!id) return;
-    const { data, error } = await supabase
+    const append = opts?.append ?? false;
+    const from = append ? Math.max(0, opts?.offset ?? 0) : 0;
+    const to = from + ATTENDANCE_PAGE_SIZE - 1;
+    const { data, error, count } = await supabase
       .from('attendance_records')
-      .select('*')
+      .select(ATTENDANCE_SELECT_COLUMNS, { count: append ? undefined : 'exact' })
       .eq('event_id', id)
-      .order('recorded_at', { ascending: false });
+      .order('recorded_at', { ascending: false })
+      .range(from, to);
 
     if (error) {
       return;
     }
 
-    if (data) setAttendance(data as AttendanceRecord[]);
+    if (typeof count === 'number') {
+      setAttendanceTotalCount(count);
+    }
+
+    const rows = (data ?? []) as AttendanceRecord[];
+    setAttendance((prev) => {
+      if (!append) {
+        if (prev.length <= ATTENDANCE_PAGE_SIZE) {
+          return rows;
+        }
+        const headIds = new Set(rows.map((record) => record.id));
+        const tail = prev.filter((record) => !headIds.has(record.id));
+        return [...rows, ...tail];
+      }
+
+      if (rows.length === 0) {
+        return prev;
+      }
+
+      const merged = [...prev];
+      const indexById = new Map(merged.map((record, index) => [record.id, index]));
+      rows.forEach((record) => {
+        const existingIndex = indexById.get(record.id);
+        if (typeof existingIndex === 'number') {
+          merged[existingIndex] = record;
+          return;
+        }
+        indexById.set(record.id, merged.length);
+        merged.push(record);
+      });
+      return merged;
+    });
   }, [id]);
 
   useEffect(() => {
@@ -708,9 +753,17 @@ const EventDetail = () => {
         { event: 'INSERT', schema: 'public', table: 'attendance_records', filter: `event_id=eq.${id}` },
         (payload) => {
           const newRecord = payload.new as AttendanceRecord;
-          setAttendance((prev) =>
-            prev.some((r) => r.id === newRecord.id) ? prev : [newRecord, ...prev]
-          );
+          let added = false;
+          setAttendance((prev) => {
+            if (prev.some((record) => record.id === newRecord.id)) {
+              return prev;
+            }
+            added = true;
+            return [newRecord, ...prev];
+          });
+          if (added) {
+            setAttendanceTotalCount((prev) => (prev === null ? prev : prev + 1));
+          }
         }
       )
       .on(
@@ -728,7 +781,15 @@ const EventDetail = () => {
         { event: 'DELETE', schema: 'public', table: 'attendance_records', filter: `event_id=eq.${id}` },
         (payload) => {
           const deleted = payload.old as { id: string };
-          setAttendance((prev) => prev.filter((r) => r.id !== deleted.id));
+          let removed = false;
+          setAttendance((prev) => {
+            const next = prev.filter((record) => record.id !== deleted.id);
+            removed = next.length !== prev.length;
+            return next;
+          });
+          if (removed) {
+            setAttendanceTotalCount((prev) => (prev === null ? prev : Math.max(0, prev - 1)));
+          }
         }
       )
       .subscribe((status, err) => {
@@ -934,7 +995,9 @@ const EventDetail = () => {
     const { data: seasonEvents } = await supabase
       .from('events')
       .select('id')
-      .eq('series_id', eventData.series_id);
+      .eq('series_id', eventData.series_id)
+      .order('event_date', { ascending: false })
+      .limit(SUGGESTION_EVENT_LIMIT);
 
     if (!seasonEvents?.length) {
       setSuggestions([]);
@@ -948,7 +1011,9 @@ const EventDetail = () => {
       .from('attendance_records')
       .select('attendee_name, attendee_email')
       .in('event_id', eventIds)
-      .or(`attendee_name.ilike.%${searchTerm}%,attendee_email.ilike.%${searchTerm}%`);
+      .or(`attendee_name.ilike.%${searchTerm}%,attendee_email.ilike.%${searchTerm}%`)
+      .order('recorded_at', { ascending: false })
+      .limit(SUGGESTION_ATTENDEE_LIMIT);
 
     if (attendees) {
       // Dedupe by email
@@ -1429,6 +1494,19 @@ const EventDetail = () => {
   const suspiciousCount = attendance.filter(a => a.status === 'suspicious').length;
   const excusedCount = attendance.filter(a => a.status === 'excused').length;
   const attendedCount = attendance.length - excusedCount;
+  const hasMoreAttendance = attendanceTotalCount !== null && attendance.length < attendanceTotalCount;
+
+  const loadMoreAttendance = useCallback(async () => {
+    if (isLoadingMoreAttendance || !hasMoreAttendance) {
+      return;
+    }
+    setIsLoadingMoreAttendance(true);
+    try {
+      await fetchAttendance({ append: true, offset: attendance.length, silent: true });
+    } finally {
+      setIsLoadingMoreAttendance(false);
+    }
+  }, [isLoadingMoreAttendance, hasMoreAttendance, fetchAttendance, attendance.length]);
 
   useEffect(() => {
     const nextCounts: Record<StatusFilter, number> = {
@@ -1855,7 +1933,7 @@ const EventDetail = () => {
                 <CardContent className={`py-4 text-center relative z-10 ${getCountBubbleClass('verified')}`}>
                   <CheckCircle className="w-5 h-5 mx-auto mb-1 text-success" />
                   <p className="text-2xl font-bold"><AnimatedCount value={verifiedCount} /></p>
-                  <p className="text-xs text-muted-foreground">Verified</p>
+                  <p className="text-xs text-muted-foreground">Checked-in</p>
                 </CardContent>
               </Card>
               <Card
@@ -2123,6 +2201,7 @@ const EventDetail = () => {
               }
 
               return (
+                <>
                 <div className="relative">
                   <div
                     ref={attendanceListRef}
@@ -2339,6 +2418,23 @@ const EventDetail = () => {
                   </div>
                   <div className="pointer-events-none absolute bottom-0 left-0 right-0 hidden h-10 bg-gradient-to-t from-[hsl(var(--page-bg-end))] via-[hsl(var(--page-bg-end)/0.7)] to-transparent sm:block" />
                 </div>
+                  {hasMoreAttendance && (
+                    <div className="mt-3 flex flex-col items-center gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        Showing latest {attendance.length} of {attendanceTotalCount} records.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void loadMoreAttendance()}
+                        disabled={isLoadingMoreAttendance}
+                      >
+                        {isLoadingMoreAttendance ? 'Loading...' : 'Load older records'}
+                      </Button>
+                    </div>
+                  )}
+                </>
               );
             })()}
           </div>

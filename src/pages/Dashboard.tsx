@@ -56,6 +56,9 @@ interface Season {
 }
 
 const SEASON_PICKER_PAGE_SIZE = 9;
+const EVENTS_FETCH_LIMIT = 300;
+const SEASONS_FETCH_LIMIT = 200;
+const ATTENDANCE_COUNT_FETCH_LIMIT = 20000;
 
 const Dashboard = () => {
   usePageTitle('Events - Attendly');
@@ -67,6 +70,8 @@ const Dashboard = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, number>>({});
+  const [eventsLimited, setEventsLimited] = useState(false);
+  const [attendanceCountsLimited, setAttendanceCountsLimited] = useState(false);
   const [loading, setLoading] = useState(true);
   const [eventSearch, setEventSearch] = useState('');
   const [draggingEventId, setDraggingEventId] = useState<string | null>(null);
@@ -175,14 +180,16 @@ const Dashboard = () => {
       const [eventsRes, seasonsRes] = await Promise.all([
         supabase
           .from('events')
-          .select('*')
+          .select('id, name, event_date, is_active, series_id, created_at')
           .eq('workspace_id', currentWorkspace.id)
-          .order('event_date', { ascending: false }),
+          .order('event_date', { ascending: false })
+          .limit(EVENTS_FETCH_LIMIT),
         supabase
           .from('series')
-          .select('*')
+          .select('id, name')
           .eq('workspace_id', currentWorkspace.id)
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(SEASONS_FETCH_LIMIT),
       ]);
 
       const fetchError = eventsRes.error || seasonsRes.error;
@@ -192,17 +199,21 @@ const Dashboard = () => {
 
       if (eventsRes.data) {
         setEvents(eventsRes.data);
+        setEventsLimited(eventsRes.data.length === EVENTS_FETCH_LIMIT);
         const eventIds = eventsRes.data.map((event) => event.id);
         if (eventIds.length === 0) {
           setAttendanceCounts({});
+          setAttendanceCountsLimited(false);
         } else {
           const { data: attendanceData, error: attendanceError } = await supabase
             .from('attendance_records')
             .select('event_id, status')
-            .in('event_id', eventIds);
+            .in('event_id', eventIds)
+            .limit(ATTENDANCE_COUNT_FETCH_LIMIT);
           if (attendanceError) {
             throw attendanceError;
           }
+          setAttendanceCountsLimited((attendanceData?.length ?? 0) === ATTENDANCE_COUNT_FETCH_LIMIT);
           const counts: Record<string, number> = {};
           (attendanceData ?? []).forEach((record) => {
             if (record.status === 'excused') return;
@@ -634,6 +645,15 @@ const Dashboard = () => {
               New event
             </Button>
           </div>
+        </div>
+      )}
+
+      {(eventsLimited || attendanceCountsLimited) && (
+        <div className="mb-4 rounded-xl border border-border/70 bg-background/60 px-3 py-2 text-xs text-muted-foreground">
+          {eventsLimited && `Showing the latest ${EVENTS_FETCH_LIMIT} events for faster loading.`}
+          {eventsLimited && attendanceCountsLimited ? ' ' : ''}
+          {attendanceCountsLimited &&
+            `Attendance totals are based on the latest ${ATTENDANCE_COUNT_FETCH_LIMIT.toLocaleString()} records.`}
         </div>
       )}
 
