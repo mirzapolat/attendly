@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { applyThemeColor } from '@/hooks/useThemeColor';
 import { supabase } from '@/integrations/supabase/client';
+import { usePageVisibility } from '@/hooks/usePageVisibility';
 import { getRuntimeEnv } from '@/lib/runtimeEnv';
 import { STORAGE_KEYS, getResumeEventKey } from '@/constants/storageKeys';
 import { maskEmail, maskName } from '@/utils/privacy';
@@ -70,7 +71,7 @@ interface KnownAttendee {
   attendee_email: string;
 }
 
-const POLL_INTERVAL_MS = 500;
+const FALLBACK_POLL_MS = 30000;
 const RESUME_WINDOW_MS = 15000;
 const ROTATION_GRACE_MS = 7000;
 const ROTATION_EARLY_MS = 500;
@@ -91,6 +92,7 @@ const EventDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const confirm = useConfirm();
+  const isVisible = usePageVisibility();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -687,21 +689,81 @@ const EventDetail = () => {
     return () => window.clearTimeout(timer);
   }, [justCreated, id, navigate]);
 
+  // Realtime subscriptions + visibility-aware fallback polling
   useEffect(() => {
     if (!user || !id) return;
+
+    // Subscribe first, then fetch — avoids missing events during the gap
+    const channel = supabase
+      .channel(`event-detail-${id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${id}` },
+        (payload) => {
+          setEvent((prev) => (prev ? { ...prev, ...payload.new } as Event : prev));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'attendance_records', filter: `event_id=eq.${id}` },
+        (payload) => {
+          const newRecord = payload.new as AttendanceRecord;
+          setAttendance((prev) =>
+            prev.some((r) => r.id === newRecord.id) ? prev : [newRecord, ...prev]
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'attendance_records', filter: `event_id=eq.${id}` },
+        (payload) => {
+          const updated = payload.new as AttendanceRecord;
+          setAttendance((prev) =>
+            prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r))
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'attendance_records', filter: `event_id=eq.${id}` },
+        (payload) => {
+          const deleted = payload.old as { id: string };
+          setAttendance((prev) => prev.filter((r) => r.id !== deleted.id));
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Realtime] subscribed to event-detail channel');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] channel error — falling back to polling', err);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Realtime] subscription timed out — falling back to polling');
+        }
+      });
+
+    // Initial data fetch after subscription is set up
     fetchEvent();
     fetchAttendance();
-    const eventIntervalId = window.setInterval(() => {
+
+    // Safety fallback poll in case Realtime connection drops
+    const fallbackId = window.setInterval(() => {
       void fetchEvent();
-    }, POLL_INTERVAL_MS);
-    const intervalId = window.setInterval(() => {
       void fetchAttendance({ silent: true });
-    }, POLL_INTERVAL_MS);
+    }, FALLBACK_POLL_MS);
+
     return () => {
-      window.clearInterval(eventIntervalId);
-      window.clearInterval(intervalId);
+      void supabase.removeChannel(channel);
+      window.clearInterval(fallbackId);
     };
   }, [user, id, fetchEvent, fetchAttendance]);
+
+  // Pause Realtime & refetch when tab visibility changes
+  useEffect(() => {
+    if (!user || !id || !isVisible) return;
+    // Tab became visible again — refetch to catch anything missed while hidden
+    fetchEvent();
+    fetchAttendance();
+  }, [isVisible, user, id, fetchEvent, fetchAttendance]);
 
   useEffect(() => {
     if (!shouldWarnOnLeave) {
@@ -918,7 +980,7 @@ const EventDetail = () => {
       setManualEmail('');
       setShowAddForm(false);
       setSuggestions([]);
-      await fetchAttendance({ silent: true });
+      // Realtime subscription will update the attendance list automatically
     }
   };
 
@@ -1237,9 +1299,7 @@ const EventDetail = () => {
       })
       .eq('id', recordId);
 
-    if (!error) {
-      fetchAttendance();
-    }
+    // Realtime subscription will update the attendance list on success
   };
 
   const deleteRecord = async (recordId: string) => {
@@ -1256,14 +1316,12 @@ const EventDetail = () => {
 
     if (!confirmed) return;
 
-    const { error } = await supabase
+    await supabase
       .from('attendance_records')
       .delete()
       .eq('id', recordId);
 
-    if (!error) {
-      fetchAttendance();
-    }
+    // Realtime subscription will update the attendance list on success
   };
 
   const qrUrl = `${window.location.origin}/attend/${id}?token=${qrToken}`;

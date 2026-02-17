@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useLayoutEffect, type CSSProperties, type MouseEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { usePageVisibility } from '@/hooks/usePageVisibility';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,7 +60,7 @@ interface KnownAttendee {
   attendee_email: string | null;
 }
 
-const POLL_INTERVAL_MS = 1100;
+const POLL_INTERVAL_MS = 3000;
 const ATTENDANCE_LIST_BOTTOM_GAP = 64;
 const ATTENDANCE_LIST_MIN_HEIGHT = 240;
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
@@ -69,6 +70,7 @@ const ModeratorView = () => {
   const { toast } = useToast();
   const confirm = useConfirm();
   const { themeColor } = useThemeColor();
+  const isVisible = usePageVisibility();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -281,9 +283,20 @@ const ModeratorView = () => {
     [eventId, token]
   );
 
+  // Visibility-aware polling: pause when tab is hidden, resume + refetch when visible
   useEffect(() => {
     fetchModeratorState({ includeAttendance: true });
 
+    if (!isVisible) {
+      // Tab is hidden — stop polling to save resources
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Tab is visible — start polling
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
     }
@@ -295,7 +308,7 @@ const ModeratorView = () => {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [fetchModeratorState]);
+  }, [fetchModeratorState, isVisible]);
 
   useEffect(() => {
     if (eventThemeColor) {
