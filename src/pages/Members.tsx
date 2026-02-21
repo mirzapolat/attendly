@@ -5,6 +5,7 @@ import { useWorkspace } from '@/hooks/useWorkspace';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { appPageTitle } from '@/constants/appBrand';
 import WorkspaceLayout from '@/components/WorkspaceLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,7 +37,7 @@ const MEMBERS_FETCH_LIMIT = 1000;
 const INVITES_FETCH_LIMIT = 500;
 
 const Members = () => {
-  usePageTitle('Members - Attendly');
+  usePageTitle(appPageTitle('Members'));
   const { currentWorkspace, isOwner, refresh } = useWorkspace();
   const { user } = useAuth();
   const { toast } = useToast();

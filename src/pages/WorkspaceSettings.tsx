@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useToast } from '@/hooks/use-toast';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { appPageTitle } from '@/constants/appBrand';
 import { themeColors } from '@/hooks/useThemeColor';
 import { useConfirm } from '@/hooks/useConfirm';
 import WorkspaceLayout from '@/components/WorkspaceLayout';
@@ -14,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 const WorkspaceSettings = () => {
-  usePageTitle('Workspace Settings - Attendly');
+  usePageTitle(appPageTitle('Workspace Settings'));
   const { currentWorkspace, isOwner, refresh } = useWorkspace();
   const { toast } = useToast();
   const confirm = useConfirm();

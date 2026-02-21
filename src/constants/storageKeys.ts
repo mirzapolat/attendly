@@ -1,15 +1,17 @@
+import { appCookieKey, appStorageKey } from '@/constants/appBrand';
+
 export const STORAGE_KEYS = {
-  workspaceId: 'attendly:workspace',
-  workspaceCookie: 'attendly_workspace',
-  themeColor: 'attendly:theme-color',
-  resumeEventPrefix: 'attendly:resume-event:',
-  clientId: 'attendly:client-id',
-  qrHostTabId: 'attendly:qr-host-tab-id',
-  eventsView: 'attendly:events-view',
-  welcome: 'attendly:welcome',
-  notificationsLastSeenPrefix: 'attendly:notifications:lastSeen:',
-  sidebarScroll: 'attendly:sidebar-scroll',
-  sidebarCollapsed: 'attendly:sidebar-collapsed',
+  workspaceId: appStorageKey('workspace'),
+  workspaceCookie: appCookieKey('workspace'),
+  themeColor: appStorageKey('theme-color'),
+  resumeEventPrefix: `${appStorageKey('resume-event')}:`,
+  clientId: appStorageKey('client-id'),
+  qrHostTabId: appStorageKey('qr-host-tab-id'),
+  eventsView: appStorageKey('events-view'),
+  welcome: appStorageKey('welcome'),
+  notificationsLastSeenPrefix: `${appStorageKey('notifications:lastSeen')}:`,
+  sidebarScroll: appStorageKey('sidebar-scroll'),
+  sidebarCollapsed: appStorageKey('sidebar-collapsed'),
 } as const;
 
 export const getResumeEventKey = (eventId: string) =>

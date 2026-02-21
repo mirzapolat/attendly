@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { sanitizeError } from '@/utils/errorHandler';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { appPageTitle } from '@/constants/appBrand';
 import WorkspaceLayout from '@/components/WorkspaceLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -67,7 +68,7 @@ const ClampedSeasonName = ({ name }: { name: string }) => {
 };
 
 const Seasons = () => {
-  usePageTitle('Series - Attendly');
+  usePageTitle(appPageTitle('Series'));
   const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
   const confirm = useConfirm();

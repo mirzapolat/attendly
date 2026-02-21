@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { appMimeType } from '@/constants/appBrand';
 import { format, differenceInMinutes, isSameDay } from 'date-fns';
 import { Trash2, FolderPlus, FolderMinus, Folder, Calendar, Clock, UserCheck } from 'lucide-react';
 
@@ -170,7 +171,7 @@ const EventCard = ({
       window.clearTimeout(dragResetTimer.current);
       dragResetTimer.current = null;
     }
-    dragEvent.dataTransfer.setData('application/x-attendly-event', JSON.stringify({ id: event.id }));
+    dragEvent.dataTransfer.setData(appMimeType('event'), JSON.stringify({ id: event.id }));
     dragEvent.dataTransfer.setData('text/plain', event.id);
     dragEvent.dataTransfer.effectAllowed = 'move';
     onDragStart?.(event.id);

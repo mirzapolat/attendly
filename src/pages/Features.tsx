@@ -24,7 +24,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import AttendlyLogo from '@/components/AttendlyLogo';
+import { APP_NAME, APP_REPOSITORY_URL } from '@/constants/appBrand';
+import AppLogo from '@/components/AppLogo';
 
 const FEATURE_STEPS = [
     {
@@ -135,7 +136,7 @@ const FEATURE_STEPS = [
 ];
 
 const Features = () => {
-    usePageTitle('Attendly features');
+    usePageTitle(`${APP_NAME} features`);
     const [menuOpen, setMenuOpen] = useState(false);
 
     return (
@@ -153,10 +154,10 @@ const Features = () => {
                 <div className="container mx-auto flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="h-11 w-11">
-                            <AttendlyLogo className="h-full w-full" />
+                            <AppLogo className="h-full w-full" />
                         </div>
                         <Link to="/" className="text-base font-semibold tracking-tight sm:text-lg">
-                            Attendly
+                            {APP_NAME}
                         </Link>
                     </div>
                     <div className="hidden items-center gap-6 text-sm md:flex">
@@ -165,7 +166,7 @@ const Features = () => {
                                 Home
                             </Link>
                             <a
-                                href="https://github.com/mirzapolat/attendly"
+                                href={APP_REPOSITORY_URL}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
@@ -227,13 +228,13 @@ const Features = () => {
                                         className="mt-6 text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight animate-soft-rise"
                                         style={{ '--delay': '90ms' } as CSSProperties}
                                     >
-                                        How Attendly saves you time every day
+                                        How {APP_NAME} saves you time every day
                                     </h1>
                                     <p
                                         className="mt-6 text-lg text-[color:var(--lp-muted)] max-w-xl animate-soft-rise"
                                         style={{ '--delay': '140ms' } as CSSProperties}
                                     >
-                                        Attendly is build to make attendance management effortless and reliable.
+                                        {APP_NAME} is build to make attendance management effortless and reliable.
                                     </p>
                                     <div className="mt-8 flex flex-wrap gap-3 animate-soft-rise" style={{ '--delay': '190ms' } as CSSProperties}>
                                         <Link to="/auth?mode=signup">
@@ -329,9 +330,9 @@ const Features = () => {
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="h-11 w-11">
-                                        <AttendlyLogo className="h-full w-full" />
+                                        <AppLogo className="h-full w-full" />
                                     </div>
-                                    <span className="text-base font-semibold tracking-tight sm:text-lg">Attendly</span>
+                                    <span className="text-base font-semibold tracking-tight sm:text-lg">{APP_NAME}</span>
                                 </div>
                                 <Button
                                     variant="outline"
@@ -372,7 +373,7 @@ const Features = () => {
                                     <span>Home</span>
                                 </Link>
                                 <a
-                                    href="https://github.com/mirzapolat/attendly"
+                                    href={APP_REPOSITORY_URL}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="flex items-center gap-3 text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"

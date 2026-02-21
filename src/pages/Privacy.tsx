@@ -23,10 +23,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import AttendlyLogo from '@/components/AttendlyLogo';
+import { APP_NAME, APP_REPOSITORY_URL, appPageTitle } from '@/constants/appBrand';
+import AppLogo from '@/components/AppLogo';
 
 const Privacy = () => {
-    usePageTitle('Datenschutzerklärung - Attendly');
+    usePageTitle(appPageTitle('Datenschutzerklärung'));
     const [menuOpen, setMenuOpen] = useState(false);
 
     return (
@@ -44,10 +45,10 @@ const Privacy = () => {
                 <div className="container mx-auto flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="h-11 w-11">
-                            <AttendlyLogo className="h-full w-full" />
+                            <AppLogo className="h-full w-full" />
                         </div>
                         <Link to="/" className="text-base font-semibold tracking-tight sm:text-lg">
-                            Attendly
+                            {APP_NAME}
                         </Link>
                     </div>
                     <div className="hidden items-center gap-6 text-sm md:flex">
@@ -59,7 +60,7 @@ const Privacy = () => {
                                 Features
                             </Link>
                             <a
-                                href="https://github.com/mirzapolat/attendly"
+                                href={APP_REPOSITORY_URL}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
@@ -330,7 +331,7 @@ const Privacy = () => {
                                 </CardHeader>
                                 <CardContent className="space-y-3 text-sm text-muted-foreground">
                                     <p>
-                                        Auf Attendly kannst du einen Account erstellen. Dabei verarbeiten wir die Daten, die du bei der
+                                        Auf {APP_NAME} kannst du einen Account erstellen. Dabei verarbeiten wir die Daten, die du bei der
                                         Registrierung bzw. Accountnutzung angibst oder die zur Nutzung technisch erforderlich sind (z. B.
                                         Login-/Accountdaten).
                                     </p>
@@ -362,7 +363,7 @@ const Privacy = () => {
                                 </CardHeader>
                                 <CardContent className="space-y-3 text-sm text-muted-foreground">
                                     <p>
-                                        Attendly nutzt <strong className="text-foreground">technisch notwendige Cookies</strong> bzw.
+                                        {APP_NAME} nutzt <strong className="text-foreground">technisch notwendige Cookies</strong> bzw.
                                         vergleichbare Speichertechnologien, die für den Login und den Betrieb deines Accounts erforderlich
                                         sind (z. B. Session-/Auth-Cookies).
                                     </p>
@@ -568,9 +569,9 @@ const Privacy = () => {
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="h-11 w-11">
-                                        <AttendlyLogo className="h-full w-full" />
+                                        <AppLogo className="h-full w-full" />
                                     </div>
-                                    <span className="text-base font-semibold tracking-tight sm:text-lg">Attendly</span>
+                                    <span className="text-base font-semibold tracking-tight sm:text-lg">{APP_NAME}</span>
                                 </div>
                                 <Button
                                     variant="outline"
@@ -619,7 +620,7 @@ const Privacy = () => {
                                     <span>Features</span>
                                 </Link>
                                 <a
-                                    href="https://github.com/mirzapolat/attendly"
+                                    href={APP_REPOSITORY_URL}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="flex items-center gap-3 text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"

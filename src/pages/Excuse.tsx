@@ -10,7 +10,7 @@ import { Calendar, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
-import AttendlyLogo from '@/components/AttendlyLogo';
+import AppLogo from '@/components/AppLogo';
 
 interface EventInfo {
   id: string;
@@ -167,7 +167,7 @@ const Excuse = () => {
                 />
               </div>
             ) : (
-              <AttendlyLogo className="h-12 w-12 shrink-0" />
+              <AppLogo className="h-12 w-12 shrink-0" />
             )}
             <div className="space-y-1">
               <CardTitle>{event?.link_label?.trim() || 'Excused Attendance'}</CardTitle>

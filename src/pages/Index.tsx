@@ -13,10 +13,11 @@ import {
     X,
 } from 'lucide-react';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import AttendlyLogo from '@/components/AttendlyLogo';
+import { APP_NAME, APP_REPOSITORY_URL, APP_TITLE } from '@/constants/appBrand';
+import AppLogo from '@/components/AppLogo';
 
 const Index = () => {
-    usePageTitle('Attendly by Mirza Polat');
+    usePageTitle(APP_TITLE);
     const [menuOpen, setMenuOpen] = useState(false);
 
     return (
@@ -32,9 +33,9 @@ const Index = () => {
                 <div className="container mx-auto flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="h-11 w-11">
-                            <AttendlyLogo className="h-full w-full" />
+                            <AppLogo className="h-full w-full" />
                         </div>
-                        <span className="text-base font-semibold tracking-tight sm:text-lg">Attendly</span>
+                        <span className="text-base font-semibold tracking-tight sm:text-lg">{APP_NAME}</span>
                     </div>
                     <div className="hidden items-center gap-6 text-sm md:flex">
                         <div className="flex items-center gap-3">
@@ -42,7 +43,7 @@ const Index = () => {
                                 Features
                             </Link>
                             <a
-                                href="https://github.com/mirzapolat/attendly"
+                                href={APP_REPOSITORY_URL}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
@@ -101,7 +102,7 @@ const Index = () => {
                                 className="mt-6 text-lg text-[color:var(--lp-muted)] max-w-xl animate-soft-rise"
                                 style={{ '--delay': '140ms' } as CSSProperties}
                             >
-                                Attendly simplifies attendance tracking for educators and students, providing a seamless experience that saves time and helps you do more of what matters most.
+                                {APP_NAME} simplifies attendance tracking for educators and students, providing a seamless experience that saves time and helps you do more of what matters most.
                             </p>
                             <div className="mt-8 flex flex-wrap gap-3 animate-soft-rise" style={{ '--delay': '190ms' } as CSSProperties}>
                                 <Link to="/auth?mode=signup">
@@ -190,9 +191,9 @@ const Index = () => {
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="h-11 w-11">
-                                        <AttendlyLogo className="h-full w-full" />
+                                        <AppLogo className="h-full w-full" />
                                     </div>
-                                    <span className="text-base font-semibold tracking-tight sm:text-lg">Attendly</span>
+                                    <span className="text-base font-semibold tracking-tight sm:text-lg">{APP_NAME}</span>
                                 </div>
                                 <Button
                                     variant="outline"
@@ -233,7 +234,7 @@ const Index = () => {
                                     <span>Features</span>
                                 </Link>
                                 <a
-                                    href="https://github.com/mirzapolat/attendly"
+                                    href={APP_REPOSITORY_URL}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="flex items-center gap-3 text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"

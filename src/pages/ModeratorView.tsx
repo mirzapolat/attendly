@@ -13,6 +13,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { appPageTitle } from '@/constants/appBrand';
 import { maskEmail, maskName } from '@/utils/privacy';
 import { parseSupabaseFunctionError } from '@/utils/supabaseFunctions';
 import { 
@@ -198,7 +199,7 @@ const ModeratorView = () => {
     };
   };
 
-  const pageTitle = event?.name ? `${event.name} - Moderator View` : 'Moderator View - Attendly';
+  const pageTitle = event?.name ? `${event.name} - Moderator View` : appPageTitle('Moderator View');
   usePageTitle(pageTitle);
 
   const resolveUnauthorizedMessage = (reason?: string | null): string => {

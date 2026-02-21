@@ -16,10 +16,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import AttendlyLogo from '@/components/AttendlyLogo';
+import { APP_NAME, APP_REPOSITORY_URL, appPageTitle } from '@/constants/appBrand';
+import AppLogo from '@/components/AppLogo';
 
 const Impressum = () => {
-    usePageTitle('Impressum - Attendly');
+    usePageTitle(appPageTitle('Impressum'));
     const [menuOpen, setMenuOpen] = useState(false);
 
     return (
@@ -37,10 +38,10 @@ const Impressum = () => {
                 <div className="container mx-auto flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="h-11 w-11">
-                            <AttendlyLogo className="h-full w-full" />
+                            <AppLogo className="h-full w-full" />
                         </div>
                         <Link to="/" className="text-base font-semibold tracking-tight sm:text-lg">
-                            Attendly
+                            {APP_NAME}
                         </Link>
                     </div>
                     <div className="hidden items-center gap-6 text-sm md:flex">
@@ -52,7 +53,7 @@ const Impressum = () => {
                                 Features
                             </Link>
                             <a
-                                href="https://github.com/mirzapolat/attendly"
+                                href={APP_REPOSITORY_URL}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"
@@ -202,9 +203,9 @@ const Impressum = () => {
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="h-11 w-11">
-                                        <AttendlyLogo className="h-full w-full" />
+                                        <AppLogo className="h-full w-full" />
                                     </div>
-                                    <span className="text-base font-semibold tracking-tight sm:text-lg">Attendly</span>
+                                    <span className="text-base font-semibold tracking-tight sm:text-lg">{APP_NAME}</span>
                                 </div>
                                 <Button
                                     variant="outline"
@@ -253,7 +254,7 @@ const Impressum = () => {
                                     <span>Features</span>
                                 </Link>
                                 <a
-                                    href="https://github.com/mirzapolat/attendly"
+                                    href={APP_REPOSITORY_URL}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="flex items-center gap-3 text-[color:var(--lp-muted)] hover:text-[color:var(--lp-ink)] transition-colors"

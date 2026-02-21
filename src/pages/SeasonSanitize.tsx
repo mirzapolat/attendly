@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useToast } from '@/hooks/use-toast';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { appPageTitle } from '@/constants/appBrand';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -139,7 +140,7 @@ const getSuggestionKey = (emailA: string, emailB: string) =>
   [emailA, emailB].sort().join('::');
 
 const SeasonSanitize = () => {
-  usePageTitle('Series Sanitization - Attendly');
+  usePageTitle(appPageTitle('Series Sanitization'));
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();

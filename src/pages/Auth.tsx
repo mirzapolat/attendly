@@ -10,9 +10,10 @@ import { ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
+import { APP_NAME, appPageTitle } from '@/constants/appBrand';
 import { OTPInput, SlotProps } from 'input-otp';
 import { cn } from '@/lib/utils';
-import AttendlyLogo from '@/components/AttendlyLogo';
+import AppLogo from '@/components/AppLogo';
 import { useWorkspace } from '@/hooks/useWorkspace';
 
 const signInSchema = z.object({
@@ -264,10 +265,10 @@ const Auth = () => {
   };
 
   const pageTitle = signupPendingEmail
-    ? 'Confirm your email - Attendly'
+    ? appPageTitle('Confirm your email')
     : mode === 'signin'
-      ? 'Sign In to Attendly'
-      : 'Sign Up to Attendly';
+      ? `Sign In to ${APP_NAME}`
+      : `Sign Up to ${APP_NAME}`;
   usePageTitle(pageTitle);
 
   if (signupPendingEmail) {
@@ -287,7 +288,7 @@ const Auth = () => {
           <div className="w-full max-w-md animate-scale-in">
             <div className="rounded-2xl border border-border bg-background/90 p-8 shadow-lg">
               <div className="text-center mb-6">
-                <AttendlyLogo className="mx-auto mb-4 h-12 w-12" />
+                <AppLogo className="mx-auto mb-4 h-12 w-12" />
                 <h1 className="text-2xl font-bold">Confirm your email</h1>
                 <p className="text-muted-foreground mt-2">
                   {signupAutoConfirmed
@@ -386,7 +387,7 @@ const Auth = () => {
       <main className="flex-1 flex items-center justify-center px-6 pb-12">
         <div className="w-full max-w-sm animate-scale-in">
           <div className="text-center mb-8">
-            <AttendlyLogo className="mx-auto mb-4 h-12 w-12" />
+            <AppLogo className="mx-auto mb-4 h-12 w-12" />
             <h1 className="text-2xl font-bold">
               {mode === 'signin' ? 'Welcome back' : 'Create account'}
             </h1>

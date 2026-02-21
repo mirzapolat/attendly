@@ -12,8 +12,9 @@ import { format } from 'date-fns';
 import { z } from 'zod';
 import { sanitizeError } from '@/utils/errorHandler';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
+import { appStorageKey } from '@/constants/appBrand';
 import { parseSupabaseFunctionError } from '@/utils/supabaseFunctions';
-import AttendlyLogo from '@/components/AttendlyLogo';
+import AppLogo from '@/components/AppLogo';
 
 interface Event {
   id: string;
@@ -49,9 +50,9 @@ type SubmitState =
 
 const FORM_TIME_LIMIT_MS = 2 * 60 * 1000; // 2 minutes
 const SUCCESS_TRANSITION_MS = 1380;
-const REMEMBER_COOKIE = 'attendly:remember-attendee';
+const REMEMBER_COOKIE = appStorageKey('remember-attendee');
 const REMEMBER_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
-const CLIENT_ID_COOKIE = 'attendly:client-id';
+const CLIENT_ID_COOKIE = STORAGE_KEYS.clientId;
 const CLIENT_ID_MAX_AGE_SECONDS = 60 * 60 * 24 * 400; // ~400 days
 
 const getCookieValue = (key: string): string | null => {
@@ -807,7 +808,7 @@ const Attend = () => {
             </div>
           ) : (
             <div className="attend-load-in" style={withLoadDelay(2)}>
-              <AttendlyLogo className="mx-auto mb-4 h-12 w-12" />
+              <AppLogo className="mx-auto mb-4 h-12 w-12" />
             </div>
           )}
           <CardTitle className="attend-load-in" style={withLoadDelay(3)}>{event?.name}</CardTitle>

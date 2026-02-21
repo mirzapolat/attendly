@@ -39,6 +39,7 @@ import { usePageTitle } from '@/hooks/usePageTitle';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import WorkspaceLayout from '@/components/WorkspaceLayout';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
+import { appMimeType, appPageTitle } from '@/constants/appBrand';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import CreateEventDialog from '@/components/CreateEventDialog';
 
@@ -131,7 +132,7 @@ const fetchDashboardData = async (workspaceId: string): Promise<DashboardQueryRe
 };
 
 const Dashboard = () => {
-  usePageTitle('Events - Attendly');
+  usePageTitle(appPageTitle('Events'));
 
   const { currentWorkspace } = useWorkspace();
   const { toast } = useToast();
@@ -471,7 +472,7 @@ const Dashboard = () => {
     if (draggingEventRef.current) return draggingEventRef.current;
     if (draggingEventId) return draggingEventId;
     if (!event) return null;
-    const payload = event.dataTransfer.getData('application/x-attendly-event');
+    const payload = event.dataTransfer.getData(appMimeType('event'));
     if (!payload) return event.dataTransfer.getData('text/plain') || null;
     try {
       const parsed = JSON.parse(payload) as { id?: string };
